@@ -1,0 +1,25 @@
+{
+  "name": "control-cli",
+  "version": "0.0.1",
+  "description": "Unity 게임 자동화 테스트용 CLI — 게임 안 control_cli SDK 에 adb forward 로 붙는다",
+  "type": "module",
+  "bin": {
+    "control-cli": "dist/main.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "prepare": "tsc",
+    "test": "tsc && node --test \"dist/**/*.test.js\""
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.0"
+  }
+}
