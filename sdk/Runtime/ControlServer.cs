@@ -200,7 +200,8 @@ namespace ControlCli
         private static string TextOf(GameObject go)
         {
             var input = go.GetComponent<InputField>();
-            if (input != null) return input.inputType == InputField.InputType.Password ? "***" : input.text;
+            // 비밀번호는 글자를 가리되 비었는지는 보이게 한다 — 「입력 안 됨」을 케이스가 확인할 수 있어야 한다.
+            if (input != null) return input.inputType == InputField.InputType.Password && input.text.Length > 0 ? "***" : input.text;
             var label = go.GetComponent<Text>();
             return label != null ? label.text : null;
         }
