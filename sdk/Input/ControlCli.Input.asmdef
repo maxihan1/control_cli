@@ -1,0 +1,18 @@
+{
+    "name": "ControlCli.Input",
+    "rootNamespace": "",
+    "references": [
+        "ControlCli.Runtime"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "CONTROL_CLI"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
