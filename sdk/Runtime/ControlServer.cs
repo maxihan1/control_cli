@@ -29,6 +29,8 @@ namespace ControlCli
             public string Line;
             public string Reply;
             public readonly ManualResetEventSlim Done = new ManualResetEventSlim();
+            // 0 기다림 · 1 게임이 가져감 · 2 시간 초과로 버림 — 둘 중 먼저 바꾼 쪽만 이긴다.
+            public int State;
         }
 
         private readonly ConcurrentQueue<Request> _requests = new ConcurrentQueue<Request>();
@@ -82,9 +84,10 @@ namespace ControlCli
                     {
                         var request = new Request { Line = line };
                         _requests.Enqueue(request);
-                        writer.WriteLine(request.Done.Wait(ReplyTimeoutMs)
-                            ? request.Reply
-                            : Error("게임이 10초 안에 답하지 않았습니다(멈췄거나 일시정지)"));
+                        // 실패로 답한 명령이 게임이 깨어난 뒤 늦게 눌리면 다음 명령이 엉뚱한 화면에서 돈다. 버린 요청은 Update 가 건너뛴다.
+                        var timedOut = !request.Done.Wait(ReplyTimeoutMs) && Interlocked.CompareExchange(ref request.State, 2, 0) == 0;
+                        if (!timedOut) request.Done.Wait();
+                        writer.WriteLine(timedOut ? Error("게임이 10초 안에 답하지 않았습니다(멈췄거나 일시정지)") : request.Reply);
                     }
                 }
                 catch (IOException) { } // 상대가 연결을 끊었다
@@ -95,6 +98,7 @@ namespace ControlCli
         {
             while (_requests.TryDequeue(out var request))
             {
+                if (Interlocked.CompareExchange(ref request.State, 1, 0) != 0) continue;
                 try { request.Reply = Handle(request.Line.Trim()); }
                 catch (Exception e) { request.Reply = Error(e.GetType().Name + ": " + e.Message); }
                 request.Done.Set();
