@@ -1,6 +1,6 @@
 {
   "name": "com.maxihan1.control-cli",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "displayName": "control_cli SDK",
   "description": "QA 빌드에서 게임을 바깥 명령으로 조작하게 하는 SDK",
   "unity": "6000.0",

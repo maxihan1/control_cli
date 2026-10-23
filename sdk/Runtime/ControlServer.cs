@@ -1,7 +1,6 @@
-// 폰 안 127.0.0.1 포트로 명령 한 줄을 받아 게임 메인 스레드에서 처리하고 JSON 한 줄로 답한다
+// 폰 안 127.0.0.1 포트로 JSON 명령 한 줄을 받아 게임 메인 스레드에서 처리하고 JSON 한 줄로 답한다
 using System;
 using System.Collections.Concurrent;
-using System.Globalization;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
@@ -23,19 +22,36 @@ namespace ControlCli
         // 127.0.0.1 만 연다 — 폰 밖에서는 adb forward 로만 닿는다.
         public const int Port = 13100;
         private const int ReplyTimeoutMs = 10000;
+        private const string Commands = "ping · tree · find · click · drag · type · get · tap · errors · layout";
 
         private sealed class Request
         {
             public string Line;
             public string Reply;
             public readonly ManualResetEventSlim Done = new ManualResetEventSlim();
-            // 0 기다림 · 1 게임이 가져감 · 2 시간 초과로 버림 — 둘 중 먼저 바꾼 쪽만 이긴다.
+            // 0 기다림 · 1 게임이 가져감 · 2 시간 초과로 버림 · 3 터치가 도는 중에 시간 초과 — 먼저 바꾼 쪽만 이긴다.
             public int State;
+        }
+
+        // 디바이스 팜은 본문 JSON 객체를 그대로 한 줄로 넘긴다(Devicefarm ADR-048). 쓰는 칸만 읽고 없는 칸은 기본값이다.
+        [Serializable]
+        private sealed class Command
+        {
+            public string cmd;
+            public string target;
+            public string to;
+            public string text;
+            public string prop;
+            public long since;
+            public float x;
+            public float y;
         }
 
         private readonly ConcurrentQueue<Request> _requests = new ConcurrentQueue<Request>();
         private TcpListener _listener;
         private Thread _acceptThread;
+        // 누르기 · 끌기는 가짜 터치가 다 나가고 게임이 처리한 뒤에 답한다 — 답 다음 명령이 바뀐 화면을 보게.
+        private Request _touching;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad), Preserve]
         private static void Boot()
@@ -86,6 +102,8 @@ namespace ControlCli
                         _requests.Enqueue(request);
                         // 실패로 답한 명령이 게임이 깨어난 뒤 늦게 눌리면 다음 명령이 엉뚱한 화면에서 돈다. 버린 요청은 Update 가 건너뛴다.
                         var timedOut = !request.Done.Wait(ReplyTimeoutMs) && Interlocked.CompareExchange(ref request.State, 2, 0) == 0;
+                        // 게임이 가져간 누르기 · 끌기가 터치 도중 멈추면(백그라운드) Done 이 안 온다 — 버림으로 바꾸면 Update 가 남은 터치를 거둔다.
+                        if (!timedOut && !request.Done.IsSet) timedOut = Interlocked.CompareExchange(ref request.State, 3, 1) == 1;
                         if (!timedOut) request.Done.Wait();
                         writer.WriteLine(timedOut ? Error("게임이 10초 안에 답하지 않았습니다(멈췄거나 일시정지)") : request.Reply);
                     }
@@ -96,51 +114,115 @@ namespace ControlCli
 
         private void Update()
         {
+            // 터치가 도는 동안은 다음 명령을 꺼내지 않는다 — 명령은 받은 차례대로 돈다.
+            if (_touching != null)
+            {
+                if (Volatile.Read(ref _touching.State) == 3) FakeTouches.Cancel();
+                else if (!FakeTouches.Idle) return;
+                else _touching.Done.Set();
+                _touching = null;
+            }
             while (_requests.TryDequeue(out var request))
             {
                 if (Interlocked.CompareExchange(ref request.State, 1, 0) != 0) continue;
                 try { request.Reply = Handle(request.Line.Trim()); }
                 catch (Exception e) { request.Reply = Error(e.GetType().Name + ": " + e.Message); }
+                if (!FakeTouches.Idle)
+                {
+                    _touching = request;
+                    return;
+                }
                 request.Done.Set();
             }
         }
 
         private static string Handle(string line)
         {
-            var space = line.IndexOf(' ');
-            var cmd = space < 0 ? line : line.Substring(0, space);
-            var arg = space < 0 ? "" : line.Substring(space + 1).Trim();
-            switch (cmd)
+            if (!line.StartsWith("{")) return Error("명령은 JSON 한 줄이어야 합니다 — {\"cmd\":\"ping\"}");
+            var c = JsonUtility.FromJson<Command>(line);
+            switch (c.cmd)
             {
                 case "ping":
                     return "{\"ok\":true,\"app\":" + Json.Str(Application.identifier) + ",\"version\":" + Json.Str(Application.version) + "}";
                 case "tree":
-                    return "{\"ok\":true,\"screen\":[" + Screen.width + "," + Screen.height + "],\"tree\":" + Tree.Dump() + "}";
+                    return "{\"ok\":true,\"scene\":" + Json.Str(SceneManager.GetActiveScene().name) + ",\"screen\":[" + Screen.width + "," + Screen.height + "],\"tree\":" + Tree.Dump() + "}";
+                case "find":
+                    return FindReply(c.target);
                 case "tap":
-                    var xy = arg.Split(' ');
-                    if (xy.Length != 2) return Error("tap <x> <y> 꼴이어야 합니다");
-                    var point = new Vector2(float.Parse(xy[0], CultureInfo.InvariantCulture), float.Parse(xy[1], CultureInfo.InvariantCulture));
+                    var point = new Vector2(c.x, c.y);
                     FakeTouches.Tap(point);
-                    return Tapped(point);
+                    return Touched(point);
                 case "click":
-                    var target = Tree.Find(arg, out var problem);
-                    if (target == null) return Error(problem);
-                    var center = Tree.ScreenCenter(target);
-                    if (center == null) return Error(arg + " 은 화면 위 UI(RectTransform)가 아닙니다");
-                    FakeTouches.Tap(center.Value);
-                    return Tapped(center.Value);
+                {
+                    if (!Point(c.target, out var at, out var problem)) return Error(problem);
+                    FakeTouches.Tap(at);
+                    return Touched(at);
+                }
+                case "drag":
+                {
+                    if (!Point(c.target, out var from, out var problem)) return Error(problem);
+                    if (!Point(c.to, out var to, out problem)) return Error(problem);
+                    FakeTouches.Drag(from, to);
+                    return Touched(to);
+                }
+                case "type":
+                    return TypeText(c.target, c.text ?? "");
+                case "get":
+                {
+                    var go = Tree.Find(c.target, out var problem);
+                    return go == null ? Error(problem) : Props.Get(go, c.prop);
+                }
                 case "errors":
-                    if (!long.TryParse(arg.Length == 0 ? "0" : arg, NumberStyles.None, CultureInfo.InvariantCulture, out var since))
-                        return Error("errors [이 번호 뒤부터] 꼴이어야 합니다");
-                    return GameErrors.Since(since);
+                    return c.since < 0 ? Error("since 는 0 이상이어야 합니다") : GameErrors.Since(c.since);
                 case "layout":
-                    return Layout.Check(arg);
+                    return Layout.Check(c.target ?? "");
                 default:
-                    return Error("모르는 명령입니다: " + cmd + " (ping · tree · tap · click · errors · layout)");
+                    return Error("모르는 명령입니다: " + c.cmd + " (" + Commands + ")");
             }
         }
 
-        private static string Tapped(Vector2 p) =>
+        // 기다리기는 바깥에서 find 를 되풀이한다 — 없음은 실패가 아니라 found:false 다. 이름이 겹치는 것만 실패다.
+        private static string FindReply(string target)
+        {
+            var go = Tree.Find(target, out var problem, out var missing);
+            if (go == null) return missing ? "{\"ok\":true,\"found\":false}" : Error(problem);
+            var sb = new StringBuilder("{\"ok\":true,\"found\":true,\"path\":").Append(Json.Str(Tree.PathOf(go.transform)));
+            var text = Tree.TextOf(go);
+            if (text != null) sb.Append(",\"text\":").Append(Json.Str(text));
+            var selectable = go.GetComponent<Selectable>();
+            if (selectable != null) sb.Append(",\"interactable\":").Append(selectable.IsInteractable() ? "true" : "false");
+            return sb.Append('}').ToString();
+        }
+
+        private static bool Point(string target, out Vector2 point, out string problem)
+        {
+            point = default;
+            var go = Tree.Find(target, out problem);
+            if (go == null) return false;
+            var p = Tree.ScreenPoint(go);
+            if (p == null)
+            {
+                problem = target + " 은 화면에 비친 자리가 없습니다(UI 도 아니고 주 카메라 앞도 아님)";
+                return false;
+            }
+            point = p.Value;
+            return true;
+        }
+
+        // 화면 키보드를 띄우지 않고 글자를 바로 넣는다. 글자 수 제한 · 글자 종류 거르기는 InputField 가 그대로 한다.
+        private static string TypeText(string target, string text)
+        {
+            var go = Tree.Find(target, out var problem);
+            if (go == null) return Error(problem);
+            var field = go.GetComponent<InputField>();
+            if (field == null) return Error(target + " 은 InputField 가 아닙니다");
+            if (!field.IsInteractable()) return Error(target + " 은 잠겨 있어 글자를 넣을 수 없습니다");
+            field.text = text;
+            field.onEndEdit.Invoke(field.text);
+            return "{\"ok\":true,\"text\":" + Json.Str(Tree.TextOf(go)) + "}";
+        }
+
+        private static string Touched(Vector2 p) =>
             "{\"ok\":true,\"x\":" + Mathf.RoundToInt(p.x) + ",\"y\":" + Mathf.RoundToInt(p.y) + "}";
 
         private static string Error(string message) => "{\"ok\":false,\"error\":" + Json.Str(message) + "}";
@@ -168,108 +250,6 @@ namespace ControlCli
                 }
             }
             return sb.Append('"').ToString();
-        }
-    }
-
-    internal static class Tree
-    {
-        // 켜진 오브젝트만 담는다 — 꺼진 것은 화면에 없어 누를 수 없다.
-        public static string Dump()
-        {
-            var sb = new StringBuilder("[");
-            var first = true;
-            foreach (var root in Roots())
-            {
-                if (!root.activeInHierarchy) continue;
-                if (!first) sb.Append(',');
-                first = false;
-                Node(root.transform, sb);
-            }
-            return sb.Append(']').ToString();
-        }
-
-        private static void Node(Transform t, StringBuilder sb)
-        {
-            sb.Append("{\"name\":").Append(Json.Str(t.name));
-            var text = TextOf(t.gameObject);
-            if (text != null) sb.Append(",\"text\":").Append(Json.Str(text));
-            var selectable = t.GetComponent<Selectable>();
-            if (selectable != null) sb.Append(",\"interactable\":").Append(selectable.IsInteractable() ? "true" : "false");
-            var children = false;
-            foreach (Transform child in t)
-            {
-                if (!child.gameObject.activeInHierarchy) continue;
-                sb.Append(children ? "," : ",\"children\":[");
-                children = true;
-                Node(child, sb);
-            }
-            if (children) sb.Append(']');
-            sb.Append('}');
-        }
-
-        private static string TextOf(GameObject go)
-        {
-            var input = go.GetComponent<InputField>();
-            // 비밀번호는 글자를 가리되 비었는지는 보이게 한다 — 「입력 안 됨」을 케이스가 확인할 수 있어야 한다.
-            if (input != null) return input.inputType == InputField.InputType.Password && input.text.Length > 0 ? "***" : input.text;
-            var label = go.GetComponent<Text>();
-            return label != null ? label.text : null;
-        }
-
-        // 이름이 겹치면 고르지 않고 알린다 — 엉뚱한 것을 누르면 케이스가 틀린 곳에서 통과한다.
-        public static GameObject Find(string name, out string problem)
-        {
-            problem = null;
-            GameObject found = null;
-            var count = 0;
-            foreach (var root in Roots())
-                foreach (var t in root.GetComponentsInChildren<Transform>(false))
-                    if (t.name == name) { found ??= t.gameObject; count++; }
-            if (count == 0) problem = "켜진 오브젝트 중에 " + name + " 이 없습니다";
-            else if (count > 1) { problem = name + " 이 " + count + "개라 하나를 고를 수 없습니다"; found = null; }
-            return found;
-        }
-
-        public static Vector2? ScreenCenter(GameObject go) => ScreenRect(go)?.center;
-
-        // 화면 좌표(왼쪽 아래가 0,0)의 사각형. 화면 위 UI 가 아니면 null.
-        public static Rect? ScreenRect(GameObject go)
-        {
-            if (!(go.transform is RectTransform rect)) return null;
-            var corners = new Vector3[4];
-            rect.GetWorldCorners(corners);
-            var canvas = go.GetComponentInParent<Canvas>();
-            var cam = canvas == null || canvas.rootCanvas.renderMode == RenderMode.ScreenSpaceOverlay ? null : canvas.rootCanvas.worldCamera;
-            // 돌린 UI 는 대각 두 점만으로는 둘레가 안 나와 네 점을 다 본다.
-            var min = new Vector2(float.MaxValue, float.MaxValue);
-            var max = new Vector2(float.MinValue, float.MinValue);
-            foreach (var corner in corners)
-            {
-                var p = RectTransformUtility.WorldToScreenPoint(cam, corner);
-                min = Vector2.Min(min, p);
-                max = Vector2.Max(max, p);
-            }
-            return Rect.MinMaxRect(min.x, min.y, max.x, max.y);
-        }
-
-        public static string PathOf(Transform t)
-        {
-            var path = t.name;
-            for (var p = t.parent; p != null; p = p.parent) path = p.name + "/" + path;
-            return "/" + path;
-        }
-
-        // DontDestroyOnLoad 로 옮긴 오브젝트는 장면 목록에 없어 우리 오브젝트가 있는 그 장면으로 따로 읽는다.
-        public static Scene KeptScene;
-
-        public static System.Collections.Generic.IEnumerable<GameObject> Roots()
-        {
-            for (var i = 0; i < SceneManager.sceneCount; i++)
-                foreach (var go in SceneManager.GetSceneAt(i).GetRootGameObjects())
-                    yield return go;
-            if (KeptScene.IsValid())
-                foreach (var go in KeptScene.GetRootGameObjects())
-                    if (go.name != "[ControlCli]") yield return go;
         }
     }
 }
