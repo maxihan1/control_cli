@@ -29,6 +29,36 @@ test('namespace 안의 using UnityEngine 만 가짜 터치를 가린다고 본�
   assert.equal(shadowsFakeInput('namespace A\n{\n  using UnityEngine;\n  class B { int n = Input.touchCount; }\n}'), true);
   assert.equal(shadowsFakeInput('namespace A;\nusing UnityEngine;\nclass B { int n = Input.touchCount; }'), true);
   assert.equal(shadowsFakeInput('namespace A\n{\n  using UnityEngine;\n  class B { }\n}'), false);
+  assert.equal(shadowsFakeInput('using UnityEngine;\nnamespace UnityEngine.UI.Extensions\n{\n  class B { int n = Input.touchCount; }\n}'), true);
+  assert.equal(shadowsFakeInput('// namespace Old\nusing UnityEngine;\nclass B { int n = Input.touchCount; }'), false);
+});
+
+test('BOM 붙은 파일 · Packages 안 내장 패키지도 고친다', () => {
+  const root = mkdtempSync(join(tmpdir(), 'instrument-'));
+  mkdirSync(join(root, 'Packages', 'com.studio.game', 'Runtime'), { recursive: true });
+  mkdirSync(join(root, 'Assets'));
+  writeFileSync(join(root, 'Packages', 'manifest.json'), '﻿' + JSON.stringify({ dependencies: {} }));
+  writeFileSync(join(root, 'Packages', 'com.studio.game', 'Runtime', 'Game.asmdef'), '﻿' + JSON.stringify({ name: 'Game' }));
+
+  const result = instrument(root, 'v1');
+
+  assert.deepEqual(result.asmdefs, [join('Packages', 'com.studio.game', 'Runtime', 'Game.asmdef')]);
+  const manifest = JSON.parse(readFileSync(join(root, 'Packages', 'manifest.json'), 'utf8'));
+  assert.equal(manifest.dependencies[PACKAGE], packageUrl('v1'));
+});
+
+test('깨진 asmdef 가 있으면 파일 이름을 알리고 아무것도 안 바꾼다', () => {
+  const root = mkdtempSync(join(tmpdir(), 'instrument-'));
+  mkdirSync(join(root, 'Packages'));
+  mkdirSync(join(root, 'Assets'));
+  const manifest = JSON.stringify({ dependencies: {} });
+  writeFileSync(join(root, 'Packages', 'manifest.json'), manifest);
+  writeFileSync(join(root, 'Assets', 'A.asmdef'), JSON.stringify({ name: 'A' }));
+  writeFileSync(join(root, 'Assets', 'Broken.asmdef'), '{ "name": ');
+
+  assert.throws(() => instrument(root, 'v1'), /Broken\.asmdef/);
+  assert.equal(readFileSync(join(root, 'Packages', 'manifest.json'), 'utf8'), manifest);
+  assert.equal(readFileSync(join(root, 'Assets', 'A.asmdef'), 'utf8'), JSON.stringify({ name: 'A' }));
 });
 
 test('프로젝트 폴더를 고치고 무엇을 바꿨는지 돌려준다', () => {

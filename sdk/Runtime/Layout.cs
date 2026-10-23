@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 namespace ControlCli
@@ -28,7 +29,7 @@ namespace ControlCli
                     if (!s.IsActive() || !s.IsInteractable()) continue;
                     if (scope != null && !s.transform.IsChildOf(scope)) continue;
                     var rect = VisibleRect(s.transform);
-                    if (rect != null) items.Add((s, rect.Value));
+                    if (rect != null && Reachable(s, rect.Value)) items.Add((s, rect.Value));
                 }
 
             var safe = Screen.safeArea;
@@ -72,6 +73,18 @@ namespace ControlCli
                 if (r.width <= 0 || r.height <= 0) return null;
             }
             return r;
+        }
+
+        // 팝업 아래 깔린 버튼은 켜져 있어도 누를 수 없다 — 가운데를 쏴서 맨 위가 그 버튼(이나 그 자식)일 때만 본다.
+        private static readonly List<RaycastResult> Hits = new List<RaycastResult>();
+
+        private static bool Reachable(Selectable s, Rect rect)
+        {
+            var events = EventSystem.current;
+            if (events == null) return true;
+            Hits.Clear();
+            events.RaycastAll(new PointerEventData(events) { position = rect.center }, Hits);
+            return Hits.Count > 0 && Hits[0].gameObject.transform.IsChildOf(s.transform);
         }
 
         private static string Arr(Rect r) =>

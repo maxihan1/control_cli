@@ -22,12 +22,14 @@ function send(port: number, line: string): Promise<string> {
     socket.setEncoding('utf8');
     socket.setTimeout(REPLY_TIMEOUT_MS, () => socket.destroy(new Error(`게임이 ${REPLY_TIMEOUT_MS / 1000}초 안에 답하지 않았습니다`)));
     socket.on('data', (chunk: string) => {
-      buf += chunk;
-      const nl = buf.indexOf('\n');
-      if (nl >= 0) {
-        socket.end();
-        resolve(buf.slice(0, nl));
+      // 오류 기록 답은 수백 KB 라 새 조각에서만 줄 끝을 찾는다.
+      const nl = chunk.indexOf('\n');
+      if (nl < 0) {
+        buf += chunk;
+        return;
       }
+      socket.end();
+      resolve(buf + chunk.slice(0, nl));
     });
     socket.on('error', (e) => reject(new Error(`게임 포트 ${port} 에 붙지 못했습니다 — QA 빌드가 켜져 있나요? (${e.message})`)));
     // 폰 쪽 포트가 안 열려 있어도 adb 는 연결을 받았다가 바로 닫는다.

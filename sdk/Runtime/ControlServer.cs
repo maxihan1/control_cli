@@ -130,7 +130,7 @@ namespace ControlCli
                     FakeTouches.Tap(center.Value);
                     return Tapped(center.Value);
                 case "errors":
-                    if (!long.TryParse(arg.Length == 0 ? "0" : arg, NumberStyles.Integer, CultureInfo.InvariantCulture, out var since))
+                    if (!long.TryParse(arg.Length == 0 ? "0" : arg, NumberStyles.None, CultureInfo.InvariantCulture, out var since))
                         return Error("errors [이 번호 뒤부터] 꼴이어야 합니다");
                     return GameErrors.Since(since);
                 case "layout":
@@ -240,9 +240,16 @@ namespace ControlCli
             rect.GetWorldCorners(corners);
             var canvas = go.GetComponentInParent<Canvas>();
             var cam = canvas == null || canvas.rootCanvas.renderMode == RenderMode.ScreenSpaceOverlay ? null : canvas.rootCanvas.worldCamera;
-            var a = RectTransformUtility.WorldToScreenPoint(cam, corners[0]);
-            var b = RectTransformUtility.WorldToScreenPoint(cam, corners[2]);
-            return Rect.MinMaxRect(Mathf.Min(a.x, b.x), Mathf.Min(a.y, b.y), Mathf.Max(a.x, b.x), Mathf.Max(a.y, b.y));
+            // 돌린 UI 는 대각 두 점만으로는 둘레가 안 나와 네 점을 다 본다.
+            var min = new Vector2(float.MaxValue, float.MaxValue);
+            var max = new Vector2(float.MinValue, float.MinValue);
+            foreach (var corner in corners)
+            {
+                var p = RectTransformUtility.WorldToScreenPoint(cam, corner);
+                min = Vector2.Min(min, p);
+                max = Vector2.Max(max, p);
+            }
+            return Rect.MinMaxRect(min.x, min.y, max.x, max.y);
         }
 
         public static string PathOf(Transform t)

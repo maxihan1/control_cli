@@ -39,7 +39,11 @@ namespace ControlCli
         {
             lock (Gate)
             {
+                // 게임이 다시 켜지면 번호가 1 부터 다시 센다 — 받아 둔 번호가 더 크면 다 주고 알린다.
+                var restarted = since > _last;
+                if (restarted) since = 0;
                 var sb = new StringBuilder("{\"ok\":true,\"last\":").Append(_last);
+                if (restarted) sb.Append(",\"restarted\":true");
                 var first = true;
                 var dropped = 0L;
                 foreach (var e in Items)

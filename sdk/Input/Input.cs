@@ -20,7 +20,8 @@ public static class Input
         }
     }
 
-    public static bool touchSupported => UnityEngine.Input.touchSupported;
+    // 가짜 터치는 어느 폰에서나 들어온다 — UI 입력 모듈(FakeBaseInput)과 같은 답을 해야 게임과 UI 가 같은 길을 탄다.
+    public static bool touchSupported => true;
     public static bool touchPressureSupported => UnityEngine.Input.touchPressureSupported;
     public static bool stylusTouchSupported => UnityEngine.Input.stylusTouchSupported;
     public static bool multiTouchEnabled { get => UnityEngine.Input.multiTouchEnabled; set => UnityEngine.Input.multiTouchEnabled = value; }
