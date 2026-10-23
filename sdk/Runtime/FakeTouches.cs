@@ -18,6 +18,8 @@ namespace ControlCli
         private static readonly Queue<(Vector2 position, TouchPhase phase)> Pending = new Queue<(Vector2, TouchPhase)>();
         private static Touch? _current;
         private static Vector2 _lastPosition;
+        // 내보낸 Began 뒤 아직 Ended 가 안 나갔나 — 거둘 때 손가락을 떼 줘야 EventSystem 이 눌림에 갇히지 않는다.
+        private static bool _down;
 
         public static void Tap(Vector2 position)
         {
@@ -30,6 +32,13 @@ namespace ControlCli
             Pending.Enqueue((from, TouchPhase.Began));
             for (var i = 1; i <= DragSteps; i++) Pending.Enqueue((Vector2.Lerp(from, to, i / (float)DragSteps), TouchPhase.Moved));
             Pending.Enqueue((to, TouchPhase.Ended));
+        }
+
+        // 답할 곳이 사라진 터치(시간 초과)는 나머지를 버리고, 누른 채면 그 자리에서 손가락을 뗀다.
+        public static void Cancel()
+        {
+            Pending.Clear();
+            if (_down) Pending.Enqueue((_lastPosition, TouchPhase.Canceled));
         }
 
         // 내보낼 터치가 남았거나 이번 프레임에 터치를 내보냈으면 아직 바쁘다 — 명령 답을 그 뒤로 미룬다.
@@ -48,6 +57,7 @@ namespace ControlCli
                 var (position, phase) = Pending.Dequeue();
                 var delta = phase == TouchPhase.Began ? Vector2.zero : position - _lastPosition;
                 _lastPosition = position;
+                _down = phase == TouchPhase.Began || phase == TouchPhase.Moved || phase == TouchPhase.Stationary;
                 _current = new Touch { fingerId = FingerId, position = position, rawPosition = position, deltaPosition = delta, phase = phase, tapCount = 1, pressure = 1, maximumPossiblePressure = 1, type = TouchType.Direct };
             }
             // 장면이 바뀌면 EventSystem 이 새로 생기므로 매 프레임 확인한다.

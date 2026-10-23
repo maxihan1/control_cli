@@ -68,11 +68,11 @@ export async function crawl(game: Game, o: CrawlOptions): Promise<string> {
   let pressed = 0;
   let stop = '';
 
-  const record = async (key: string, title: string, entries: Entry[], from: WindowRecord['연곳']) => {
-    const root = entries[0];
-    const depth = root?.depth ?? 0;
+  // base 는 창 루트 경로 — 시작 화면은 뿌리가 여럿이라 '' 로 전체 경로를 쓴다.
+  const record = async (key: string, title: string, entries: Entry[], from: WindowRecord['연곳'], base: string) => {
+    const depth = base === '' ? 0 : (entries[0]?.depth ?? 0);
     const body = entries.filter((e) => e.shown).map((e) => `${'  '.repeat(Math.max(0, e.depth - depth))}- ${line(e.node)}`);
-    const rel = (e: Entry) => frame(e.path.slice(root.path.length));
+    const rel = (e: Entry) => frame(e.path.slice(base.length));
     const r: WindowRecord = {
       주소: key,
       이름: title,
@@ -89,18 +89,21 @@ export async function crawl(game: Game, o: CrawlOptions): Promise<string> {
     return r;
   };
 
-  const buttons = (all: Entry[], scope: string | null) =>
-    all.filter((e) => {
+  const buttons = (all: Entry[], scope: string | null) => {
+    // 같은 창의 목록 줄 · 슬롯은 대표 하나만 누른다 — 순번을 뗀 경로가 같은 버튼은 처음 것만.
+    const picked = new Set<string>();
+    return all.filter((e) => {
       if (!e.node.kind || e.node.interactable === false) return false;
       if (scope !== null && !under(e.path, scope)) return false;
-      // 같은 창의 목록 줄 · 슬롯은 대표 하나(순번 0)만 누른다.
-      if (/\[[1-9]\d*\]/.test(e.path)) return false;
+      if (picked.has(frame(e.path))) return false;
+      picked.add(frame(e.path));
       const words = [e.node.name, label(e, all)];
-      if (words.some((w) => CLOSE.test(w) || DANGER.test(w) || excluded.some((x) => x(w)))) return false;
-      return true;
+      return !words.some((w) => CLOSE.test(w) || DANGER.test(w) || excluded.some((x) => x(w)));
     });
+  };
 
-  // 새로 뜬 창 — 앞 화면에 없던 경로 중 맨 위(부모는 있던 것)
+  // 새로 뜬 창 — 앞 화면에 없던 경로 중 맨 위(부모는 있던 것).
+  // ponytail: 경로 비교라 같은 이름 형제가 하나 더 생기면(Popup → Popup[0] · [1]) 옛 것도 새 창으로 본다. 겪으면 순번 뗀 경로별 개수로 견준다
   const opened = (before: Set<string>, after: Entry[]) => after.filter((e) => !before.has(e.path) && (parentOf(e.path) === '' || before.has(parentOf(e.path))));
 
   // 새 창이 닫히고 사라졌던 것이 돌아오면 되돌린 것이다. 닫기 버튼 → 저절로 사라지기(알림) → 뒤로 키 차례로 해 본다.
@@ -150,7 +153,7 @@ export async function crawl(game: Game, o: CrawlOptions): Promise<string> {
         if (frames.has(frame(r.path)) || records.length >= maxWindows) continue;
         const sub = after.filter((e) => under(e.path, r.path));
         const title = sub.find((e) => /title|제목/i.test(e.node.name) && e.node.text)?.node.text ?? r.node.name;
-        const rec = await record(r.path, title, sub, via);
+        const rec = await record(r.path, title, sub, via, r.path);
         if (!inside && popups.includes(r)) await explore(r.path, rec.주소, true);
       }
       if ((popups.length > 0 || lost.length > 0) && !(await restore(popups, lost))) {
@@ -161,10 +164,14 @@ export async function crawl(game: Game, o: CrawlOptions): Promise<string> {
   };
 
   const first = await settled(game);
-  const all = flatten(first.tree);
-  await record(`scene:${first.scene}`, first.scene, all, null);
-  await explore(null, `scene:${first.scene}`, false);
-  stop ||= '끝까지 훑음';
+  await record(`scene:${first.scene}`, first.scene, flatten(first.tree), null, '');
+  // 명령 하나가 실패해도(누르기 직전 사라진 버튼 · 잡기 시간 끝) 그때까지 찍은 창 목록은 남긴다.
+  try {
+    await explore(null, `scene:${first.scene}`, false);
+    stop ||= '끝까지 훑음';
+  } catch (e) {
+    stop = `오류로 멈춤: ${e instanceof Error ? e.message : String(e)}`;
+  }
 
   const seconds = Math.round((Date.now() - started) / 1000);
   await writeFile(join(o.out, 'list.json'), JSON.stringify(records, null, 2));

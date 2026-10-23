@@ -29,7 +29,7 @@ namespace ControlCli
             public string Line;
             public string Reply;
             public readonly ManualResetEventSlim Done = new ManualResetEventSlim();
-            // 0 기다림 · 1 게임이 가져감 · 2 시간 초과로 버림 — 둘 중 먼저 바꾼 쪽만 이긴다.
+            // 0 기다림 · 1 게임이 가져감 · 2 시간 초과로 버림 · 3 터치가 도는 중에 시간 초과 — 먼저 바꾼 쪽만 이긴다.
             public int State;
         }
 
@@ -102,6 +102,8 @@ namespace ControlCli
                         _requests.Enqueue(request);
                         // 실패로 답한 명령이 게임이 깨어난 뒤 늦게 눌리면 다음 명령이 엉뚱한 화면에서 돈다. 버린 요청은 Update 가 건너뛴다.
                         var timedOut = !request.Done.Wait(ReplyTimeoutMs) && Interlocked.CompareExchange(ref request.State, 2, 0) == 0;
+                        // 게임이 가져간 누르기 · 끌기가 터치 도중 멈추면(백그라운드) Done 이 안 온다 — 버림으로 바꾸면 Update 가 남은 터치를 거둔다.
+                        if (!timedOut && !request.Done.IsSet) timedOut = Interlocked.CompareExchange(ref request.State, 3, 1) == 1;
                         if (!timedOut) request.Done.Wait();
                         writer.WriteLine(timedOut ? Error("게임이 10초 안에 답하지 않았습니다(멈췄거나 일시정지)") : request.Reply);
                     }
@@ -115,8 +117,9 @@ namespace ControlCli
             // 터치가 도는 동안은 다음 명령을 꺼내지 않는다 — 명령은 받은 차례대로 돈다.
             if (_touching != null)
             {
-                if (!FakeTouches.Idle) return;
-                _touching.Done.Set();
+                if (Volatile.Read(ref _touching.State) == 3) FakeTouches.Cancel();
+                else if (!FakeTouches.Idle) return;
+                else _touching.Done.Set();
                 _touching = null;
             }
             while (_requests.TryDequeue(out var request))

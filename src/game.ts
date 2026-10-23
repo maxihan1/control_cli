@@ -38,6 +38,15 @@ export interface LayoutProblem {
   rect?: number[];
 }
 
+export interface GameErrors {
+  last: number;
+  errors: { seq: number; time: string; type: string; message: string; stack: string }[];
+  /** 들고 있는 수(200)를 넘겨 밀려난 수 */
+  dropped?: number;
+  /** 게임이 다시 켜져 번호가 1 부터 다시 셌다 */
+  restarted?: boolean;
+}
+
 // 기다리기는 짧은 find 를 되풀이한다 — 명령 하나가 팜 15초 · SDK 10초 한도에 걸리지 않게(게임 명세 「게임 연결」).
 export const WAIT = { timeoutMs: 10_000, intervalMs: 300 };
 
@@ -111,8 +120,9 @@ export class Game {
     return { checked: r.checked as number, problems: r.problems as LayoutProblem[] };
   }
 
-  async errors(since = 0): Promise<Reply> {
-    return this.call({ cmd: 'errors', since });
+  /** 게임 예외 · 에러 로그 — 받아 둔 last 를 다음에 넘기면 그 뒤 것만 */
+  async errors(since = 0): Promise<GameErrors> {
+    return (await this.call({ cmd: 'errors', since })) as unknown as GameErrors;
   }
 
   /** 좌표 누르기(왼쪽 아래가 0,0) — 살펴볼 때만. 케이스는 좌표를 쓰지 않는다 */

@@ -83,3 +83,19 @@ test('--exclude 에 맞는 버튼은 안 누르고, 뒤로 키 없이 못 닫는
   assert.match(await crawl(gameOf(fake), { out, exclude: ['/상점/'] }), /멈춘 까닭: scene:World 의 InvenButton 뒤 화면을 되돌리지 못함/);
   assert.ok(!fake.clicks.includes('/HudCanvas/ShopButton'));
 });
+
+test('이름이 같은 뿌리(Canvas 둘) 아래 버튼도 누르고, 도중 오류에도 그때까지 찍은 목록을 남긴다', async () => {
+  const layer = node('Layer', {}, []);
+  const fake = new FakeGame([
+    node('Canvas', {}, [button('MenuButton', '메뉴', () => void layer.children!.push(node('Menu', {}, [button('CloseButton', '닫기', () => void layer.children!.pop())])))]),
+    node('Canvas', {}, [layer, button('BrokenButton', '고장')]),
+  ]);
+  const game = new Game(async (c) => {
+    if (c.cmd === 'click' && c.target === '/Canvas[1]/BrokenButton') throw new Error('디바이스 팜이 게임 명령을 HTTP 409 로 거절했습니다');
+    return fake.handle(c);
+  });
+  const out = await mkdtemp(join(tmpdir(), 'crawl-'));
+  assert.match(await crawl(game, { out, exclude: [] }), /- 창 2개 · 누른 버튼 1개 · \d+초\n- 멈춘 까닭: 오류로 멈춤: 디바이스 팜이 게임 명령을 HTTP 409/);
+  const list = JSON.parse(await readFile(join(out, 'list.json'), 'utf8')) as WindowRecord[];
+  assert.deepEqual(list.map((r) => r.주소), ['scene:Boot', '/Canvas[1]/Layer/Menu']);
+});

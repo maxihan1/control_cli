@@ -9,6 +9,8 @@ namespace ControlCli
     internal static class Props
     {
         private const BindingFlags Member = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+        // 읽기만 해도 사본을 만들어 게임을 바꾸는 Unity 속성 — 공유본(sharedMaterial · sharedMesh)을 읽게 한다.
+        private static readonly string[] Copying = { "material", "materials", "mesh" };
 
         // prop 은 「컴포넌트 타입 이름.칸[.칸…]」 — PlayerController.moveSpeed · Transform.position
         public static string Get(GameObject go, string prop)
@@ -23,8 +25,14 @@ namespace ControlCli
             object value = component;
             for (var i = 1; i < parts.Length; i++)
             {
+                if (Array.IndexOf(Copying, parts[i]) >= 0 && value is Component)
+                    return Fail(parts[i] + " 은 읽기만 해도 사본을 만들어 게임을 바꿉니다 — shared" + char.ToUpperInvariant(parts[i][0]) + parts[i].Substring(1) + " 을 읽습니다");
                 if (value == null) return Fail(string.Join(".", parts, 0, i) + " 이 null 이라 " + parts[i] + " 을 읽을 수 없습니다");
-                if (!TryRead(value, parts[i], out value))
+                bool found;
+                try { found = TryRead(value, parts[i], out value); }
+                // 속성 안에서 난 예외는 감싸져 온다 — 게임 쪽 까닭을 그대로 보인다.
+                catch (TargetInvocationException e) { return Fail(prop + " 을 읽다가 게임이 던졌습니다: " + (e.InnerException ?? e).Message); }
+                if (!found)
                     return Fail(string.Join(".", parts, 0, i) + " 에 " + parts[i] + " 칸이 없습니다 — QA 빌드 코드 줄이기에서 빠졌을 수도 있습니다");
             }
             return "{\"ok\":true,\"value\":" + Value(value) + "}";

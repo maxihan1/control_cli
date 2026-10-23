@@ -27,12 +27,13 @@ export function flatten(tree: Node[]): Entry[] {
 
   const out: Entry[] = [];
   const walk = (nodes: Node[], parent: string, depth: number) => {
+    const twins = new Map<string, number>();
+    for (const n of nodes) twins.set(n.name, (twins.get(n.name) ?? 0) + 1);
     const seen = new Map<string, number>();
     for (const n of nodes) {
       const index = seen.get(n.name) ?? 0;
       seen.set(n.name, index + 1);
-      const twins = nodes.filter((s) => s.name === n.name).length;
-      const path = `${parent}/${twins > 1 ? `${n.name}[${index}]` : n.name}`;
+      const path = `${parent}/${twins.get(n.name)! > 1 ? `${n.name}[${index}]` : n.name}`;
       const shown = leaf(n) || (n.children ?? []).filter(keeps).length >= 2;
       out.push({ node: n, path, address: counts.get(n.name) === 1 ? n.name : path, shown, depth });
       walk(n.children ?? [], path, shown ? depth + 1 : depth);

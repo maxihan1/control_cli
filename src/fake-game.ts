@@ -10,6 +10,7 @@ export interface FakeNode extends Node {
   children?: FakeNode[];
   onClick?: () => void;
   props?: Record<string, unknown>;
+  password?: boolean;
 }
 
 export const node = (name: string, extra: Partial<FakeNode> = {}, children?: FakeNode[]): FakeNode => ({ name, ...extra, ...(children ? { children } : {}) });
@@ -56,7 +57,7 @@ export class FakeGame {
       case 'type':
         if (!f.node) return { ok: false, error: '없음' };
         f.node.text = c.text as string;
-        return { ok: true, text: f.node.text };
+        return { ok: true, text: f.node.password ? '***' : f.node.text };
       case 'get':
         return f.node?.props && (c.prop as string) in f.node.props ? { ok: true, value: f.node.props[c.prop as string] } : { ok: false, error: `${c.prop as string} 칸이 없습니다` };
       case 'errors':
@@ -72,8 +73,10 @@ export class FakeGame {
 }
 
 /** 디바이스 팜 입구 흉내 — 잡기 · Appium 세션 · 게임 명령 주소 */
-export async function fakeFarm(game: FakeGame): Promise<{ url: string; server: Server; held: Set<string>; seen: string[] }> {
+export async function fakeFarm(game: FakeGame): Promise<{ url: string; server: Server; held: Set<string>; seen: string[]; state: { sessionGone: boolean } }> {
   const held = new Set<string>();
+  // Appium 이 세션을 이미 끝냈을 때(쉼 300초 · 잡기 시간 끝)
+  const state = { sessionGone: false };
   const seen: string[] = [];
   const server = createServer((req, res) => {
     let raw = '';
@@ -98,11 +101,12 @@ export async function fakeFarm(game: FakeGame): Promise<{ url: string; server: S
       if (path === '/wd/hub/session' && req.method === 'POST') return send(200, { value: { sessionId: 'S1', capabilities: JSON.parse(raw) } });
       if (path === '/wd/hub/session/S1/screenshot') return send(200, { value: Buffer.from('png').toString('base64') });
       if (path === '/wd/hub/session/S1/back') return game.onBack?.(), send(200, { value: null });
-      if (path === '/wd/hub/session/S1' && req.method === 'DELETE') return send(200, { value: null });
+      if (path === '/wd/hub/session/S1' && req.method === 'DELETE')
+        return state.sessionGone ? send(404, { value: { error: 'invalid session id', message: 'A session is either terminated or not started' } }) : send(200, { value: null });
       send(404, { value: { error: 'unknown command', message: path } });
     });
   });
   await new Promise<void>((ok) => server.listen(0, '127.0.0.1', ok));
   const { port } = server.address() as AddressInfo;
-  return { url: `http://127.0.0.1:${port}/wd/hub`, server, held, seen };
+  return { url: `http://127.0.0.1:${port}/wd/hub`, server, held, seen, state };
 }

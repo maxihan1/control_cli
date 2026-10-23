@@ -21,6 +21,7 @@ const game = new FakeGame([
       button('LoginButton', '로그인', () => (status.text = '아이디는 4~16자입니다')),
       button('SignupButton', '가입'),
       status,
+      node('PwInput', { kind: 'InputField', interactable: true, text: '', password: true }),
       node('Player', { props: { 'PlayerController.moveSpeed': 4.5 } }),
     ]),
   ]),
@@ -82,4 +83,30 @@ test('ref 는 마지막 화면 것만 · 팜 거절은 까닭을 그대로', asy
   await assert.rejects(cli('-s=b', 'ping'), /HTTP 409 로 거절했습니다: 잡은 폰이 아니다/);
   await cli('-s=b', 'close');
   await assert.rejects(cli('-s=b', 'ping'), /열린 세션이 없습니다/);
+});
+
+test('비밀번호 칸에 넣은 글자는 Ran 줄에 싣지 않는다', async () => {
+  await cli('hold');
+  await cli('-s=c', 'open');
+  const out = await cli('-s=c', 'type', 'PwInput', 'S3cret!');
+  assert.match(out, /^Ran: await game\.type\('PwInput', '\*\*\*'\)\n- 비밀번호 칸이라/);
+  assert.doesNotMatch(out, /S3cret/);
+  await cli('-s=c', 'close');
+  await cli('release');
+});
+
+test('Appium 이 세션을 이미 끝냈어도 close 는 파일을 지워 다시 열 수 있다 · 다른 폰을 놓아도 잡은 폰 기록은 남는다', async () => {
+  await cli('hold');
+  await cli('-s=d', 'open');
+  farm.state.sessionGone = true;
+  try {
+    assert.match(await cli('-s=d', 'close'), /세션 d 닫음 \(Appium 세션은 이미 없음: .*HTTP 404/);
+  } finally {
+    farm.state.sessionGone = false;
+  }
+  assert.match(await cli('-s=d', 'open'), /세션 d 열림/);
+  await cli('-s=d', 'close');
+  await cli('release', '--udid', 'R2');
+  assert.equal(await readFile(join(dir, 'held'), 'utf8'), 'R1');
+  await cli('release');
 });

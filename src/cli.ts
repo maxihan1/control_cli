@@ -127,7 +127,8 @@ export async function run(argv: string[], o: Options): Promise<string> {
     const serial = values.udid ?? env.PLATFORM_DEVICE_UDID ?? (await readFile(heldFile, 'utf8').catch(() => '')).trim();
     if (!serial) throw new Error('놓을 폰을 모릅니다 — --udid 로 줍니다');
     await call(farm, 'DELETE', `/api/devices/${encodeURIComponent(serial)}/hold`);
-    await rm(heldFile, { force: true });
+    // 다른 폰을 --udid 로 놓았으면 잡아 둔 폰 기록은 그대로 둔다.
+    if ((await readFile(heldFile, 'utf8').catch(() => '')).trim() === serial) await rm(heldFile, { force: true });
     return `폰 ${serial} 놓음 — 팜이 깐 게임 · 데이터를 정리합니다`;
   }
 
@@ -149,9 +150,10 @@ export async function run(argv: string[], o: Options): Promise<string> {
 
   const s = await load(file);
   if (name === 'close') {
-    if (s.appium) await call(appium, 'DELETE', `/session/${s.appium}`);
+    // Appium 이 세션을 이미 끝냈어도(300초 쉼 · 잡기 시간 끝) 파일은 지운다 — 남으면 open 이 막힌다.
+    const closed = s.appium ? await call(appium, 'DELETE', `/session/${s.appium}`).then(() => '', (e: unknown) => ` (Appium 세션은 이미 없음: ${e instanceof Error ? e.message : String(e)})`) : '';
     await rm(file, { force: true });
-    return `세션 ${sname} 닫음${s.via === 'farm' ? ' — 폰은 아직 잡혀 있습니다(release)' : ''}`;
+    return `세션 ${sname} 닫음${closed}${s.via === 'farm' ? ' — 폰은 아직 잡혀 있습니다(release)' : ''}`;
   }
 
   const game = gameOf(s, farm, port);
@@ -185,6 +187,8 @@ export async function run(argv: string[], o: Options): Promise<string> {
       const a = target(args[0]);
       if (args[1] === undefined) throw new Error('type <ref|주소> <글자> 꼴이어야 합니다');
       const now = await game.type(a, args[1]);
+      // 비밀번호 칸은 SDK 가 *** 로 가린다 — 넣은 글자를 대화 · 케이스 코드에 남기지 않는다.
+      if (now === '***') return after(`${ran('type', quote(a), quote('***'))}\n- 비밀번호 칸이라 넣은 글자를 Ran 줄에 싣지 않습니다 — 케이스에는 비밀값으로 씁니다`);
       return after(`${ran('type', quote(a), quote(args[1]))}\n- 칸 글자: ${JSON.stringify(now)}`);
     }
     case 'text': {
