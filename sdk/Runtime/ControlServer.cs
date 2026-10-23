@@ -129,8 +129,14 @@ namespace ControlCli
                     if (center == null) return Error(arg + " 은 화면 위 UI(RectTransform)가 아닙니다");
                     FakeTouches.Tap(center.Value);
                     return Tapped(center.Value);
+                case "errors":
+                    if (!long.TryParse(arg.Length == 0 ? "0" : arg, NumberStyles.None, CultureInfo.InvariantCulture, out var since))
+                        return Error("errors [이 번호 뒤부터] 꼴이어야 합니다");
+                    return GameErrors.Since(since);
+                case "layout":
+                    return Layout.Check(arg);
                 default:
-                    return Error("모르는 명령입니다: " + cmd + " (ping · tree · tap · click)");
+                    return Error("모르는 명령입니다: " + cmd + " (ping · tree · tap · click · errors · layout)");
             }
         }
 
@@ -224,21 +230,39 @@ namespace ControlCli
             return found;
         }
 
-        public static Vector2? ScreenCenter(GameObject go)
+        public static Vector2? ScreenCenter(GameObject go) => ScreenRect(go)?.center;
+
+        // 화면 좌표(왼쪽 아래가 0,0)의 사각형. 화면 위 UI 가 아니면 null.
+        public static Rect? ScreenRect(GameObject go)
         {
             if (!(go.transform is RectTransform rect)) return null;
             var corners = new Vector3[4];
             rect.GetWorldCorners(corners);
-            var world = (corners[0] + corners[2]) / 2f;
             var canvas = go.GetComponentInParent<Canvas>();
             var cam = canvas == null || canvas.rootCanvas.renderMode == RenderMode.ScreenSpaceOverlay ? null : canvas.rootCanvas.worldCamera;
-            return RectTransformUtility.WorldToScreenPoint(cam, world);
+            // 돌린 UI 는 대각 두 점만으로는 둘레가 안 나와 네 점을 다 본다.
+            var min = new Vector2(float.MaxValue, float.MaxValue);
+            var max = new Vector2(float.MinValue, float.MinValue);
+            foreach (var corner in corners)
+            {
+                var p = RectTransformUtility.WorldToScreenPoint(cam, corner);
+                min = Vector2.Min(min, p);
+                max = Vector2.Max(max, p);
+            }
+            return Rect.MinMaxRect(min.x, min.y, max.x, max.y);
+        }
+
+        public static string PathOf(Transform t)
+        {
+            var path = t.name;
+            for (var p = t.parent; p != null; p = p.parent) path = p.name + "/" + path;
+            return "/" + path;
         }
 
         // DontDestroyOnLoad 로 옮긴 오브젝트는 장면 목록에 없어 우리 오브젝트가 있는 그 장면으로 따로 읽는다.
         public static Scene KeptScene;
 
-        private static System.Collections.Generic.IEnumerable<GameObject> Roots()
+        public static System.Collections.Generic.IEnumerable<GameObject> Roots()
         {
             for (var i = 0; i < SceneManager.sceneCount; i++)
                 foreach (var go in SceneManager.GetSceneAt(i).GetRootGameObjects())
