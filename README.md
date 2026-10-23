@@ -12,8 +12,13 @@ Unity 게임을 자동화 테스트로 조작하는 SDK 와 CLI.
 게임 저장소에는 SDK 를 넣지 않는다. QA 빌드 잡에서 Unity 를 켜기 전에 한 번 돌린다.
 
 ```bash
-npx -y github:maxihan1/control_cli#<커밋> instrument <Unity 프로젝트 폴더> --ref <커밋>
+git clone -q https://github.com/maxihan1/control_cli.git /tmp/control_cli
+git -C /tmp/control_cli checkout -q <커밋>
+npm --prefix /tmp/control_cli ci          # 받으면서 CLI 를 빌드한다
+node /tmp/control_cli/dist/main.js instrument <Unity 프로젝트 폴더> --ref <커밋>
 ```
+
+`npx github:maxihan1/control_cli` 는 쓰지 않는다 — npm 10 이 git 패키지를 npx 로 받을 때 「GitFetcher requires an Arborist constructor」로 멈춘다(GitHub Actions 에서 확인).
 
 1. `Packages/manifest.json` 에 SDK 패키지를 `--ref` 로 고정해 더한다(없으면 `main`)
 2. `Assets/` · `Packages/`(내장 패키지) 아래 asmdef 의 `references` 에 `ControlCli.Input` 을 더한다 — 에디터 전용 · `noEngineReferences` 는 건너뛴다. asmdef 없는 스크립트(Assembly-CSharp)는 자동으로 참조한다
