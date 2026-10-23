@@ -6,6 +6,7 @@ using ControlCli;
 // UnityEngine.Input 의 멤버를 전부 감싼다 — 빠진 멤버를 쓰는 게임 파일은 QA 빌드에서만 컴파일이 깨지기 때문이다.
 // 터치만 가짜를 섞고 나머지는 그대로 넘긴다.
 // ponytail: 펜(GetPenEvent 등) · mousePositionDelta 는 Unity 판마다 있고 없고가 달라 뺐다. 쓰는 게임이 오면 더한다.
+// IsJoystickPreconfigured 는 리눅스 데스크톱 전용이라 Android 빌드에 없다(CS0117) — 감싸지 않는다.
 public static class Input
 {
     public static int touchCount => FakeTouches.TouchCount;
@@ -51,7 +52,6 @@ public static class Input
     public static bool GetButtonUp(string buttonName) => UnityEngine.Input.GetButtonUp(buttonName);
     public static void ResetInputAxes() => UnityEngine.Input.ResetInputAxes();
     public static string[] GetJoystickNames() => UnityEngine.Input.GetJoystickNames();
-    public static bool IsJoystickPreconfigured(string joystickName) => UnityEngine.Input.IsJoystickPreconfigured(joystickName);
 
     public static IMECompositionMode imeCompositionMode { get => UnityEngine.Input.imeCompositionMode; set => UnityEngine.Input.imeCompositionMode = value; }
     public static string compositionString => UnityEngine.Input.compositionString;
