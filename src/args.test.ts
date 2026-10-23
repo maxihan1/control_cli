@@ -11,6 +11,14 @@ test('--serial · --port 는 줄에서 빠지고 설정으로 간다', () => {
   assert.deepEqual(parseArgs(['-s', 'R3CR', 'tap', '540', '1200', '--port', '13200']), { serial: 'R3CR', port: 13200, line: 'tap 540 1200' });
 });
 
+test('errors 는 번호 하나 · layout 은 이름 하나를 붙일 수 있다', () => {
+  assert.equal(parseArgs(['errors']).line, 'errors');
+  assert.equal(parseArgs(['errors', '12']).line, 'errors 12');
+  assert.equal(parseArgs(['layout', 'LoginView']).line, 'layout LoginView');
+  assert.throws(() => parseArgs(['errors', 'x']), /errors \[/);
+  assert.throws(() => parseArgs(['layout', 'a', 'b']), /layout \[/);
+});
+
 test('틀린 꼴은 보내기 전에 거른다', () => {
   assert.throws(() => parseArgs([]), /명령이 없습니다/);
   assert.throws(() => parseArgs(['jump']), /모르는 명령/);
