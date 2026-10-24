@@ -11,7 +11,7 @@ import { SETTLE, WAIT } from './game.js';
 
 Object.assign(SETTLE, { maxMs: 30, stepMs: 5 });
 Object.assign(WAIT, { intervalMs: 5 });
-Object.assign(TIMING, { openWaitMs: 200, openStepMs: 5 });
+Object.assign(TIMING, { openWaitMs: 200, openStepMs: 5, cleanWaitMs: 100, cleanStepMs: 5 });
 
 const status = node('StatusText', { text: '' });
 const game = new FakeGame([
@@ -109,4 +109,36 @@ test('Appium 이 세션을 이미 끝냈어도 close 는 파일을 지워 다시
   await cli('release', '--udid', 'R2');
   assert.equal(await readFile(join(dir, 'held'), 'utf8'), 'R1');
   await cli('release');
+});
+
+test('방금 놓은 폰을 팜이 정리하는 동안은 기다렸다가 잡는다', async () => {
+  let calls = 0;
+  farm.state.devices = () => [{ serial: 'R1', state: ++calls < 3 ? 'OCCUPIED' : 'IDLE', detail: calls < 3 ? 'cleaning' : 'ready' }];
+  try {
+    assert.match(await cli('hold'), /폰 R1 잡음/);
+    assert.equal(calls, 3);
+  } finally {
+    farm.state.devices = () => [{ serial: 'R1', state: 'IDLE', detail: 'ready' }];
+    await cli('release');
+  }
+});
+
+test('빈 폰도 정리 중인 폰도 없으면 기다리지 않고 다른 실행이 쓰는 중이라고 거절한다', async () => {
+  let calls = 0;
+  farm.state.devices = () => (calls++, [{ serial: 'R1', state: 'OCCUPIED', detail: 'session' }]);
+  try {
+    await assert.rejects(cli('hold'), /잡을 수 있는 빈 폰이 없습니다 — 폰이 다른 실행에 쓰이는 중일 수 있습니다/);
+    assert.equal(calls, 1);
+  } finally {
+    farm.state.devices = () => [{ serial: 'R1', state: 'IDLE', detail: 'ready' }];
+  }
+});
+
+test('정리가 기다림 한도를 넘기면 다른 실행 탓이 아니라 팜이 정리하는 중이라고 거절한다', async () => {
+  farm.state.devices = () => [{ serial: 'R1', state: 'OCCUPIED', detail: 'cleaning' }];
+  try {
+    await assert.rejects(cli('hold'), (e: Error) => /디바이스 팜이 놓은 폰을 정리하는 중이라 아직 못 잡습니다/.test(e.message) && !/다른 실행/.test(e.message));
+  } finally {
+    farm.state.devices = () => [{ serial: 'R1', state: 'IDLE', detail: 'ready' }];
+  }
 });

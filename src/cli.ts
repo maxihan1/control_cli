@@ -26,7 +26,8 @@ export interface Options {
 }
 
 // 테스트가 줄일 수 있게 묶어 둔다
-export const TIMING = { openWaitMs: 60_000, openStepMs: 1000 };
+// 놓은 폰은 팜이 정리하는 동안(실측 2~4초 — GAME-F1-14) 빈 폰이 아니다. 기다림은 QA Hub 폰 잡기(test_platform farm.ts)와 같은 20초다
+export const TIMING = { openWaitMs: 60_000, openStepMs: 1000, cleanWaitMs: 20_000, cleanStepMs: 1000 };
 
 export const HELP = `control-cli [-s=<세션>] <명령>
 
@@ -57,6 +58,23 @@ export const HELP = `control-cli [-s=<세션>] <명령>
 const quote = (s: string) => `'${s.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n')}'`;
 const ran = (method: string, ...args: string[]) => `Ran: await game.${method}(${args.join(', ')})`;
 const sleep = (ms: number) => new Promise((ok) => setTimeout(ok, ms));
+
+/**
+ * 빈 폰(IDLE) 하나. 방금 놓은 폰은 팜이 정리하는 동안 OCCUPIED · cleaning 이라, 그런 폰이 있으면 정리가 끝나기를 기다린다.
+ * 정리 중인 폰이 없으면 기다려도 안 바뀌어 바로 거절한다 — 두 거절 문구를 갈라야 AI 가 「다른 실행이 가져갔다」고 잘못 알리지 않는다
+ */
+async function idlePhone(farm: Conn): Promise<string> {
+  const end = Date.now() + TIMING.cleanWaitMs;
+  for (;;) {
+    const v = (await call(farm, 'GET', '/api/devices')) as { devices?: { serial?: string; state?: string; detail?: string }[] } | null;
+    const devices = v?.devices ?? [];
+    const idle = devices.find((d) => d.state === 'IDLE' && d.serial)?.serial;
+    if (idle) return idle;
+    if (!devices.some((d) => d.detail === 'cleaning')) throw new Error('잡을 수 있는 빈 폰이 없습니다 — 폰이 다른 실행에 쓰이는 중일 수 있습니다');
+    if (Date.now() >= end) throw new Error(`디바이스 팜이 놓은 폰을 정리하는 중이라 아직 못 잡습니다(${TIMING.cleanWaitMs / 1000}초 기다림) — 조금 뒤 다시 잡습니다`);
+    await sleep(TIMING.cleanStepMs);
+  }
+}
 
 export async function run(argv: string[], o: Options): Promise<string> {
   const { values, positionals } = parseArgs({
@@ -114,9 +132,7 @@ export async function run(argv: string[], o: Options): Promise<string> {
     let serial = values.udid ?? env.PLATFORM_DEVICE_UDID;
     if (!serial) {
       // 다른 실행이 쓰는 폰은 고르지 않는다 — 팜은 QA Hub 를 한 사람으로 본다(게임 명세 「게임 연결」).
-      const v = (await call(farm, 'GET', '/api/devices?status=idle')) as { devices?: { serial: string }[] } | null;
-      serial = v?.devices?.[0]?.serial;
-      if (!serial) throw new Error('잡을 수 있는 빈 폰이 없습니다 — 폰이 다른 실행에 쓰이는 중일 수 있습니다');
+      serial = await idlePhone(farm);
     }
     const v = (await call(farm, 'POST', `/api/devices/${encodeURIComponent(serial)}/hold`, { minutes })) as { held?: { until?: number } } | null;
     await writeFile(heldFile, serial);

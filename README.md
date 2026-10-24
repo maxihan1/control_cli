@@ -34,7 +34,7 @@ node /tmp/control_cli/dist/main.js instrument <Unity 프로젝트 폴더> --ref 
 ## CLI
 
 ```bash
-npm i -D github:maxihan1/control_cli#v0.1.0
+npm i -D github:maxihan1/control_cli#v0.1.1
 npx control-cli help
 ```
 
@@ -42,7 +42,7 @@ npx control-cli help
 
 ```bash
 export PLATFORM_APPIUM_URL=http://<팜>:4723/wd/hub PLATFORM_APPIUM_TOKEN=pat_…   # 팜이 인증을 켰을 때만 토큰
-npx control-cli hold --minutes 30                 # 빈 폰 하나를 잡는다(--udid 로 고를 수도)
+npx control-cli hold --minutes 30                 # 빈 폰 하나를 잡는다(--udid 로 고를 수도) — 방금 놓은 폰은 팜이 정리를 마칠 때까지 20초까지 기다린다
 npx control-cli open --app https://…/qa.apk       # 잡은 폰에 깔고 켠 뒤 게임이 답할 때까지 기다려 첫 화면을 찍는다
 npx control-cli snapshot                          # - Snapshot: .control-cli/default-….yml · - Screenshot: ….png
 npx control-cli type e2 qa_user01                 # Ran: await game.type('IdInput', 'qa_user01')
