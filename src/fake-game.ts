@@ -73,10 +73,18 @@ export class FakeGame {
 }
 
 /** 디바이스 팜 입구 흉내 — 잡기 · Appium 세션 · 게임 명령 주소 */
-export async function fakeFarm(game: FakeGame): Promise<{ url: string; server: Server; held: Set<string>; seen: string[]; state: { sessionGone: boolean } }> {
+export interface FakeDevice {
+  serial: string;
+  state: string;
+  detail: string;
+}
+
+export async function fakeFarm(
+  game: FakeGame,
+): Promise<{ url: string; server: Server; held: Set<string>; seen: string[]; state: { sessionGone: boolean; devices: () => FakeDevice[] } }> {
   const held = new Set<string>();
-  // Appium 이 세션을 이미 끝냈을 때(쉼 300초 · 잡기 시간 끝)
-  const state = { sessionGone: false };
+  // Appium 이 세션을 이미 끝냈을 때(쉼 300초 · 잡기 시간 끝) · 기기 목록(부를 때마다 읽는다 — 정리 중 → 빈 폰을 흉내 낸다)
+  const state = { sessionGone: false, devices: (): FakeDevice[] => [{ serial: 'R1', state: 'IDLE', detail: 'ready' }] };
   const seen: string[] = [];
   const server = createServer((req, res) => {
     let raw = '';
@@ -88,7 +96,7 @@ export async function fakeFarm(game: FakeGame): Promise<{ url: string; server: S
         res.writeHead(status, { 'content-type': 'application/json' });
         res.end(JSON.stringify(body));
       };
-      if (path === '/api/devices?status=idle') return send(200, { devices: [{ serial: 'R1' }] });
+      if (path === '/api/devices') return send(200, { value: { devices: state.devices(), now: Date.now() } });
       const hold = /^\/api\/devices\/([^/]+)\/hold$/.exec(path);
       if (hold && req.method === 'POST') return held.add(hold[1]), send(200, { held: { until: Date.now() + 1800_000 } });
       if (hold && req.method === 'DELETE') return held.delete(hold[1]), send(200, { released: true });
