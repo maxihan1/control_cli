@@ -28,7 +28,7 @@
 | 엔진 | Unity | ✓ | — |
 | 엔진 | Unreal(+ 사용자가 고른 Godot · GameMaker · RPG Maker · CryEngine) | | P6~P10 |
 | 드라이버 | C# · Python · Java · Robot Framework | TS(CLI · test_platform kit) | P4 |
-| Desktop | AI 확장(MCP) | CLI(셸을 쓰는 AI 는 지금도 씀) | P1 |
+| Desktop | AI 확장(MCP) | ✓ `control-cli mcp`(P1 — 도구는 `protocol/commands.json` + 세션 도구) | — |
 | Desktop | 인스펙터(트리 · 컴포넌트 · 메서드) · Recorder(단계 · assertion) · 테스트 생성 · 기록 돌리기 · 마지막 연결 기억 | CLI 화면 파일 · `Ran:` 줄 | P5 |
 
 ## 2. 구조

@@ -56,3 +56,24 @@
 - 고침 — ① caps 는 ping 마다 새로 적는다(게임을 새 SDK 로 다시 띄워도 `ping` · `conform` 이 세션 caps 를 고친다) · 게임이 보낸 caps 가 글자 배열이 아니면 믿지 않고 다 보낸다(글자 하나면 `includes` 가 일부로 맞춘다) · `open` 이 caps 를 바로 저장(176f89d) ② conform 을 다시 돌리면 앞 판 상태 글자 · Item 자리가 남아 누르기 · 끌기가 안 먹어도 통과했다 — 누르기 전 글자와 달라져야 통과, Item 이 이미 Slot[3] 이면 Slot[2] 로 옮긴다. 줄마다 쓰는 명령 전부(`click` + `find` …)를 caps 와 견준다 · get 실패 글에 받은 값(7e39ba2). 이 맥 앱에서 한 세션 두 판 모두 16/16 ③ `protocol.test` 를 sdk-compile meta 잡에서 돌리고 SDK ping 의 `protocol` 숫자도 commands.json 과 대조, 테스트 안의 명령 목록 사본은 겹침 검사로 바꿈(d18a681) ④ `PingReply` 를 라이브러리 입구에서 export
 - 안 고침 — errors 를 conform 시작 뒤만 보자는 안: 표준 화면이 켜질 때 낸 에러도 적합성 실패가 맞다. 팜 screenshot 을 Appium 으로 돌리자는 안: conform 은 SDK screenshot 명령 자체를 본다(팜 SM-A325N 에서 통과). 가짜 drag 의 `to` 없음 · 일부만 v2 인 ping 의 `undefined` 글: 그런 입력이 없다
 - 미룸 — `instrument` 기본 ref `main` × `?path=/sdk/unity`. `roadmap` 에 합치는 데는 상관없고, main 에 합칠 때 옛 CLI(`?path=/sdk#main`)와 새 CLI 가 엇갈린다. 기본 ref 를 CLI 판 tag 로 두면 CLI 와 SDK 경로가 늘 맞는다(그 tag 를 먼저 찍어야 한다) — checklist 맨 위
+
+## 2026-11-04 — P1 설계 ([p1-plan.md](p1-plan.md))
+
+- 브랜치 — 체크리스트의 「`p1` 을 `p0` 위에 · PR 은 `p0` 로」는 P0 가 PR #15 로 `roadmap` 에 합쳐져(e1bdb6b) 낡았다. `p1` 은 `origin/roadmap` 에서, PR 은 `roadmap` 으로(사용자)
+- MCP 를 손으로 쓴다 — 쓰는 메서드가 `initialize` · `ping` · `tools/list` · `tools/call` 넷이고 답은 글 · 그림뿐이다. `@modelcontextprotocol/sdk` 는 zod · express 를 끌고 온다(지금 런타임 dependency 0). 판은 2025-11-25 를 앞에 두고 2024-11-05 까지 받는다 — 쓰는 꼴이 그 사이 안 바뀌었다
+- 도구 = commands.json 명령 12개 + 세션 도구 4개(`hold` · `open` · `close` · `release`). 세션 도구는 「셸이 없는 AI 클라이언트도 게임을 조작」(「MCP · 인스펙터 모양」)을 지키려고 넣었다 — 없으면 Desktop 사용자가 터미널에서 폰을 잡고 열어야 한다. 세션 도구는 CLI `run()` 을 그대로 부르고, 게임 도구는 세션 파일의 게임에 `{cmd, ...인자}` 를 `Game.call` 로 보낸다(새 명령이 도구로 저절로 들어온다)
+- MCP 세션 파일은 `~/.control-cli/` — Claude Desktop 은 MCP 서버를 cwd `/`(macOS 에서 쓸 수 없다)에서 띄운다. 셸 CLI 의 `./.control-cli/` 와 따로 두는 값을 치렀다(README 에 적음)
+- 뺀 것 — `snapshot` ref · `Ran:` 줄 · `wait` · `text` · `conform` · `crawl` · `instrument`. ref · Ran 은 셸 CLI 의 케이스 쓰기 몫이고 `wait` · `text` 는 `find` 로 된다
+- 끝 기준을 재는 법 — MCP 클라이언트가 `conform` 의 `Game` 을 MCP 링크(`tools/call` 하나 = 명령 하나)로 돌린다. 「conform 차례를 MCP 도구로」가 같은 16줄 · 같은 통과 수로 잰다. 테스트는 `dist/main.js mcp` 를 진짜로 띄워 stdio 로 부른다
+- CI — CLI 테스트는 지금 CI 에서 안 돈다. 도구 목록 ↔ commands.json 은 `protocol.test` 와 같은 계약이라 sdk-compile meta 잡에 `mcp.test` 를 더한다
+
+## 2026-11-04 — P1 실기기 (MCP 도구로 conform · sample run 41642343858 · 커밋 f7719f6)
+
+- 재는 법 — 저장소 밖 스크립트가 `dist/main.js -s p1mcp mcp` 를 AI 앱처럼 띄워 `initialize`(MCP 2025-06-18) → `tools/list`(16개) → 세션 도구 → `conform` 의 `Game` 을 MCP 링크(`tools/call` 하나 = 명령 하나)로 → `screenshot` → `close` → `release`. 세션 파일은 진짜 `~/.control-cli/`(시험 뒤 지움 — 처음엔 폴더가 없었다)
+- 이 맥 macOS 앱(StandaloneOSX · 세로 창 540×1200) — `open {via: "pc", app}` 뒤 「통과 16 · 실패 0 · 건너뜀 0」(05:54). MCP 스크린샷은 진짜 화면(JPEG 그림 · 로그인 글 · 큐브 · touch 10,10)
+- 팜 RF9R408GKRR(6000.0 Input System APK) — `hold {udid}` → `open {app: 로컬 APK 경로}` → 「통과 16 · 실패 0 · 건너뜀 0」 → `close` → `release`(05:56). 팜 기기 목록에서 그 폰은 「IDLE · ready」. P0 에서 APK 넷이 같은 SDK · 같은 conform 으로 초록이었고 MCP 층은 APK 를 가리지 않아 하나만 돌렸다
+- 진짜 MCP 클라이언트 — Claude Code headless(`claude -p --strict-mcp-config --mcp-config …`)가 손으로 쓴 서버에 붙었다(`status: connected`, 도구 16개). 말로 시킨 open → tree → type → click → find → screenshot → close 를 다 부르고 스크린샷 그림을 읽어 「touch 135,815」라고 답했다. 같은 날 Claude Code headless 에 conform 8단계를 말로만 시키니 도구 27번 · 91초에 다 ✓(도구 설명만 보고 글자는 `get Text.text` 로 읽고 끌기 전 빈 칸을 `find` 로 찾았다)
+- **잠금 화면은 `caffeinate -d` 를 무시한다** — 첫 macOS 시도에서 `-u -t 3` 으로 깨우고 `-d -t 900` 을 걸었는데 13초 뒤(05:52:33) 다시 꺼져 open 뒤 스크린샷 · ping 이 「게임이 10초 안에 답하지 않았습니다(멈췄거나 일시정지)」 — P0 의 Metal 멈춤과 같은 증상. `ioreg -n Root -d1 -a` 의 `CGSSessionScreenIsLocked` 가 true 였다. P0(04:48)에는 WindowServer 의 HID 신호(UserIsActive)가 화면을 잡아 줬다. `caffeinate -d -u -t 900`(시험 내내 「사용자 활동 중」)으로 바꾸니 끝까지 켜져 16/16. 그 caffeinate PID 만 껐다
+- 계획과 다르게 한 것 — ① 인자 꼴 실패 글 「target 가 필요합니다」가 영어 칸 이름 뒤 조사를 못 고른다 → 「target 칸이 필요합니다」 ② 실기기 스크립트는 hold 가 성공한 폰만 release 한다(남이 잡은 폰을 놓지 않게)
+- Claude Desktop(대화 화면) — 사용자 허락으로 `claude_desktop_config.json` 의 `mcpServers` 에 `"control-cli": {"command": "/usr/local/bin/node", "args": ["<worktree>/dist/main.js", "mcp"]}` 을 넣고(원본은 `.bak-p1`) 사용자가 앱을 다시 켜 말로 시켰다(07:26~07:27). Desktop 로그 — 「negotiated protocol version: 2025-11-25」 · 「Connected to control-cli (16 tools)」. 앱 답 — `type` 에 `qauser01`, StatusText 「login qauser01 1」, 스크린샷의 「touch 135,815」를 읽고 close 로 게임을 껐다. 세션 파일은 `~/.control-cli/` 에 생겼다 지워졌다(홈 폴더 결정이 Desktop 에서 맞다)
+- Desktop 에서 새로 안 것 — 도구 호출 하나하나는 Desktop 로그(`mcp-server-control-cli.log`)에 안 남는다(initialize · tools/list 만). Desktop 은 서버를 띄울 때 셸 PATH(`/usr/local/bin` · `/opt/homebrew/bin` …)를 넘긴다고 로그에 찍었다 — README 의 짧은 꼴(`"command": "control-cli"`)도 될 듯하나 돌려 보지는 않았다. 설정은 대화 화면 몫이다(사용자가 대화 화면에서 썼다)
