@@ -55,9 +55,9 @@ namespace ControlCli
             var label = go.GetComponent<Text>();
             if (label != null) return label.text;
 #if CONTROL_CLI_TMP
-            // TMP 입력칸은 글자 칸 끝에 caret 자리용 ​ 를 붙인다 — 화면에 보이는 글자만 돌려준다.
+            // TMP 입력칸은 글자 칸 끝에 caret 자리용 \u200B 를 붙인다 — 화면에 보이는 글자만 돌려준다.
             var tmp = go.GetComponent<TMPro.TMP_Text>();
-            if (tmp != null) return (tmp.text ?? "").TrimEnd('​');
+            if (tmp != null) return (tmp.text ?? "").TrimEnd('\u200B');
 #endif
             return null;
         }
