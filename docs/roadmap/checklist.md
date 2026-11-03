@@ -3,7 +3,7 @@
 ## ▶ 다음 세션은 여기부터 (2026-11-04)
 
 - P2-A Unity 게임 상태 — 설계 · 구현 계획(writing-plans, [p0-plan.md](p0-plan.md) · [p1-plan.md](p1-plan.md) 꼴)부터. 브랜치 `p2a` — PR #16(`p1`)이 `roadmap` 에 합쳐졌으면 `origin/roadmap` 에서, 아직이면 `origin/p1` 위에 쌓고 PR base 를 `p1` 로(합친 뒤 `roadmap` 으로 바꾼다). 새 명령은 `protocol/commands.json` · Unity `Caps` 에 더하면 MCP 도구로도 저절로 들어온다(`src/mcp.test.ts` 가 목록을 대조). 끝 기준은 `conform` A 줄 초록(팜)
-- P1 끝 — draft PR #16(`p1` → `roadmap`) · sdk-compile run 41717527358 초록(meta 가 mcp.test 4개 포함 7 통과 · 컴파일 2021.3 · 2022.3 · 6000.0). 테스트 · 이 맥 macOS 앱 · 팜 RF9R408GKRR 모두 MCP 도구로 conform 16/16, Claude Code headless 가 진짜 MCP 클라이언트로 붙었다. Claude Desktop 손 확인은 사용자 몫(설정 한 줄은 README 「MCP — AI 앱에서」)
+- P1 끝 — draft PR #16(`p1` → `roadmap`) · sdk-compile run 41717527358 초록(meta 가 mcp.test 4개 포함 7 통과 · 컴파일 2021.3 · 2022.3 · 6000.0). 테스트 · 이 맥 macOS 앱 · 팜 RF9R408GKRR 모두 MCP 도구로 conform 16/16, Claude Code headless · Claude Desktop(대화 화면) 모두 진짜 MCP 클라이언트로 붙어 말로 시킨 차례를 돌렸다
 - macOS 시험은 `caffeinate -d -u -t 900` — 잠금 화면은 `-d` 만으로는 13초 만에 화면을 꺼 Unity 가 멈춘다(context-notes 「P1 실기기」)
 - main 에 합치기 전에 정할 것 — `instrument` 의 기본 ref `main` 과 UPM 경로 `?path=/sdk/unity` 가 엇갈린다(main 에 `sdk/unity/` 가 생기기 전엔 새 CLI 가, 생긴 뒤엔 옛 CLI 의 `?path=/sdk#main` 이 깨진다). 기본 ref 를 CLI 판 tag(`v0.3.0`)로 두는 안 — context-notes 「P0 코드 리뷰」. README MCP 절의 `npm i -g …#<태그>` 도 그때 정한 tag 로
 - 차례 — P0 바탕 → P1 MCP → P2 Unity 를 AltTester 와 똑같이 → P3 relay · WebGL · Linux → P4 드라이버 → P5 인스펙터 · Recorder → P6~P10 엔진(맨 뒤 — 사용자 결정)
@@ -25,7 +25,7 @@
 - [x] 설계 · 구현 계획 — [p1-plan.md](p1-plan.md)(태스크 6개)
 - [x] `control-cli mcp` — stdio MCP 서버 · 도구 목록은 `protocol/commands.json` 에서 — 손으로 쓴 JSON-RPC(`src/mcp.ts` · 5c839ee), 게임 도구 12개 + 세션 도구 `hold` · `open` · `close` · `release`(da722f9). sdk-compile meta 잡이 `mcp.test` 도 돈다(58d4aeb)
 - [x] Claude Desktop 설정 한 줄 · README — MCP 절 · 도구 표(f7719f6). 세션 파일은 `~/.control-cli/`
-- [x] Unity 샘플 `conform` 차례를 MCP 도구로 돌려 초록 — 테스트(가짜 표준 화면 · `dist/main.js mcp` 를 띄워) 16/16, 이 맥 macOS 앱 · 팜 RF9R408GKRR(6000.0 Input System) 모두 「통과 16 · 실패 0 · 건너뜀 0」(run 41642343858 결과물). Claude Code headless 가 진짜 MCP 클라이언트로 붙어 open → … → close
+- [x] Unity 샘플 `conform` 차례를 MCP 도구로 돌려 초록 — 테스트(가짜 표준 화면 · `dist/main.js mcp` 를 띄워) 16/16, 이 맥 macOS 앱 · 팜 RF9R408GKRR(6000.0 Input System) 모두 「통과 16 · 실패 0 · 건너뜀 0」(run 41642343858 결과물). Claude Code headless · Claude Desktop(대화) 이 진짜 MCP 클라이언트로 붙어 open → … → close
 
 ## P2-A. Unity 게임 상태
 - [ ] 설계 · 구현 계획
