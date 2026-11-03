@@ -316,8 +316,13 @@ namespace ControlCli
         public static IEnumerable<GameObject> RootObjects()
         {
             for (var i = 0; i < SceneManager.sceneCount; i++)
-                foreach (var go in SceneManager.GetSceneAt(i).GetRootGameObjects())
+            {
+                // 열리는 중인 장면(scene-load 뒤)은 GetRootGameObjects 가 던진다 — 다 열린 장면만 본다.
+                var scene = SceneManager.GetSceneAt(i);
+                if (!scene.isLoaded) continue;
+                foreach (var go in scene.GetRootGameObjects())
                     yield return go;
+            }
             if (KeptScene.IsValid())
                 foreach (var go in KeptScene.GetRootGameObjects())
                     if (go.name != "[ControlCli]") yield return go;
