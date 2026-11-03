@@ -47,11 +47,23 @@ namespace ControlCli
         public static string TextOf(GameObject go)
         {
             var input = go.GetComponent<InputField>();
-            // 비밀번호는 글자를 가리되 비었는지는 보이게 한다 — 「입력 안 됨」을 케이스가 확인할 수 있어야 한다.
-            if (input != null) return input.inputType == InputField.InputType.Password && input.text.Length > 0 ? "***" : input.text;
+            if (input != null) return Masked(input.text, input.inputType == InputField.InputType.Password);
+#if CONTROL_CLI_TMP
+            var tmpInput = go.GetComponent<TMPro.TMP_InputField>();
+            if (tmpInput != null) return Masked(tmpInput.text, tmpInput.inputType == TMPro.TMP_InputField.InputType.Password);
+#endif
             var label = go.GetComponent<Text>();
-            return label != null ? label.text : null;
+            if (label != null) return label.text;
+#if CONTROL_CLI_TMP
+            // TMP 입력칸은 글자 칸 끝에 caret 자리용 ​ 를 붙인다 — 화면에 보이는 글자만 돌려준다.
+            var tmp = go.GetComponent<TMPro.TMP_Text>();
+            if (tmp != null) return (tmp.text ?? "").TrimEnd('​');
+#endif
+            return null;
         }
+
+        // 비밀번호는 글자를 가리되 비었는지는 보이게 한다 — 「입력 안 됨」을 케이스가 확인할 수 있어야 한다.
+        private static string Masked(string text, bool password) => password && text.Length > 0 ? "***" : text;
 
         // 주소는 이름(하나뿐일 때) 또는 / 로 시작하는 경로다. 같은 이름 형제는 경로 칸에 [순번](0부터)을 붙인다.
         // 이름이 겹치면 고르지 않고 알린다 — 엉뚱한 것을 누르면 케이스가 틀린 곳에서 통과한다.

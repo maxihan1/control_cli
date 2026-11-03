@@ -83,7 +83,7 @@ USB 는 `adb forward tcp:13100 tcp:13100` 을 걸고 TCP 로 보낸다. adb 는 
 |---|---|---|
 | `click <ref\|주소>` | 가운데를 가짜 터치로 누른다. 월드 오브젝트는 주 카메라로 비춘 자리 | `game.click('LoginButton')` |
 | `drag <ref\|주소> <ref\|주소>` | 앞 자리에서 뒤 자리로 10프레임에 걸쳐 끈다 | `game.drag('/Hud/Bag/Slot[0]', '/Hud/Bag/Slot[3]')` |
-| `type <ref\|주소> <글자>` | InputField 에 바로 넣는다(화면 키보드 없이). 글자 수 제한 · 거르기는 InputField 가 한다. 비밀번호 칸이면 Ran 줄에 글자 대신 `'***'` | `game.type('IdInput', 'qa_user01')` |
+| `type <ref\|주소> <글자>` | InputField · TMP_InputField 에 바로 넣는다(화면 키보드 없이). 글자 수 제한 · 거르기는 그 칸 규칙대로다 — TMP 는 넣을 때 안 거르므로 SDK 가 키로 칠 때와 같은 거르개를 부른다. 비밀번호 칸이면 Ran 줄에 글자 대신 `'***'` | `game.type('IdInput', 'qa_user01')` |
 | `text <ref\|주소>` | 글자 읽기 | `game.text('StatusText')` |
 | `get <ref\|주소> <컴포넌트.칸>` | 속성 읽기 — 게임이 폰에서 셈하는 값. `material` · `materials` · `mesh` 는 읽기만 해도 사본을 만들어 거절한다(`shared…` 를 읽는다) | `game.get('Player', 'PlayerController.moveSpeed')` |
 | `find <ref\|주소>` | 있으면 `{path, text, interactable}`, 없으면 `null` | `game.find('ShopPanel')` |
@@ -131,7 +131,7 @@ npx control-cli crawl --max 30 --minutes 5 --exclude '/설정|settings/i' --excl
 | `cmd` | 칸 | 답 |
 |---|---|---|
 | `ping` | | `{ok, app, version}` |
-| `tree` | | `{ok, scene, screen:[w,h], tree:[{name, text?, kind?, interactable?, children?}]}` — 켜진 오브젝트만. `kind` 는 Selectable 종류(Button · Toggle · InputField …). 비밀번호 칸 글자는 `***` |
+| `tree` | | `{ok, scene, screen:[w,h], tree:[{name, text?, kind?, interactable?, children?}]}` — 켜진 오브젝트만. `kind` 는 Selectable 종류(Button · Toggle · InputField · TMP_InputField …). `text` 는 Text · InputField · TextMeshPro(TMP_Text · TMP_InputField). 비밀번호 칸 글자는 `***` |
 | `find` | `target` | `{ok, found:false}` 또는 `{ok, found:true, path, text?, interactable?}` — 이름이 겹치면 실패 |
 | `click` | `target` | `{ok, x, y}` — 가짜 터치가 다 나가고 게임이 처리한 뒤 답한다 |
 | `drag` | `target` · `to` | `{ok, x, y}` — 위와 같다 |

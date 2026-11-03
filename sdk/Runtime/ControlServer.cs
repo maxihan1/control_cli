@@ -209,18 +209,65 @@ namespace ControlCli
             return true;
         }
 
-        // 화면 키보드를 띄우지 않고 글자를 바로 넣는다. 글자 수 제한 · 글자 종류 거르기는 InputField 가 그대로 한다.
+        // 화면 키보드를 띄우지 않고 글자를 바로 넣는다. 글자 수 제한 · 글자 종류 거르기는 입력칸 규칙 그대로다.
         private static string TypeText(string target, string text)
         {
             var go = Tree.Find(target, out var problem);
             if (go == null) return Error(problem);
             var field = go.GetComponent<InputField>();
-            if (field == null) return Error(target + " 은 InputField 가 아닙니다");
-            if (!field.IsInteractable()) return Error(target + " 은 잠겨 있어 글자를 넣을 수 없습니다");
-            field.text = text;
-            field.onEndEdit.Invoke(field.text);
-            return "{\"ok\":true,\"text\":" + Json.Str(Tree.TextOf(go)) + "}";
+            if (field != null)
+            {
+                if (!field.IsInteractable()) return Error(target + " 은 잠겨 있어 글자를 넣을 수 없습니다");
+                // uGUI 는 text 를 넣을 때 글자 수 제한 · 거르기를 스스로 한다.
+                field.text = text;
+                field.onEndEdit.Invoke(field.text);
+                return "{\"ok\":true,\"text\":" + Json.Str(Tree.TextOf(go)) + "}";
+            }
+#if CONTROL_CLI_TMP
+            var tmp = go.GetComponent<TMPro.TMP_InputField>();
+            if (tmp != null)
+            {
+                if (!tmp.IsInteractable()) return Error(target + " 은 잠겨 있어 글자를 넣을 수 없습니다");
+                tmp.text = TmpFiltered(tmp, text);
+                tmp.onEndEdit.Invoke(tmp.text);
+                return "{\"ok\":true,\"text\":" + Json.Str(Tree.TextOf(go)) + "}";
+            }
+#endif
+            return Error(target + " 은 입력칸(InputField · TMP_InputField)이 아닙니다");
         }
+
+#if CONTROL_CLI_TMP
+        private static readonly System.Reflection.MethodInfo TmpValidate = typeof(TMPro.TMP_InputField).GetMethod(
+            "Validate", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic, null, new[] { typeof(string), typeof(int), typeof(char) }, null);
+
+        // TMP 는 text 를 넣을 때 글자 수 제한 · 거르기를 하지 않는다(3.0.9 SetText 에서 주석 처리) — 키로 칠 때(Append)와 같은 차례로 거르개를 글자마다 부른다.
+        private static string TmpFiltered(TMPro.TMP_InputField field, string text)
+        {
+            var result = "";
+            foreach (var c in text)
+            {
+                if (field.characterLimit > 0 && result.Length >= field.characterLimit) break;
+                if (field.onValidateInput != null)
+                {
+                    var ch = field.onValidateInput(result, result.Length, c);
+                    if (ch != 0) result += ch;
+                }
+                else if (field.characterValidation == TMPro.TMP_InputField.CharacterValidation.CustomValidator && field.inputValidator != null)
+                {
+                    // 사용자 거르개는 글자를 스스로 끼워 넣는다.
+                    var pos = result.Length;
+                    field.inputValidator.Validate(ref result, ref pos, c);
+                }
+                else if (field.characterValidation != TMPro.TMP_InputField.CharacterValidation.None && TmpValidate != null)
+                {
+                    var ch = (char)TmpValidate.Invoke(field, new object[] { result, result.Length, c });
+                    if (ch != 0) result += ch;
+                }
+                else result += c;
+            }
+            return result;
+        }
+#endif
 
         private static string Touched(Vector2 p) =>
             "{\"ok\":true,\"x\":" + Mathf.RoundToInt(p.x) + ",\"y\":" + Mathf.RoundToInt(p.y) + "}";

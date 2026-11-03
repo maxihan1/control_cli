@@ -89,7 +89,7 @@ export class Game {
   async text(target: string): Promise<string> {
     const found = await this.find(target);
     if (found === null) throw new Error(`켜진 오브젝트 중에 ${target} 이 없습니다`);
-    if (found.text === undefined) throw new Error(`${target} 에는 글자(Text · InputField)가 없습니다`);
+    if (found.text === undefined) throw new Error(`${target} 에는 글자(Text · InputField · TMP)가 없습니다`);
     return found.text;
   }
 
