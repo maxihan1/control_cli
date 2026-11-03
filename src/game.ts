@@ -58,8 +58,19 @@ export interface GameErrors {
   restarted?: boolean;
 }
 
-// 기다리기는 짧은 find 를 되풀이한다 — 명령 하나가 팜 15초 · SDK 10초 한도에 걸리지 않게(게임 명세 「게임 연결」).
-export const WAIT = { timeoutMs: 10_000, intervalMs: 300 };
+/** 열린 장면 — loads · unloads 는 게임이 켜진 뒤 장면이 열리고 닫힌 수(같은 장면을 다시 열어도 는다) */
+export interface Scenes {
+  active: string;
+  loaded: string[];
+  loads: number;
+  unloads: number;
+}
+
+/** 저장 값(PlayerPrefs) 타입 — 넣은 타입으로 읽는다 */
+export type PrefType = 'string' | 'int' | 'float';
+
+// 기다리기는 짧은 find 를 되풀이한다 — 명령 하나가 팜 15초 · SDK 10초 한도에 걸리지 않게(게임 명세 「게임 연결」). 장면은 크면 10초를 넘겨 따로 둔다.
+export const WAIT = { timeoutMs: 10_000, intervalMs: 300, sceneMs: 30_000 };
 
 export class Game {
   /** caps 는 그 게임 SDK 의 명령 목록 — 세션 파일에서 받고 ping 마다 새로 적는다. 없으면(옛 SDK) 다 보낸다 */
@@ -155,6 +166,92 @@ export class Game {
   /** 키 한 번 누르기 — KeyCode 이름(Escape · Space · Return · I · Alpha1 · F1). Escape 는 폰 뒤로 키와 같다 */
   async key(name: string): Promise<void> {
     await this.call({ cmd: 'key', key: name });
+  }
+
+  /** 컴포넌트 메서드를 부른다 — method 는 「컴포넌트.메서드」. 인자는 글자로 보내고 SDK 가 그 메서드 칸 타입으로 바꾼다 */
+  async callMethod(target: string, method: string, args: (string | number | boolean)[] = []): Promise<unknown> {
+    return (await this.call({ cmd: 'call', target, method, args: args.map(String) })).value;
+  }
+
+  /** 컴포넌트 칸을 쓰고 다시 읽은 값을 돌려준다 — value 는 get 이 주는 꼴의 글자('2.5' · 'true' · '[0,1,0]') */
+  async set(target: string, prop: string, value: string): Promise<unknown> {
+    return (await this.call({ cmd: 'set', target, prop, value })).value;
+  }
+
+  /** static 메서드 — method 는 「타입.메서드」(전체 이름 또는 하나뿐인 짧은 이름) */
+  async callStatic(method: string, args: (string | number | boolean)[] = []): Promise<unknown> {
+    return (await this.call({ cmd: 'static-call', method, args: args.map(String) })).value;
+  }
+
+  /** prop 은 「타입.칸[.칸…]」 — 'UnityEngine.Time.timeScale' */
+  async getStatic(prop: string): Promise<unknown> {
+    return (await this.call({ cmd: 'static-get', prop })).value;
+  }
+
+  async setStatic(prop: string, value: string): Promise<unknown> {
+    return (await this.call({ cmd: 'static-set', prop, value })).value;
+  }
+
+  /** 저장 값 — 없으면 null */
+  async pref(key: string, type: PrefType = 'string'): Promise<string | number | null> {
+    const r = await this.call({ cmd: 'pref-get', key, type });
+    return r.found === true ? (r.value as string | number) : null;
+  }
+
+  /** 넣고 바로 디스크에 쓴다 — 게임이 죽어도 남는다 */
+  async setPref(key: string, value: string | number, type: PrefType = 'string'): Promise<void> {
+    await this.call({ cmd: 'pref-set', key, value: String(value), type });
+  }
+
+  async deletePref(key: string): Promise<void> {
+    await this.call({ cmd: 'pref-delete', key });
+  }
+
+  async clearPrefs(): Promise<void> {
+    await this.call({ cmd: 'pref-clear' });
+  }
+
+  /** 시간 배율 — 1 이 보통, 0 은 멈춤 */
+  async timeScale(): Promise<number> {
+    return (await this.call({ cmd: 'timescale-get' })).timeScale as number;
+  }
+
+  async setTimeScale(scale: number): Promise<void> {
+    await this.call({ cmd: 'timescale-set', scale });
+  }
+
+  async scenes(): Promise<Scenes> {
+    const r = await this.call({ cmd: 'scenes' });
+    return { active: r.active as string, loaded: r.loaded as string[], loads: r.loads as number, unloads: r.unloads as number };
+  }
+
+  /** 빌드에 넣은 장면을 열고 다 열릴 때까지 기다린다 — add 면 지금 장면 위에 더하고, 아니면 그 장면이 지금 장면이 될 때까지 */
+  async loadScene(name: string, options: { add?: boolean; timeoutMs?: number } = {}): Promise<void> {
+    const r = await this.call({ cmd: 'scene-load', name, ...(options.add ? { mode: 'add' } : {}) });
+    // 게임이 답한 뒤 열린 수가 늘어야 이번 열기다 — 같은 장면을 다시 열면 이름만으로는 열기 전과 같다.
+    const loads = r.loads as number;
+    await this.untilScenes((s) => s.loads > loads && s.loaded.includes(name) && (options.add === true || s.active === name), `${name} 이 열리지 않았습니다`, options.timeoutMs);
+  }
+
+  /** 열린 장면 하나를 닫고 다 닫힐 때까지 기다린다 */
+  async unloadScene(name: string, options: { timeoutMs?: number } = {}): Promise<void> {
+    const unloads = (await this.call({ cmd: 'scene-unload', name })).unloads as number;
+    await this.untilScenes((s) => s.unloads > unloads, `${name} 이 닫히지 않았습니다`, options.timeoutMs);
+  }
+
+  /** 게임이 스스로 장면을 바꿀 때 — 지금 장면이 name 이 될 때까지 */
+  async waitForScene(name: string, options: { timeoutMs?: number } = {}): Promise<void> {
+    await this.untilScenes((s) => s.active === name, `지금 장면이 ${name} 이 되지 않았습니다`, options.timeoutMs);
+  }
+
+  private async untilScenes(done: (s: Scenes) => boolean, want: string, timeoutMs = WAIT.sceneMs): Promise<void> {
+    const end = Date.now() + timeoutMs;
+    for (;;) {
+      const s = await this.scenes();
+      if (done(s)) return;
+      if (Date.now() >= end) throw new Error(`${timeoutMs / 1000}초 안에 ${want} (지금 ${s.active} · 열린 것 ${s.loaded.join(' · ')})`);
+      await new Promise((ok) => setTimeout(ok, WAIT.intervalMs));
+    }
   }
 
   /** 게임이 프레임 끝에서 찍은 화면(JPEG) — Appium 이 없는 PC · iOS · 이미 켠 USB 게임용 */

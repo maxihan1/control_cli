@@ -17,6 +17,10 @@ export interface FakeNode extends Node {
   accept?: (text: string) => string;
   /** drag 하면 놓은 자리의 자식으로 옮긴다 — 샘플 Bag/Slot 의 Item 흉내 */
   movable?: boolean;
+  /** call 이 부르는 컴포넌트 메서드 — 「컴포넌트.메서드」, 인자는 SDK 처럼 글자로 온다 */
+  methods?: Record<string, (...args: string[]) => unknown>;
+  /** set — 바꾼 뒤 읽은 값, 그런 칸이 없으면 undefined */
+  set?: (prop: string, value: string) => unknown;
 }
 
 export const node = (name: string, extra: Partial<FakeNode> = {}, children?: FakeNode[]): FakeNode => ({ name, ...extra, ...(children ? { children } : {}) });
@@ -30,8 +34,26 @@ export class FakeGame {
   caps: string[] = [...COMMANDS];
   onBack?: () => void;
   onKey?: (key: string) => void;
+  /** static 칸 · 메서드 — 「타입.칸」 */
+  statics: Record<string, unknown> = {};
+  staticMethods: Record<string, (...args: string[]) => unknown> = {};
+  prefs = new Map<string, string | number>();
+  timeScale = 1;
+  /** 장면 이름 → 그 장면을 열 때 만드는 뿌리(샘플은 장면이 열릴 때마다 코드로 채운다). 없는 이름은 빌드에 없는 장면 */
+  sceneRoots: Record<string, () => FakeNode[]> = {};
+  loaded: { name: string; nodes: FakeNode[] }[];
+  loads = 0;
+  unloads = 0;
+  /** scenes 를 이만큼 물을 때까지 장면이 열리는 중 — Infinity 면 끝내 안 열린다 */
+  loadDelay = 0;
+  private pending?: { left: number; open: () => void };
 
-  constructor(public roots: FakeNode[], public scene = 'Boot') {}
+  constructor(
+    public roots: FakeNode[],
+    public scene = 'Boot',
+  ) {
+    this.loaded = [{ name: scene, nodes: roots }];
+  }
 
   private parentOf(child: FakeNode, nodes: FakeNode[] = this.roots): FakeNode | undefined {
     for (const n of nodes) {
@@ -102,6 +124,80 @@ export class FakeGame {
         return { ok: true, key: c.key };
       case 'screenshot':
         return { ok: true, jpg: Buffer.from('jpg').toString('base64') };
+      case 'call': {
+        if (!f.node) return { ok: false, error: `켜진 오브젝트 중에 ${c.target as string} 이 없습니다` };
+        const m = f.node.methods?.[c.method as string];
+        return m ? { ok: true, value: m(...((c.args as string[] | undefined) ?? [])) ?? null } : { ok: false, error: `${c.method as string} 메서드가 없습니다` };
+      }
+      case 'set': {
+        const v = f.node?.set?.(c.prop as string, c.value as string);
+        return v === undefined ? { ok: false, error: `${c.prop as string} 칸이 없습니다` } : { ok: true, value: v };
+      }
+      case 'static-call': {
+        const m = this.staticMethods[c.method as string];
+        return m ? { ok: true, value: m(...((c.args as string[] | undefined) ?? [])) ?? null } : { ok: false, error: `${c.method as string} 메서드가 없습니다` };
+      }
+      case 'static-get':
+      case 'static-set': {
+        const prop = c.prop as string;
+        if (!(prop in this.statics)) return { ok: false, error: `${prop} 칸이 없습니다` };
+        if (c.cmd === 'static-set') this.statics[prop] = c.value;
+        return { ok: true, value: this.statics[prop] };
+      }
+      case 'pref-get': {
+        const v = this.prefs.get(c.key as string);
+        return v === undefined ? { ok: true, found: false } : { ok: true, found: true, value: v };
+      }
+      case 'pref-set':
+        this.prefs.set(c.key as string, c.type === 'int' || c.type === 'float' ? Number(c.value) : (c.value as string));
+        return { ok: true };
+      case 'pref-delete':
+        this.prefs.delete(c.key as string);
+        return { ok: true };
+      case 'pref-clear':
+        this.prefs.clear();
+        return { ok: true };
+      case 'timescale-get':
+        return { ok: true, timeScale: this.timeScale };
+      case 'timescale-set':
+        this.timeScale = c.scale as number;
+        return { ok: true, timeScale: this.timeScale };
+      case 'scenes':
+        if (this.pending && --this.pending.left <= 0) {
+          this.pending.open();
+          this.pending = undefined;
+        }
+        return { ok: true, active: this.scene, loaded: this.loaded.map((l) => l.name), loads: this.loads, unloads: this.unloads };
+      case 'scene-load': {
+        const name = c.name as string;
+        const make = this.sceneRoots[name];
+        if (!make) return { ok: false, error: `장면 ${name} 은 빌드에 없습니다` };
+        // SDK 처럼 바로 답하고 장면은 뒤에 열린다 — 답의 loads 는 열기 전 수.
+        const open = () => {
+          const nodes = make();
+          if (c.mode === 'add') {
+            this.loaded.push({ name, nodes });
+            this.roots = [...this.roots, ...nodes];
+          } else {
+            this.loaded = [{ name, nodes }];
+            this.roots = nodes;
+            this.scene = name;
+          }
+          this.loads++;
+        };
+        const loads = this.loads;
+        if (this.loadDelay > 0) this.pending = { left: this.loadDelay, open };
+        else open();
+        return { ok: true, loads };
+      }
+      case 'scene-unload': {
+        const i = this.loaded.findIndex((l) => l.name === c.name);
+        if (i < 0) return { ok: false, error: `열린 장면 중에 ${c.name as string} 이 없습니다` };
+        if (this.loaded.length < 2) return { ok: false, error: '마지막 장면은 닫을 수 없습니다' };
+        const [gone] = this.loaded.splice(i, 1);
+        this.roots = this.roots.filter((n) => !gone.nodes.includes(n));
+        return { ok: true, unloads: this.unloads++ };
+      }
       default:
         return { ok: false, error: `모르는 명령입니다: ${c.cmd}` };
     }
@@ -111,24 +207,41 @@ export class FakeGame {
 /** 키로 칠 때처럼 영숫자만 남기고 글자 수로 자른다 — 샘플 IdInput(글자 수 8 · 영숫자) 흉내 */
 export const keyFilter = (limit: number) => (text: string) => text.replace(/[^A-Za-z0-9]/g, '').slice(0, limit);
 
-/** 표준 화면 흉내 — sample/Assets/Sample 과 같은 이름 · 같은 반응(conform 의 기대값) */
+/** 표준 화면 흉내 — sample/Assets/Sample 과 같은 이름 · 같은 반응(conform 의 기대값). Sample 장면이 열릴 때마다 화면을 새로 만든다 */
 export function standardScreen(idAccept = keyFilter(8)): FakeGame {
-  const status = node('StatusText', { text: '' });
-  const tmpStatus = node('TmpStatusText', { text: '' });
-  const uitkStatus = node('UitkStatusText', { text: '' });
-  const touch = node('TouchText', { text: '' });
-  const id = node('IdInput', { kind: 'InputField', interactable: true, text: '', accept: idAccept });
-  const tmpId = node('TmpIdInput', { kind: 'TMP_InputField', interactable: true, text: '', accept: keyFilter(8) });
-  const uitkId = node('UitkIdInput', { kind: 'TextField', interactable: true, text: '', accept: (t) => t.slice(0, 8) });
-  const login = (name: string, label: string, out: FakeNode, from: FakeNode) => {
-    let presses = 0;
-    return node(name, { kind: 'Button', interactable: true, onClick: () => (out.text = `${label} ${from.text} ${++presses}`) });
-  };
-  let cubes = 0;
-  const game = new FakeGame(
-    [
-      node('WorldCube', { onClick: () => (touch.text = `cube ${++cubes}`), props: { 'Transform.position': [0, 0, 5] } }),
-      node('SampleCanvas', {}, [
+  const game = new FakeGame([], 'Sample');
+  const build = (): FakeNode[] => {
+    const status = node('StatusText', { text: '', set: (p, v) => (p === 'Text.text' ? (status.text = v) : undefined) });
+    const tmpStatus = node('TmpStatusText', { text: '' });
+    const uitkStatus = node('UitkStatusText', { text: '' });
+    const touch = node('TouchText', { text: '' });
+    const id = node('IdInput', { kind: 'InputField', interactable: true, text: '', accept: idAccept });
+    const tmpId = node('TmpIdInput', { kind: 'TMP_InputField', interactable: true, text: '', accept: keyFilter(8) });
+    const uitkId = node('UitkIdInput', { kind: 'TextField', interactable: true, text: '', accept: (t) => t.slice(0, 8) });
+    const login = (name: string, label: string, out: FakeNode, from: FakeNode) => {
+      let presses = 0;
+      return node(name, { kind: 'Button', interactable: true, onClick: () => (out.text = `${label} ${from.text} ${++presses}`) });
+    };
+    let cubes = 0;
+    const position = [0, 0, 5];
+    game.onKey = (key) => (touch.text = `key ${key}`);
+    return [
+      node('WorldCube', {
+        onClick: () => (touch.text = `cube ${++cubes}`),
+        props: {
+          get 'Transform.position'() {
+            return [...position];
+          },
+        },
+        // SDK 처럼 칸 길 끝을 바꾸고 다시 읽은 값 — 벡터는 [x,y,z] 글자로 온다.
+        set: (p, v) => {
+          if (p === 'Transform.position') position.splice(0, 3, ...(JSON.parse(v) as number[]));
+          else if (p === 'Transform.position.y') position[1] = Number(v);
+          else return undefined;
+          return p === 'Transform.position' ? [...position] : position[1];
+        },
+      }),
+      node('SampleCanvas', { methods: { 'TouchProbe.Say': (word, times) => (touch.text = `${word} ${times}`) } }, [
         status,
         id,
         login('LoginButton', 'login', status, id),
@@ -139,10 +252,13 @@ export function standardScreen(idAccept = keyFilter(8)): FakeGame {
         node('Bag', {}, [node('Slot', {}, [node('Item', { movable: true })]), node('Slot'), node('Slot'), node('Slot')]),
       ]),
       node('UitkDocument', {}, [node('UitkPanel', {}, [uitkStatus, uitkId, login('UitkLoginButton', 'uitk login', uitkStatus, uitkId)])]),
-    ],
-    'Sample',
-  );
-  game.onKey = (key) => (touch.text = `key ${key}`);
+    ];
+  };
+  game.sceneRoots = { Sample: build, Second: () => [node('SecondMarker')] };
+  game.roots = build();
+  game.loaded = [{ name: 'Sample', nodes: game.roots }];
+  game.statics = { 'Sample.TouchProbe.Note': null };
+  game.staticMethods = { 'Sample.TouchProbe.Add': (a, b) => Number(a) + Number(b) };
   return game;
 }
 
