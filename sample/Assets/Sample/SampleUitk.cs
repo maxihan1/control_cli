@@ -19,6 +19,10 @@ namespace Sample
             go.SetActive(true);
 
             // 테마(.tss) 없이 만들어 기본 모양이 없다 — 누를 자리가 생기게 크기 · 색을 직접 준다.
+            // 뿌리도 테마가 주던 「화면 가득」이 없어 높이 0 이 되고 아래 붙임 패널이 화면 밖으로 나간다(실기기에서 안 보임).
+            var root = doc.rootVisualElement;
+            root.style.position = Position.Absolute;
+            root.style.left = root.style.top = root.style.right = root.style.bottom = 0;
             var panel = new VisualElement { name = "UitkPanel" };
             panel.style.position = Position.Absolute;
             panel.style.left = 40;
