@@ -23,7 +23,10 @@ namespace ControlCli
         // 127.0.0.1 만 연다 — 폰 밖에서는 adb forward 로만 닿는다.
         public const int Port = 13100;
         private const int ReplyTimeoutMs = 10000;
-        private const string Commands = "ping · tree · find · click · drag · type · get · tap · key · screenshot · errors · layout";
+        // protocol/commands.json 의 명령 이름과 같은 차례(src/protocol.test.ts 가 본다) — ping 의 caps 로 CLI 에 알린다.
+        private static readonly string[] Caps = { "ping", "tree", "find", "click", "drag", "type", "get", "tap", "key", "screenshot", "errors", "layout" };
+        // sdk/unity/package.json 의 version 과 같다(src/protocol.test.ts 가 본다).
+        public const string SdkVersion = "0.3.0";
 
         private sealed class Request
         {
@@ -173,7 +176,9 @@ namespace ControlCli
             switch (c.cmd)
             {
                 case "ping":
-                    return "{\"ok\":true,\"app\":" + Json.Str(Application.identifier) + ",\"version\":" + Json.Str(Application.version) + "}";
+                    return "{\"ok\":true,\"app\":" + Json.Str(Application.identifier) + ",\"version\":" + Json.Str(Application.version)
+                        + ",\"engine\":\"unity\",\"engineVersion\":" + Json.Str(Application.unityVersion) + ",\"sdkVersion\":\"" + SdkVersion
+                        + "\",\"protocol\":2,\"caps\":[\"" + string.Join("\",\"", Caps) + "\"]}";
                 case "tree":
                     return "{\"ok\":true,\"scene\":" + Json.Str(SceneManager.GetActiveScene().name) + ",\"screen\":[" + Screen.width + "," + Screen.height + "],\"tree\":" + Tree.Dump() + "}";
                 case "find":
@@ -220,7 +225,7 @@ namespace ControlCli
                 case "layout":
                     return Layout.Check(c.target ?? "");
                 default:
-                    return Error("모르는 명령입니다: " + c.cmd + " (" + Commands + ")");
+                    return Error("모르는 명령입니다: " + c.cmd + " (" + string.Join(" · ", Caps) + ")");
             }
         }
 
