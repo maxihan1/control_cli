@@ -169,8 +169,10 @@ namespace ControlCli
                     return TypeText(c.target, c.text ?? "");
                 case "get":
                 {
-                    var go = Tree.Find(c.target, out var problem);
-                    return go == null ? Error(problem) : Props.Get(go, c.prop);
+                    var item = Tree.Find(c.target, out var problem);
+                    if (!item.Exists) return Error(problem);
+                    // 컴포넌트 칸을 읽는다 — UI Toolkit 요소는 게임 오브젝트가 아니다.
+                    return item.Go == null ? Error(c.target + " 은 UI Toolkit 요소라 컴포넌트 칸이 없습니다 — text · find 로 읽습니다") : Props.Get(item.Go, c.prop);
                 }
                 case "errors":
                     return c.since < 0 ? Error("since 는 0 이상이어야 합니다") : GameErrors.Since(c.since);
@@ -184,22 +186,21 @@ namespace ControlCli
         // 기다리기는 바깥에서 find 를 되풀이한다 — 없음은 실패가 아니라 found:false 다. 이름이 겹치는 것만 실패다.
         private static string FindReply(string target)
         {
-            var go = Tree.Find(target, out var problem, out var missing);
-            if (go == null) return missing ? "{\"ok\":true,\"found\":false}" : Error(problem);
-            var sb = new StringBuilder("{\"ok\":true,\"found\":true,\"path\":").Append(Json.Str(Tree.PathOf(go.transform)));
-            var text = Tree.TextOf(go);
+            var item = Tree.Find(target, out var problem, out var missing);
+            if (!item.Exists) return missing ? "{\"ok\":true,\"found\":false}" : Error(problem);
+            var sb = new StringBuilder("{\"ok\":true,\"found\":true,\"path\":").Append(Json.Str(Tree.PathOf(item)));
+            var text = Tree.TextOf(item);
             if (text != null) sb.Append(",\"text\":").Append(Json.Str(text));
-            var selectable = go.GetComponent<Selectable>();
-            if (selectable != null) sb.Append(",\"interactable\":").Append(selectable.IsInteractable() ? "true" : "false");
+            if (Tree.KindOf(item) != null) sb.Append(",\"interactable\":").Append(Tree.Interactable(item) ? "true" : "false");
             return sb.Append('}').ToString();
         }
 
         private static bool Point(string target, out Vector2 point, out string problem)
         {
             point = default;
-            var go = Tree.Find(target, out problem);
-            if (go == null) return false;
-            var p = Tree.ScreenPoint(go);
+            var item = Tree.Find(target, out problem);
+            if (!item.Exists) return false;
+            var p = Tree.ScreenPoint(item);
             if (p == null)
             {
                 problem = target + " 은 화면에 비친 자리가 없습니다(UI 도 아니고 주 카메라 앞도 아님)";
@@ -212,8 +213,19 @@ namespace ControlCli
         // 화면 키보드를 띄우지 않고 글자를 바로 넣는다. 글자 수 제한 · 글자 종류 거르기는 입력칸 규칙 그대로다.
         private static string TypeText(string target, string text)
         {
-            var go = Tree.Find(target, out var problem);
-            if (go == null) return Error(problem);
+            var item = Tree.Find(target, out var problem);
+            if (!item.Exists) return Error(problem);
+#if CONTROL_CLI_UITK
+            if (item.Ve != null)
+            {
+                if (!(item.Ve is UnityEngine.UIElements.TextField box)) return Error(target + " 은 입력칸(InputField · TMP_InputField · TextField)이 아닙니다");
+                if (!box.enabledInHierarchy || box.isReadOnly) return Error(target + " 은 잠겨 있어 글자를 넣을 수 없습니다");
+                // TextField.value 는 넣을 때 글자 수를 자르지 않는다 — 키로 칠 때처럼 maxLength 로 자른다.
+                box.value = box.maxLength >= 0 && text.Length > box.maxLength ? text.Substring(0, box.maxLength) : text;
+                return "{\"ok\":true,\"text\":" + Json.Str(Tree.TextOf(item)) + "}";
+            }
+#endif
+            var go = item.Go;
             var field = go.GetComponent<InputField>();
             if (field != null)
             {
@@ -221,7 +233,7 @@ namespace ControlCli
                 // uGUI 는 text 를 넣을 때 글자 수 제한 · 거르기를 스스로 한다.
                 field.text = text;
                 field.onEndEdit.Invoke(field.text);
-                return "{\"ok\":true,\"text\":" + Json.Str(Tree.TextOf(go)) + "}";
+                return "{\"ok\":true,\"text\":" + Json.Str(Tree.TextOf(item)) + "}";
             }
 #if CONTROL_CLI_TMP
             var tmp = go.GetComponent<TMPro.TMP_InputField>();
@@ -230,10 +242,10 @@ namespace ControlCli
                 if (!tmp.IsInteractable()) return Error(target + " 은 잠겨 있어 글자를 넣을 수 없습니다");
                 tmp.text = TmpFiltered(tmp, text);
                 tmp.onEndEdit.Invoke(tmp.text);
-                return "{\"ok\":true,\"text\":" + Json.Str(Tree.TextOf(go)) + "}";
+                return "{\"ok\":true,\"text\":" + Json.Str(Tree.TextOf(item)) + "}";
             }
 #endif
-            return Error(target + " 은 입력칸(InputField · TMP_InputField)이 아닙니다");
+            return Error(target + " 은 입력칸(InputField · TMP_InputField · TextField)이 아닙니다");
         }
 
 #if CONTROL_CLI_TMP

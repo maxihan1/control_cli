@@ -30,6 +30,11 @@
             "name": "com.unity.inputsystem",
             "expression": "1.0",
             "define": "CONTROL_CLI_INPUTSYSTEM"
+        },
+        {
+            "name": "com.unity.modules.uielements",
+            "expression": "1.0",
+            "define": "CONTROL_CLI_UITK"
         }
     ],
     "noEngineReferences": false

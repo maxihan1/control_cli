@@ -83,6 +83,9 @@ namespace ControlCli
 #if CONTROL_CLI_INPUTSYSTEM && ENABLE_INPUT_SYSTEM
                 FakeInputSystem.Send(FingerId, position, delta, phase);
 #endif
+#if CONTROL_CLI_UITK
+                if (UiToolkit.Direct) UiToolkit.Send(_current.Value);
+#endif
             }
             // 장면이 바뀌면 EventSystem 이 새로 생기므로 매 프레임 확인한다.
             var module = EventSystem.current != null ? EventSystem.current.currentInputModule : null;
