@@ -2,11 +2,23 @@
 
 Unity 게임을 자동화 테스트로 조작하는 SDK 와 CLI.
 
-- **SDK** (Unity UPM 패키지) — QA 빌드에서만 폰 안 `127.0.0.1` 에 포트를 열고, 오브젝트 트리 읽기 · 찾기 · 누르기 · 끌기 · 글자 넣기 · 속성 읽기를 받는다. 터치는 빌드 때 이름이 같은 가짜 `Input` 으로 바꿔치기한다
-- **CLI** — appium-cli 꼴. snapshot(줄인 트리 + 스크린샷) → ref → 액션, 액션마다 케이스에 붙일 코드 한 줄(`Ran:`)을 찍는다. 폰은 디바이스 팜 게임 명령 주소 또는 USB `adb forward` 로 잇는다
-- **라이브러리** — CLI 와 같은 드라이버(`Game`)와 두 길(`farmLink` · `usbLink`). test_platform kit 이 CLI 를 띄우지 않고 쓴다
+- **SDK** (Unity UPM 패키지) — QA 빌드에서만 게임 안 `127.0.0.1` 에 포트를 열고, 오브젝트 트리 읽기 · 찾기 · 누르기 · 끌기 · 글자 넣기 · 키 · 속성 읽기 · 스크린샷을 받는다. 터치는 빌드 때 이름이 같은 가짜 `Input` 으로 바꿔치기하고, 새 Input System 게임에는 장치 이벤트로 넣는다
+- **CLI** — appium-cli 꼴. snapshot(줄인 트리 + 스크린샷) → ref → 액션, 액션마다 케이스에 붙일 코드 한 줄(`Ran:`)을 찍는다. 디바이스 팜 게임 명령 주소 · USB `adb forward` · PC(TCP) · USB iPhone(usbmuxd) 로 잇는다
+- **라이브러리** — CLI 와 같은 드라이버(`Game`)와 연결 길(`farmLink` · `usbLink` · `tcpLink` · `iosLink`). test_platform kit 이 CLI 를 띄우지 않고 쓴다
 
-0단계 실측 결과는 [docs/step0.md](docs/step0.md).
+0단계 실측 결과는 [docs/step0.md](docs/step0.md). Unity 지원 넓히기의 결정 기록은 [docs/unity/](docs/unity/context-notes.md).
+
+## 지원
+
+| 무엇 | 받는 것 | 실기기로 확인 | 컴파일만 확인 |
+|---|---|---|---|
+| Unity 판 | 2021.3 · 2022.3 · 6000.0 | 6000.0 (Ashveil) | 2021.3 · 2022.3 |
+| UI | uGUI · TextMeshPro · UI Toolkit(UIDocument) | uGUI | TMP · UI Toolkit (`layout` 은 uGUI 만) |
+| 입력 | 옛 Input · 새 Input System · 둘 다 | 옛 Input | Input System(Touchscreen · Mouse · Keyboard) |
+| 플랫폼 | Android(팜 · USB) · PC(Windows · macOS) · iOS(USB, 17+) | Android | PC · iOS (CLI 는 가짜 게임 · 가짜 usbmuxd 로 테스트) |
+
+「컴파일만 확인」은 `tools/unity-compile-check` 9개 구성과 CLI 테스트까지다 — 샘플 Unity 프로젝트(`sample/`)를 CI 가 판 · 입력 · 플랫폼마다 구워(`.github/workflows/sample.yml`, Unity 라이선스 Secret 필요) 실기기에서 돌려 봐야 「실기기로 확인」으로 옮긴다.
+못 가로채는 것 — 게임 코드가 `UnityEngine.Input` 을 전체 이름으로 부르는 곳 · DLL plugin 안의 입력. 디바이스 팜은 Android 만 받는다.
 
 ## 게임에 넣기 (QA 빌드만)
 
@@ -36,7 +48,7 @@ node /tmp/control_cli/dist/main.js instrument <Unity 프로젝트 폴더> --ref 
 ## CLI
 
 ```bash
-npm i -D github:maxihan1/control_cli#v0.1.1
+npm i -D github:maxihan1/control_cli#v0.2.0
 npx control-cli help
 ```
 
@@ -164,6 +176,17 @@ npx control-cli crawl --max 30 --minutes 5 --exclude '/설정|settings/i' --excl
 | `screenshot` | | `{ok, jpg}` — 프레임 끝에서 찍은 화면(JPEG base64). 수 MB 라 팜은 Appium 스크린샷을 쓴다. ImageConversion 모듈을 뺀 게임은 실패 |
 | `errors` | `since` | `{ok, last, errors:[{seq, time, type, message, stack}], dropped?, restarted?}` |
 | `layout` | `target`? | `{ok, screen, safeArea, checked, problems:[{kind:'outside'\|'overlap', name, path, rect?, other?, otherPath?}]}` |
+
+## 개발
+
+```bash
+npm test                                            # CLI 테스트 — 가짜 게임 · 가짜 팜 · 가짜 PC 게임 · 가짜 usbmuxd
+python3 tools/unity-compile-check/check.py fetch    # Unity 판마다 관리 DLL · 내장 패키지 · TMP · Input System 받기(판마다 수 GB 를 받아 일부만 푼다)
+python3 tools/unity-compile-check/check.py 6000.0   # SDK · 샘플을 입력 설정 셋(옛 Input · 둘 다 · Input System)으로 컴파일 — Docker 필요
+```
+
+컴파일 검사는 Unity 라이선스 없이 PR 마다 돈다(`.github/workflows/sdk-compile.yml`). 로그의 `== <판> · <입력>` 줄에 SDK 에 켜진 정의(`CONTROL_CLI_TMP` · `CONTROL_CLI_INPUTSYSTEM` …)가 찍힌다.
+`sdk/` 에 파일을 더하면 `.meta` 도 같이 넣는다 — git 으로 받은 UPM 패키지는 Unity 가 `.meta` 를 못 만든다(`src/sdk-meta.test.ts` 가 잡는다).
 
 ## License
 
