@@ -129,6 +129,18 @@ export class Game {
   async tap(x: number, y: number): Promise<void> {
     await this.call({ cmd: 'tap', x, y });
   }
+
+  /** 키 한 번 누르기 — KeyCode 이름(Escape · Space · Return · I · Alpha1 · F1). Escape 는 폰 뒤로 키와 같다 */
+  async key(name: string): Promise<void> {
+    await this.call({ cmd: 'key', key: name });
+  }
+
+  /** 게임이 프레임 끝에서 찍은 화면(JPEG) — Appium 이 없는 PC · iOS · 이미 켠 USB 게임용 */
+  async screenshot(): Promise<Buffer> {
+    const r = await this.call({ cmd: 'screenshot' });
+    if (typeof r.jpg !== 'string') throw new Error('게임이 스크린샷을 주지 않았습니다');
+    return Buffer.from(r.jpg, 'base64');
+  }
 }
 
 // CLI · 창 훑기가 액션 뒤 화면을 찍을 때만 쓴다(케이스 메서드가 아니다). 트리가 두 번 같을 때까지 — 계속 바뀌는 HUD 는 상한에서 찍는다.

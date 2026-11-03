@@ -71,11 +71,21 @@ npx control-cli release                           # 폰을 놓는다 — 팜이 
 
 ```bash
 npx control-cli open --usb --app ./qa.apk         # 내 컴퓨터 Appium(PLATFORM_APPIUM_URL, 없으면 127.0.0.1:4723)이 깔고 켠다
-npx control-cli open --usb                        # 이미 켜 둔 게임에 붙는다 — Appium 세션이 없어 스크린샷이 없다
+npx control-cli open --usb                        # 이미 켜 둔 게임에 붙는다 — Appium 세션이 없어 스크린샷은 게임(SDK)이 찍는다(.jpg)
 npx control-cli open --usb --udid <serial> --port 13100
 ```
 
 USB 는 `adb forward tcp:13100 tcp:13100` 을 걸고 TCP 로 보낸다. adb 는 `ANDROID_HOME` → `~/Library/Android/sdk` → PATH 순서로 찾는다.
+
+### 루프 — PC (Windows · macOS 빌드)
+
+```bash
+npx control-cli open --pc --app ./Build/Game.app   # 띄우고 붙는다(.app 은 Contents/MacOS 안 실행 파일) — close 가 끈다
+npx control-cli open --pc                          # 이미 켜 둔 게임에 붙는다
+npx control-cli key I                              # Ran: await game.key('I')
+```
+
+PC 게임의 SDK 는 이 컴퓨터의 `127.0.0.1:13100` 에 열려 adb 없이 TCP 로 바로 붙는다. 스크린샷은 게임이 프레임 끝에서 찍고, 창 훑기의 뒤로 키는 `Escape` 다. QA 빌드는 창 초점이 없어도 돈다(SDK 가 `runInBackground` · Input System `IgnoreFocus` 를 켜고 uGUI 에 초점을 다시 알린다). `PLATFORM_APP` 은 팜 · USB 의 APK 라 PC 는 `--app` 만 본다.
 
 ### 명령
 
@@ -90,6 +100,7 @@ USB 는 `adb forward tcp:13100 tcp:13100` 을 걸고 TCP 로 보낸다. adb 는 
 | `wait <ref\|주소> [--text 글자] [--gone] [--timeout 초]` | 뜰 때까지 · 글자가 들 때까지 · 사라질 때까지(기본 10초) | `game.waitFor('ShopPanel', { gone: true })` |
 | `layout [ref\|주소]` | 누를 수 있는 UI 가 안전 영역 밖이거나 서로 겹치는지(팝업에 가린 것은 뺀다) | `game.layout('LoginView')` |
 | `errors [번호]` | 게임 예외 · 에러 로그(최근 200개). 답의 `last` 를 받아 두고 다음에 그 번호 뒤만 받는다 | 없음 |
+| `key <키>` | 키 한 번(한 프레임 누르고 다음 프레임 뗀다). KeyCode 이름 — `Escape` · `Space` · `Return` · `I` · `Alpha1` · `F1`. 옛 Input `GetKey*(KeyCode)` · Input System 키보드가 본다. `Escape` 는 Unity 에서 폰 뒤로 키와 같다 | `game.key('Escape')` |
 | `tap <x> <y>` | 좌표 누르기(왼쪽 아래가 0,0) — 살펴볼 때만. 케이스는 좌표를 쓰지 않는다 | 없음 |
 | `ping` · `tree` | 게임 답 · 켜진 오브젝트 트리 JSON | 없음 |
 
@@ -103,7 +114,7 @@ npx control-cli crawl                                  # → .control-cli/crawl/
 npx control-cli crawl --max 30 --minutes 5 --exclude '/설정|settings/i' --exclude 'GmButton' --out ./crawl
 ```
 
-지금 화면의 버튼을 하나씩 눌러 새로 뜬 창(앞 화면에 없던 오브젝트 묶음)을 찍고 닫는다 — 창 안 닫기 버튼 → 저절로 사라지기(알림) → 폰 뒤로 키 차례. 창 안 버튼은 한 단계 더 누른다(창 밖에 뜬 팝업만 다시 닫는다). 같은 이름 형제(목록 줄 · 슬롯)는 `[0]` 하나만, 같은 틀(순번을 뗀 경로)의 창은 한 번만 적는다.
+지금 화면의 버튼을 하나씩 눌러 새로 뜬 창(앞 화면에 없던 오브젝트 묶음)을 찍고 닫는다 — 창 안 닫기 버튼 → 저절로 사라지기(알림) → 뒤로 키(Appium 이 있으면 폰 뒤로 키, 없으면 `Escape` 키) 차례. 창 안 버튼은 한 단계 더 누른다(창 밖에 뜬 팝업만 다시 닫는다). 같은 이름 형제(목록 줄 · 슬롯)는 `[0]` 하나만, 같은 틀(순번을 뗀 경로)의 창은 한 번만 적는다.
 안 누르는 것 — 이름이나 글자에 삭제 · 탈퇴 · 로그아웃 · 종료 · 나가기 · delete · remove · logout · quit · exit 가 든 버튼 · 닫기 버튼 · `--exclude`(`/정규식/깃발` 이나 든 글자). 되돌리지 못하면 그 자리에서 멈춘다. 상한은 창 60개 · 10분(`CRAWL` 상수).
 로그인 · 캐릭터 고르기 · 순간이동은 하지 않는다 — 부르는 쪽이 그 화면에 맞춰 둔 뒤 다시 부른다.
 
@@ -121,7 +132,8 @@ npx control-cli crawl --max 30 --minutes 5 --exclude '/설정|settings/i' --excl
 | 팜 토큰 (Bearer) | `--token` | `PLATFORM_APPIUM_TOKEN` |
 | 게임 APK | `--app` | `PLATFORM_APP` |
 | 폰 | `--udid` | `PLATFORM_DEVICE_UDID` |
-| USB 게임 포트 | `--port` | — (기본 13100) |
+| USB · PC 게임 포트 | `--port` | — (기본 13100) |
+| PC 게임 실행 파일 | `--app` (`--pc` 와 같이) | — |
 
 ## SDK 명령 (통신 꼴 정본)
 
@@ -138,6 +150,8 @@ npx control-cli crawl --max 30 --minutes 5 --exclude '/설정|settings/i' --excl
 | `type` | `target` · `text` | `{ok, text}` — 넣은 뒤 칸 글자. 잠긴 칸은 실패 |
 | `get` | `target` · `prop`(`컴포넌트.칸[.칸…]`) | `{ok, value}` — 숫자 · 글자 · 참거짓 · 열거(이름) · 벡터 · 색은 배열, 그 밖은 글자 |
 | `tap` | `x` · `y` | `{ok, x, y}` |
+| `key` | `key`(KeyCode 이름, 대소문자 무시) | `{ok, key}` — 누르고 뗀 것을 게임이 처리한 뒤 답한다. 모르는 이름은 실패 |
+| `screenshot` | | `{ok, jpg}` — 프레임 끝에서 찍은 화면(JPEG base64). 수 MB 라 팜은 Appium 스크린샷을 쓴다. ImageConversion 모듈을 뺀 게임은 실패 |
 | `errors` | `since` | `{ok, last, errors:[{seq, time, type, message, stack}], dropped?, restarted?}` |
 | `layout` | `target`? | `{ok, screen, safeArea, checked, problems:[{kind:'outside'\|'overlap', name, path, rect?, other?, otherPath?}]}` |
 

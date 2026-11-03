@@ -1,6 +1,6 @@
 // 테스트용 가짜 게임 SDK 와 가짜 디바이스 팜 — 폰 없이 CLI · 창 훑기를 돌려 본다
 import { createServer, type Server } from 'node:http';
-import type { AddressInfo } from 'node:net';
+import { createServer as createNetServer, type AddressInfo, type Server as NetServer } from 'node:net';
 
 import type { Node } from './game.js';
 import type { Command, Reply } from './link.js';
@@ -18,6 +18,7 @@ export const button = (name: string, label: string, onClick?: () => void): FakeN
 
 export class FakeGame {
   clicks: string[] = [];
+  keys: string[] = [];
   commands: Command[] = [];
   onBack?: () => void;
 
@@ -66,10 +67,34 @@ export class FakeGame {
         return { ok: true, checked: 2, problems: [{ kind: 'overlap', name: 'A', path: '/C/A', other: 'B', otherPath: '/C/B' }] };
       case 'tap':
         return { ok: true, x: c.x, y: c.y };
+      case 'key':
+        this.keys.push(c.key as string);
+        // SDK 처럼 Escape 는 뒤로 키와 같다.
+        if (c.key === 'Escape') this.onBack?.();
+        return { ok: true, key: c.key };
+      case 'screenshot':
+        return { ok: true, jpg: Buffer.from('jpg').toString('base64') };
       default:
         return { ok: false, error: `모르는 명령입니다: ${c.cmd}` };
     }
   }
+}
+
+/** PC 게임 흉내 — SDK 처럼 127.0.0.1 포트에서 JSON 한 줄을 받아 한 줄로 답한다 */
+export async function fakeTcp(game: FakeGame): Promise<{ port: number; server: NetServer }> {
+  const server = createNetServer((socket) => {
+    let buf = '';
+    socket.setEncoding('utf8');
+    socket.on('data', (chunk: string) => {
+      buf += chunk;
+      for (let nl = buf.indexOf('\n'); nl >= 0; nl = buf.indexOf('\n')) {
+        socket.write(JSON.stringify(game.handle(JSON.parse(buf.slice(0, nl)) as Command)) + '\n');
+        buf = buf.slice(nl + 1);
+      }
+    });
+  });
+  await new Promise<void>((ok) => server.listen(0, '127.0.0.1', ok));
+  return { port: (server.address() as AddressInfo).port, server };
 }
 
 /** 디바이스 팜 입구 흉내 — 잡기 · Appium 세션 · 게임 명령 주소 */

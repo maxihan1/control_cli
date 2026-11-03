@@ -1,12 +1,12 @@
 // CLI 를 가짜 디바이스 팜 · 가짜 게임에 붙여 잡기 → 열기 → 액션 → Ran 줄 → 닫기 → 놓기를 돌려 본다
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, before, test } from 'node:test';
 
 import { run, TIMING } from './cli.js';
-import { button, fakeFarm, FakeGame, node } from './fake-game.js';
+import { button, fakeFarm, FakeGame, fakeTcp, node } from './fake-game.js';
 import { SETTLE, WAIT } from './game.js';
 
 Object.assign(SETTLE, { maxMs: 30, stepMs: 5 });
@@ -140,5 +140,34 @@ test('정리가 기다림 한도를 넘기면 다른 실행 탓이 아니라 팜
     await assert.rejects(cli('hold'), (e: Error) => /디바이스 팜이 놓은 폰을 정리하는 중이라 아직 못 잡습니다/.test(e.message) && !/다른 실행/.test(e.message));
   } finally {
     farm.state.devices = () => [{ serial: 'R1', state: 'IDLE', detail: 'ready' }];
+  }
+});
+
+test('PC — 띄운 게임에 adb 없이 붙고, 스크린샷은 게임이 찍고, key 는 Ran 줄을 남기고, close 가 게임을 끈다', async () => {
+  const pc = await fakeTcp(game);
+  const port = String(pc.port);
+  const macos = join(dir, 'Game.app', 'Contents', 'MacOS');
+  await mkdir(macos, { recursive: true });
+  await writeFile(join(macos, 'game'), '#!/bin/sh\nsleep 30\n', { mode: 0o755 });
+  try {
+    const opened = await cli('-s=pc', 'open', '--pc', '--app', join(dir, 'Game.app'), '--port', port);
+    assert.match(opened, /세션 pc 열림 — com\.fake\.game 1\.0 \(PC · 프로세스 \d+\)/);
+    assert.equal(await readFile(/- Screenshot: (.*\.jpg)/.exec(opened)![1], 'utf8'), 'jpg');
+    assert.match(await cli('-s=pc', 'key', 'Escape', '--port', port), /Ran: await game\.key\('Escape'\)/);
+    assert.equal(game.keys.at(-1), 'Escape');
+    assert.match(await cli('-s=pc', 'close'), /게임\(프로세스 \d+\)을 껐습니다/);
+  } finally {
+    pc.server.close();
+  }
+});
+
+test('--usb 와 --pc 는 같이 쓰지 않고, PC 는 팜용 PLATFORM_APP 을 띄우지 않는다', async () => {
+  await assert.rejects(cli('-s=both', 'open', '--usb', '--pc'), /--usb 와 --pc 는 같이 쓰지 않습니다/);
+  const pc = await fakeTcp(game);
+  try {
+    assert.match(await cli('-s=pc2', 'open', '--pc', '--port', String(pc.port)), /\(PC\)/);
+    assert.equal(await cli('-s=pc2', 'close'), '세션 pc2 닫음');
+  } finally {
+    pc.server.close();
   }
 });
