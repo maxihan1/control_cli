@@ -3,10 +3,10 @@ name: sdk-compile
 
 on:
   pull_request:
-    paths: ['sdk/**', 'tools/unity-compile-check/**', 'src/sdk-meta.test.ts', '.github/workflows/sdk-compile.yml']
+    paths: ['sdk/**', 'sample/Assets/**', 'tools/unity-compile-check/**', 'src/sdk-meta.test.ts', '.github/workflows/sdk-compile.yml']
   push:
     branches: [main]
-    paths: ['sdk/**', 'tools/unity-compile-check/**', 'src/sdk-meta.test.ts', '.github/workflows/sdk-compile.yml']
+    paths: ['sdk/**', 'sample/Assets/**', 'tools/unity-compile-check/**', 'src/sdk-meta.test.ts', '.github/workflows/sdk-compile.yml']
 
 jobs:
   meta:

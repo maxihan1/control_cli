@@ -47,7 +47,8 @@ INPUTS = {
 PLAYER = ["UNITY_ANDROID", "ENABLE_IL2CPP", "DEVELOPMENT_BUILD", "CONTROL_CLI", "NET_STANDARD_2_1", "NET_STANDARD", "CSHARP_7_3_OR_NEWER"]
 # UNITY_<판>_OR_NEWER 를 셀 판 목록 (Unity 6 도 UNITY_2023_3_OR_NEWER 를 정의한다)
 LINES = ["5.3", "5.4", "5.5", "5.6"] + [f"{y}.{m}" for y in range(2017, 2024) for m in ((1, 2, 3, 4) if y < 2020 else (1, 2, 3))] + ["6000.0"]
-OURS = [ROOT / "sdk", HERE / "probe"]
+# 샘플 런타임 코드도 판마다 본다 — Unity 빌드(수십 분)에 앞서 컴파일 오류를 잡는다. 빌드 스크립트(Assets/Editor)는 asmdef 가 없어 빠진다.
+OURS = [ROOT / "sdk", HERE / "probe", ROOT / "sample" / "Assets"]
 NOWARN = "CS0618;CS0649;CS0414;CS0169;CS0067;CS1701;CS1702;CS0436;MSB3277;CS8632;NU1701"
 
 
