@@ -121,6 +121,12 @@ macOS 의 usbmuxd 로 폰의 `127.0.0.1:13100` 에 명령마다 바로 잇는다
 | `find <ref\|주소>` | 있으면 `{path, text, interactable}`, 없으면 `null` | `game.find('ShopPanel')` |
 | `wait <ref\|주소> [--text 글자] [--gone] [--timeout 초]` | 뜰 때까지 · 글자가 들 때까지 · 사라질 때까지(기본 10초) | `game.waitFor('ShopPanel', { gone: true })` |
 | `layout [ref\|주소]` | 누를 수 있는 UI 가 안전 영역 밖이거나 서로 겹치는지(팝업에 가린 것은 뺀다) | `game.layout('LoginView')` |
+| `call <ref\|주소> <컴포넌트.메서드> [인자…]` | 컴포넌트 메서드를 부르고 돌려준 값을 찍는다. 인자는 글자로 보내고 SDK 가 메서드 칸 타입(숫자 · 참거짓 · 열거 이름 · `[x,y,z]` 벡터 · 색)으로 바꾼다 — 같은 이름 꼴이 여럿이면 인자 수가 맞고 다 바꿀 수 있는 첫 꼴 | `game.callMethod('Player', 'PlayerController.Jump', ['2'])` |
+| `set <ref\|주소> <컴포넌트.칸> <값>` | 칸 쓰기 — 값은 `get` 이 주는 꼴. `Transform.position.y` 처럼 값 타입 칸도 바꾼 사본을 다시 써 넣는다. 다시 읽은 값을 찍는다 | `game.set('Player', 'PlayerController.moveSpeed', '9')` |
+| `static-call <타입.메서드> [인자…]` · `static-get <타입.칸>` · `static-set <타입.칸> <값>` | static 메서드 · 칸 — 타입은 전체 이름(`UnityEngine.Time`) 또는 하나뿐인 짧은 이름 | `game.callStatic('Game.Cheats.AddGold', ['100'])` · `game.getStatic('UnityEngine.Time.timeScale')` |
+| `pref-get <키>` · `pref-set <키> <값>` · `pref-delete <키>` · `pref-clear` | 저장 값(PlayerPrefs) — `--type string\|int\|float`(기본 string). 넣은 타입으로 읽는다. 쓰면 바로 디스크에 | `game.setPref('tutorial_done', '1', 'int')` · `game.pref('tutorial_done', 'int')` |
+| `timescale-get` · `timescale-set <배율>` | 시간 배율 — 1 보통 · 0 멈춤 · 2 두 배(0~100) | `game.setTimeScale(0)` |
+| `scenes` · `scene-load <장면> [--add]` · `scene-unload <장면>` · `scene-wait <장면> [--timeout 초]` | 지금 장면 · 열린 장면, 빌드에 넣은 장면 열기(`--add` 는 위에 더한다) · 닫기 — 다 열리고 닫힐 때까지 기다린다(기본 30초). `scene-wait` 는 게임이 스스로 장면을 바꿀 때 | `game.loadScene('Shop', { add: true })` · `game.waitForScene('Lobby')` |
 | `errors [번호]` | 게임 예외 · 에러 로그(최근 200개). 답의 `last` 를 받아 두고 다음에 그 번호 뒤만 받는다 | 없음 |
 | `key <키>` | 키 한 번(한 프레임 누르고 다음 프레임 뗀다). KeyCode 이름 — `Escape` · `Space` · `Return` · `I` · `Alpha1` · `F1`. 옛 Input `GetKey*(KeyCode)` · Input System 키보드가 본다. `Escape` 는 Unity 에서 폰 뒤로 키와 같다 | `game.key('Escape')` |
 | `tap <x> <y>` | 좌표 누르기(왼쪽 아래가 0,0) — 살펴볼 때만. 케이스는 좌표를 쓰지 않는다 | 없음 |
@@ -167,7 +173,7 @@ Desktop 은 셸의 PATH 를 안 볼 수 있다 — `control-cli` · `node` 를 �
 | 도구 | 하는 일 |
 |---|---|
 | `hold` · `open` · `close` · `release` | 세션 — CLI 의 같은 명령. `open` 의 `via` 는 `farm`(기본 · `hold` 먼저) · `usb` · `pc` · `ios` |
-| `ping` · `tree` · `find` · `click` · `drag` · `type` · `get` · `tap` · `key` · `screenshot` · `errors` · `layout` | `protocol/commands.json` 의 명령 그대로 — 인자는 그 칸, 답은 SDK 답 JSON(`ok` 뺌). `screenshot` 은 그림으로 준다 |
+| `ping` · `tree` · `find` · `click` · `drag` · `type` · `get` · `tap` · `key` · `screenshot` · `errors` · `layout` · `call` · `set` · `static-call` · `static-get` · `static-set` · `pref-get` · `pref-set` · `pref-delete` · `pref-clear` · `timescale-get` · `timescale-set` · `scenes` · `scene-load` · `scene-unload` | `protocol/commands.json` 의 명령 그대로 — 인자는 그 칸, 답은 SDK 답 JSON(`ok` 뺌). `screenshot` 은 그림으로 준다. `scene-load` 는 열기 시작만 하니 `scenes` 로 다 열렸는지 본다 |
 
 - 명령을 `protocol/commands.json` 에 더하면 도구도 따라 는다(`src/mcp.test.ts` 가 잡는다)
 - 세션 파일은 `~/.control-cli/` — Claude Desktop 은 MCP 서버를 쓸 수 없는 `/` 에서 띄운다. 셸 CLI 의 `./.control-cli/` 와 따로다. `-s <세션>` · `--port` · `--url` · `--token` 은 `control-cli … mcp` 로 띄울 때 준다
@@ -204,6 +210,16 @@ Desktop 은 셸의 PATH 를 안 볼 수 있다 — `control-cli` · `node` 를 �
 | `screenshot` | | `{ok, jpg}` — 프레임 끝에서 찍은 화면(JPEG base64). 수 MB 라 팜은 Appium 스크린샷을 쓴다. ImageConversion 모듈을 뺀 게임은 실패 |
 | `errors` | `since` | `{ok, last, errors:[{seq, time, type, message, stack}], dropped?, restarted?}` |
 | `layout` | `target`? | `{ok, screen, safeArea, checked, problems:[{kind:'outside'\|'overlap', name, path, rect?, other?, otherPath?}]}` |
+| `call` | `target` · `method`(`컴포넌트.메서드`) · `args`?(글자 배열) | `{ok, value}` — void 는 `null`. 맞는 꼴이 없으면 있는 꼴을 실패 글에. 게임이 던지면 그 까닭 |
+| `set` | `target` · `prop` · `value`(글자) | `{ok, value}` — 다시 읽은 값. 읽기 전용 칸 · 바꿀 수 없는 타입은 실패 |
+| `static-call` | `method`(`타입.메서드`) · `args`? | `call` 과 같다 — SDK 0.4.0 부터 |
+| `static-get` · `static-set` | `prop`(`타입.칸[.칸…]`) · `value`(set) | `{ok, value}` — 타입 이름이 겹치면 실패 |
+| `pref-get` | `key` · `type`?(`string` · `int` · `float`) | `{ok, found:false}` 또는 `{ok, found:true, value}` |
+| `pref-set` · `pref-delete` · `pref-clear` | `key` · `value` · `type`? / `key` / | `{ok}` — 쓴 뒤 `PlayerPrefs.Save()` |
+| `timescale-get` · `timescale-set` | / `scale`(0~100) | `{ok, timeScale}` |
+| `scenes` | | `{ok, active, loaded:[이름], loads, unloads}` — 다 열린 장면만. `loads` · `unloads` 는 게임이 켜진 뒤 열리고 닫힌 수 |
+| `scene-load` | `name`(이름 · 경로) · `mode`?(`single` · `add`) | `{ok, loads}` — 열기 전 수를 주고 바로 답한다. `scenes` 의 `loads` 가 이보다 커지면 다 열렸다. 빌드에 없는 장면은 실패 |
+| `scene-unload` | `name` | `{ok, unloads}` — 위와 같다. 마지막 장면은 실패 |
 
 ## 개발
 

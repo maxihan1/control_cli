@@ -5,7 +5,7 @@
 
 ## 1. 기준 — AltTester 기능 목록
 
-기준은 AltTester 문서 [명령 목록](https://alttester.com/docs/sdk/latest/pages/commands.html)(설정 명령 5개를 뺀 68개)과 [Desktop 개요](https://alttester.com/docs/desktop/latest/pages/overview.html)다. 2026-11-03 지금 control_cli 는 명령 기준 22.5/68(약 33%).
+기준은 AltTester 문서 [명령 목록](https://alttester.com/docs/sdk/latest/pages/commands.html)(설정 명령 5개를 뺀 68개)과 [Desktop 개요](https://alttester.com/docs/desktop/latest/pages/overview.html)다. 2026-11-03 지금 control_cli 는 명령 기준 22.5/68(약 33%), P2-A 뒤 37.5/68(약 55%).
 ✓ 는 지금 있음, 단계는 넣을 곳.
 
 | AltTester 갈래 | 명령 · 기능 | 지금 | 단계 |
@@ -17,9 +17,10 @@
 | 입력 | KeyDown · KeyUp · HoldButton · PressKeys · MoveMouse · Scroll · MultipointSwipe · BeginTouch · MoveTouch · EndTouch · Tilt · ResetInput · 조이스틱 · Pointer Down/Up/Enter/Exit | | P2-C |
 | 스크린샷 | GetPNGScreenshot | ✓ JPEG | P2-B(PNG 고르기) |
 | 게임 상태 | GetCurrentScene · GetApplicationScreenSize | ✓ `tree` 의 `scene` · `screen` | — |
-| 게임 상태 | LoadScene · UnloadScene · GetAllLoadedScenes · WaitForCurrentSceneToBe · Get/SetTimeScale · PlayerPrefs(읽기 · 쓰기 · 키 지우기 · 다 지우기) · CallStaticMethod · Get/SetStaticProperty | | P2-A |
+| 게임 상태 | LoadScene · UnloadScene · GetAllLoadedScenes · WaitForCurrentSceneToBe · Get/SetTimeScale · PlayerPrefs(읽기 · 쓰기 · 키 지우기 · 다 지우기) · CallStaticMethod · Get/SetStaticProperty | ✓ `scene-load` · `scene-unload` · `scenes` · `scene-wait`(CLI) · `timescale-get/set` · `pref-get/set/delete/clear` · `static-call/get/set` | P2-A |
 | 오브젝트 | FindObjectFromObject · GetComponentProperty · GetText · SetText(입력칸) · Tap · Click · UpdateObject · GetWorldPosition | ✓ 경로 주소 · `get` · `text` · `type` · `click` | — |
-| 오브젝트 | CallComponentMethod · SetComponentProperty · WaitForComponentProperty · GetParent · GetScreenPosition · SetText(글자 컴포넌트) · 컴포넌트 · 필드 · 메서드 목록 | | P2-A · P2-B |
+| 오브젝트 | CallComponentMethod · SetComponentProperty | ✓ `call` · `set` | P2-A |
+| 오브젝트 | WaitForComponentProperty · GetParent · GetScreenPosition · SetText(글자 컴포넌트) · 컴포넌트 · 필드 · 메서드 목록 | | P2-B |
 | 오브젝트 | GetVisualElementProperty · WaitForVisualElementProperty(UI Toolkit) | | P2-B |
 | 알림 | 장면 열림 · 닫힘 · 로그 · 앱 일시정지 · SetServerLogging | `errors`(오류만) | P2-D |
 | 연결 | Android 역방향 포트 연결 · iOS 역방향 · AltTester Server(로컬 · 원격 중계) | ✓ adb forward · 팜 · usbmuxd | P3 |
