@@ -21,6 +21,17 @@ export interface Found {
   interactable?: boolean;
 }
 
+export interface PingReply {
+  app: string;
+  version: string;
+  /** protocol 2(SDK 0.3.0)부터 — 옛 SDK 는 app · version 만 준다 */
+  engine?: string;
+  engineVersion?: string;
+  sdkVersion?: string;
+  protocol?: number;
+  caps?: string[];
+}
+
 export interface WaitOptions {
   /** 이 글자가 들어 있을 때까지 */
   text?: string;
@@ -51,16 +62,26 @@ export interface GameErrors {
 export const WAIT = { timeoutMs: 10_000, intervalMs: 300 };
 
 export class Game {
-  constructor(private readonly link: Link) {}
+  /** caps 는 그 게임 SDK 의 명령 목록 — 세션 파일에서 받고 ping 마다 새로 적는다. 없으면(옛 SDK) 다 보낸다 */
+  constructor(
+    private readonly link: Link,
+    public caps?: string[],
+  ) {}
 
   private async call(command: Command): Promise<Reply> {
+    if (this.caps && !this.caps.includes(command.cmd))
+      throw new Error(`이 게임의 SDK 는 ${command.cmd} 를 못 합니다(할 수 있는 것: ${this.caps.join(' · ')}) — SDK 를 올립니다`);
     const reply = await this.link(command);
     if (reply.ok !== true) throw new Error(reply.error ?? `게임이 실패로 답했습니다: ${JSON.stringify(reply)}`);
     return reply;
   }
 
-  async ping(): Promise<{ app: string; version: string }> {
-    return (await this.call({ cmd: 'ping' })) as unknown as { app: string; version: string };
+  async ping(): Promise<PingReply> {
+    const reply = (await this.call({ cmd: 'ping' })) as unknown as PingReply;
+    // 게임이 보낸 값이라 꼴을 본다 — 글자 하나면 includes 가 글자 일부로 맞춘다. 꼴이 틀리면 옛 SDK 처럼 다 보낸다.
+    const caps: unknown = reply.caps;
+    this.caps = Array.isArray(caps) && caps.every((c) => typeof c === 'string') ? caps : undefined;
+    return reply;
   }
 
   async tree(): Promise<TreeReply> {

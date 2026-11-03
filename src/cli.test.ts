@@ -7,11 +7,13 @@ import { after, before, test } from 'node:test';
 
 import { capabilities } from './appium.js';
 import { run, TIMING } from './cli.js';
-import { button, fakeFarm, FakeGame, fakeTcp, fakeUsbmux, node } from './fake-game.js';
+import { CONFORM } from './conform.js';
+import { button, fakeFarm, FakeGame, fakeTcp, fakeUsbmux, node, standardScreen } from './fake-game.js';
 import { SETTLE, WAIT } from './game.js';
 
 Object.assign(SETTLE, { maxMs: 30, stepMs: 5 });
 Object.assign(WAIT, { intervalMs: 5 });
+Object.assign(CONFORM, { waitMs: 50 });
 Object.assign(TIMING, { openWaitMs: 200, openStepMs: 5, cleanWaitMs: 100, cleanStepMs: 5 });
 
 const status = node('StatusText', { text: '' });
@@ -164,6 +166,46 @@ test('PC — 띄운 게임에 adb 없이 붙고, 스크린샷은 게임이 찍�
     assert.match(await cli('-s=pc', 'close'), /게임\(프로세스 \d+\)을 껐습니다/);
   } finally {
     pc.server.close();
+  }
+});
+
+test('게임 SDK 의 caps 에 없는 명령은 보내지 않고 미리 거절한다 · open 줄에 엔진 · SDK 판', async () => {
+  const g = new FakeGame([node('Boot', {}, [node('A', { text: 'a' })])]);
+  g.caps = g.caps.filter((c) => c !== 'layout');
+  const pc = await fakeTcp(g);
+  const port = String(pc.port);
+  try {
+    assert.match(await cli('-s=caps', 'open', '--pc', '--port', port), /\(PC\) · fake 0 · SDK 0\.3\.0/);
+    await assert.rejects(cli('-s=caps', 'layout', '--port', port), /이 게임의 SDK 는 layout 를 못 합니다/);
+    assert.ok(!g.commands.some((c) => c.cmd === 'layout'), 'layout 이 게임에 갔습니다');
+    // 게임을 새 SDK 로 다시 띄운 뒤 — ping 이 세션의 caps 를 새로 적는다
+    g.caps.push('layout');
+    await cli('-s=caps', 'ping', '--port', port);
+    assert.match(await cli('-s=caps', 'layout', '--port', port), /Ran: await game\.layout\(\)/);
+    await cli('-s=caps', 'close');
+    // 배열이 아닌 caps 는 믿지 않는다 — 글자 일부로 맞춰 거절하지 않고 옛 SDK 처럼 다 보낸다
+    (g as unknown as { caps: unknown }).caps = 'ping tree';
+    await cli('-s=caps', 'open', '--pc', '--port', port);
+    assert.match(await cli('-s=caps', 'layout', '--port', port), /Ran: await game\.layout\(\)/);
+    await cli('-s=caps', 'close');
+  } finally {
+    pc.server.close();
+  }
+});
+
+test('conform — 표준 화면이면 16줄 통과, 다르면 종료 코드로 알린다', async () => {
+  const ok = await fakeTcp(standardScreen());
+  const bad = await fakeTcp(new FakeGame([node('Boot')]));
+  try {
+    await cli('-s=cf', 'open', '--pc', '--port', String(ok.port));
+    assert.match(await cli('-s=cf', 'conform', '--port', String(ok.port)), /통과 16 · 실패 0 · 건너뜀 0/);
+    await cli('-s=cf', 'close');
+    await cli('-s=cf2', 'open', '--pc', '--port', String(bad.port));
+    await assert.rejects(cli('-s=cf2', 'conform', '--port', String(bad.port)), /통과 \d+ · 실패 [1-9]/);
+    await cli('-s=cf2', 'close');
+  } finally {
+    ok.server.close();
+    bad.server.close();
   }
 });
 

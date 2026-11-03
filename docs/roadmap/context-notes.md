@@ -39,3 +39,20 @@
 - 사용자 「p0 ~ p2 까지 순차 진행하고 나머지는 병행해서 작업 진행 할 수 있지?」 → 된다. P0~P2 가 통신 꼴 · `conform` · 표준 화면 · Unity 기준 구현을 굳히면 P3~P10 은 서로 거의 안 엮인다(엔진끼리 무관 · 엔진 웹 빌드만 P3 relay 뒤 · Recorder 의 TS 밖 출력만 P4 뒤)
 - 조건 — P2 가 main 에 합쳐진 뒤 시작(그 전에 Unity U-stack #5~#13 도). 통신 꼴 바꿈은 작은 PR 로 main 에 먼저. 트랙마다 세션 · worktree · 팜 폰 하나
 - 한꺼번에가 아니라 세 트랙씩 묶음을 권했다 — 병목이 코드가 아니라 PR 검토 · 팜 폰 둘 · Unreal 러너 · GameMaker/RPG Maker 라이선스라서
+
+## 2026-11-03 — P0 끝 (팜 RF9R408GKRR · sample run 41642343858 · 커밋 07062ec)
+
+- 경로 — Unity SDK 는 `sdk/unity/`(c6a60c1). UPM 주소는 `?path=/sdk/unity`, 엔진이 늘면 `sdk/<엔진>/`. 워크플로 `paths: ['sdk/**']` 는 그대로 받는다
+- protocol 2 — `ping` 이 `engine` · `engineVersion` · `sdkVersion` · `protocol` · `caps` 를 준다(SDK · CLI 판 0.3.0). 명령 이름은 `protocol/commands.json` 한 곳, Unity 쪽 `Caps` 배열과 `SdkVersion` 은 `src/protocol.test.ts` 가 글로 읽어 대조한다(C# 을 돌리지 않고 잡는다). npm 패키지에 `protocol/` 을 싣는다
+- caps 미리 거절 — `open` 이 받은 caps 를 세션 파일에 적고, `Game` 이 caps 밖 명령을 보내기 전에 「이 게임의 SDK 는 X 를 못 합니다」로 던진다. 옛 SDK(caps 없음)는 다 보낸다 — 0.2.0 게임도 그대로 쓴다
+- conform 16줄 — tree · find · type 셋(uGUI · TMP · UI Toolkit) · 로그인 셋 · drag · 큐브 · 키 · get · tap · layout · screenshot · errors. 누른 횟수는 안 보고 글자가 들어 있는지만 봐 같은 세션에서 다시 돌려도 맞다. caps 에 없는 명령 줄은 「건너뜀」, 실패가 있으면 종료 코드 1
+- 실기기 결과 — APK 넷(6000.0 옛 Input · 6000.0 Input System · 2022.3 둘 다 · 2021.3 옛 Input) 모두 「통과 16 · 실패 0 · 건너뜀 0」. `open` 줄에 「· unity <판> · SDK 0.3.0」이 나와 새 ping 이 실기기에서도 온다. uGUI `type` 이 이제 `qauser01`(2db810e 고침이 들어간 첫 conform). 전체 화면 안내 창은 안 떴다(패키지 이름으로 기억 — 「두 번째 실기기 시험」 그대로)
+- CI 에서 새로 안 것 — 6000.0 옛 Input Android 잡이 Gradle 단계에서 Maven Central 의 POM(`commons-io:2.16.1` · `asm:9.8` · `kotlin-stdlib:2.2.10` …)을 「Could not find」로 4분 넘게 못 받아 빨강. 저장소 쪽 문제라 `gh run rerun --failed` 한 번에 초록. 같은 Unity 판 Input System 잡은 바로 다음 차례에 같은 run 에서 초록이었다
+- 이 맥 macOS 앱도 「통과 16 · 실패 0 · 건너뜀 0」(2026-11-04 04:48, run 41642343858 의 StandaloneOSX · 세로 창 540×1200 · `close` 가 게임을 끔). 처음엔 pmset 마지막 기록이 「Display is turned off」(11-03 19:43)라 미뤘으나, 사용자는 맥이 켜져 있다고 했다 — `system_profiler SPDisplaysDataType` 은 두 화면 모두 「Display Asleep: Yes」. **`caffeinate -u -t 3`(사용자 활동 신호)로 화면을 깨우면 pmset 에 바로 「Display is turned on」이 찍히고, `caffeinate -d` 를 걸어 둔 채 돌리면 Metal 멈춤 없이 끝난다** — 화면이 잠들었다고 macOS 시험을 건너뛸 까닭이 없다
+- 계획과 다르게 한 것 — ① Task 1 확인 때 앞 작업자가 남긴 Task 2 실패 테스트(`src/protocol.test.ts`)가 build 를 막아 잠깐 치우고 돌렸다 ② roadmap PR 본문은 `origin/roadmap` 의 plan.md 에 attribution 을 붙였다 ③ `package-lock.json` 판은 0.0.1 그대로(0.2.0 때도 안 올렸다 — 계획대로 package.json 둘만)
+
+## 2026-11-04 — P0 코드 리뷰 (PR #15, /code-review · 후보 15개)
+
+- 고침 — ① caps 는 ping 마다 새로 적는다(게임을 새 SDK 로 다시 띄워도 `ping` · `conform` 이 세션 caps 를 고친다) · 게임이 보낸 caps 가 글자 배열이 아니면 믿지 않고 다 보낸다(글자 하나면 `includes` 가 일부로 맞춘다) · `open` 이 caps 를 바로 저장(176f89d) ② conform 을 다시 돌리면 앞 판 상태 글자 · Item 자리가 남아 누르기 · 끌기가 안 먹어도 통과했다 — 누르기 전 글자와 달라져야 통과, Item 이 이미 Slot[3] 이면 Slot[2] 로 옮긴다. 줄마다 쓰는 명령 전부(`click` + `find` …)를 caps 와 견준다 · get 실패 글에 받은 값(7e39ba2). 이 맥 앱에서 한 세션 두 판 모두 16/16 ③ `protocol.test` 를 sdk-compile meta 잡에서 돌리고 SDK ping 의 `protocol` 숫자도 commands.json 과 대조, 테스트 안의 명령 목록 사본은 겹침 검사로 바꿈(d18a681) ④ `PingReply` 를 라이브러리 입구에서 export
+- 안 고침 — errors 를 conform 시작 뒤만 보자는 안: 표준 화면이 켜질 때 낸 에러도 적합성 실패가 맞다. 팜 screenshot 을 Appium 으로 돌리자는 안: conform 은 SDK screenshot 명령 자체를 본다(팜 SM-A325N 에서 통과). 가짜 drag 의 `to` 없음 · 일부만 v2 인 ping 의 `undefined` 글: 그런 입력이 없다
+- 미룸 — `instrument` 기본 ref `main` × `?path=/sdk/unity`. `roadmap` 에 합치는 데는 상관없고, main 에 합칠 때 옛 CLI(`?path=/sdk#main`)와 새 CLI 가 엇갈린다. 기본 ref 를 CLI 판 tag 로 두면 CLI 와 SDK 경로가 늘 맞는다(그 tag 를 먼저 찍어야 한다) — checklist 맨 위

@@ -124,6 +124,7 @@ macOS 의 usbmuxd 로 폰의 `127.0.0.1:13100` 에 명령마다 바로 잇는다
 | `key <키>` | 키 한 번(한 프레임 누르고 다음 프레임 뗀다). KeyCode 이름 — `Escape` · `Space` · `Return` · `I` · `Alpha1` · `F1`. 옛 Input `GetKey*(KeyCode)` · Input System 키보드가 본다. `Escape` 는 Unity 에서 폰 뒤로 키와 같다 | `game.key('Escape')` |
 | `tap <x> <y>` | 좌표 누르기(왼쪽 아래가 0,0) — 살펴볼 때만. 케이스는 좌표를 쓰지 않는다 | 없음 |
 | `ping` · `tree` | 게임 답 · 켜진 오브젝트 트리 JSON | 없음 |
+| `conform` | 표준 화면(샘플)에 명령을 차례로 보내 기대값과 견준다 — `open` 바로 뒤에. 게임 SDK 의 `caps` 에 없는 명령 줄은 건너뛰고, 실패가 있으면 종료 코드 1 | 없음 |
 
 **주소**는 오브젝트 이름(켜진 것 중 하나뿐일 때) 또는 `/` 로 시작하는 경로다. 같은 이름 형제는 경로 칸에 `[순번]`(0부터)을 붙인다 — `/HudCanvas/Inventory/Grid/Slot[2]`. 이름이 겹치면 고르지 않고 실패한다. UI Toolkit 요소는 UIDocument 오브젝트 아래 자식으로 이어진다(이름이 없으면 타입 이름) — `/UitkDocument/UitkPanel/UitkLoginButton`.
 액션 뒤에는 트리가 두 번 같을 때까지(3초 상한) 기다렸다 화면을 찍는다. **기다리기**는 0.3초마다 짧은 `find` 를 되풀이한다 — 명령 하나가 팜 15초 · SDK 10초 한도에 안 걸린다.
@@ -164,7 +165,7 @@ npx control-cli crawl --max 30 --minutes 5 --exclude '/설정|settings/i' --excl
 
 | `cmd` | 칸 | 답 |
 |---|---|---|
-| `ping` | | `{ok, app, version}` |
+| `ping` | | `{ok, app, version, engine, engineVersion, sdkVersion, protocol, caps}` — `engine` 부터는 protocol 2(SDK 0.3.0)부터. CLI 는 `open` 때 받은 `caps` 밖 명령을 보내지 않고 거절한다. 명령 정의는 `protocol/commands.json` |
 | `tree` | | `{ok, scene, screen:[w,h], tree:[{name, text?, kind?, interactable?, children?}]}` — 켜진 오브젝트만. `kind` 는 Selectable 종류(Button · Toggle · InputField · TMP_InputField …) 또는 UI Toolkit 컨트롤(Button · Toggle · RadioButton · TextField · DropdownField · Slider). `text` 는 Text · InputField · TextMeshPro(TMP_Text · TMP_InputField) · UI Toolkit(TextElement · TextField). UI Toolkit 은 숨은 요소(display none · 안 보임)를 빼고 컨트롤 속은 내보내지 않는다. 비밀번호 칸 글자는 `***` |
 | `find` | `target` | `{ok, found:false}` 또는 `{ok, found:true, path, text?, interactable?}` — 이름이 겹치면 실패 |
 | `click` | `target` | `{ok, x, y}` — 가짜 터치가 다 나가고 게임이 처리한 뒤 답한다 |
@@ -186,7 +187,8 @@ python3 tools/unity-compile-check/check.py 6000.0   # SDK · 샘플을 입력 �
 ```
 
 컴파일 검사는 Unity 라이선스 없이 PR 마다 돈다(`.github/workflows/sdk-compile.yml`). 로그의 `== <판> · <입력>` 줄에 SDK 에 켜진 정의(`CONTROL_CLI_TMP` · `CONTROL_CLI_INPUTSYSTEM` …)가 찍힌다.
-`sdk/` 에 파일을 더하면 `.meta` 도 같이 넣는다 — git 으로 받은 UPM 패키지는 Unity 가 `.meta` 를 못 만든다(`src/sdk-meta.test.ts` 가 잡는다).
+`sdk/unity/` 에 파일을 더하면 `.meta` 도 같이 넣는다 — git 으로 받은 UPM 패키지는 Unity 가 `.meta` 를 못 만든다(`src/sdk-meta.test.ts` 가 잡는다).
+명령을 더하거나 바꾸면 `protocol/commands.json` 과 Unity SDK 의 `Caps`(`sdk/unity/Runtime/ControlServer.cs`)를 같이 고친다 — `src/protocol.test.ts` 가 잡는다.
 
 ## License
 

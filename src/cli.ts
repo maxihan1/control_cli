@@ -6,9 +6,10 @@ import { join } from 'node:path';
 import { parseArgs } from 'node:util';
 
 import { back, call, connect, farmOf, openSession, screenshot, type Conn } from './appium.js';
+import { conform, report } from './conform.js';
 import { crawl, CRAWL } from './crawl.js';
 import { installAndLaunch, terminate } from './devicectl.js';
-import { Game, settled, type WaitOptions } from './game.js';
+import { Game, settled, type PingReply, type WaitOptions } from './game.js';
 import { instrument } from './instrument.js';
 import { farmLink, GAME_PORT, iosLink, tcpLink, usbLink } from './link.js';
 import { snapshot } from './snapshot.js';
@@ -23,6 +24,8 @@ interface Session {
   appium?: string;
   /** open --pc · --ios --app 으로 띄운 게임 — close 가 끈다 */
   pid?: number;
+  /** open 때 ping 으로 받은 게임 SDK 의 명령 목록 — 밖의 명령은 보내기 전에 거절한다 */
+  caps?: string[];
   refs: Record<string, string>;
 }
 
@@ -56,6 +59,7 @@ export const HELP = `control-cli [-s=<세션>] <명령>
   key <키>                                         키 한 번(KeyCode 이름 — Escape · Space · Return · I · Alpha1). Escape 는 폰 뒤로 키와 같다
   tap <x> <y>                                      좌표 누르기(살펴볼 때만 — Ran 줄 없음)
   ping · tree
+  conform                                          표준 화면(샘플)에 명령을 차례로 보내 기대값과 견준다 — open 바로 뒤에
   crawl [--max ${CRAWL.maxWindows}] [--minutes ${CRAWL.minutes}] [--exclude <정규식>]… [--out <폴더>]   창 훑기
   close                                            Appium 세션을 닫는다
   release [--udid <serial>]                        폰을 놓는다 — 팜이 깐 게임 · 데이터를 지운다
@@ -183,9 +187,12 @@ export async function run(argv: string[], o: Options): Promise<string> {
     await save(file, s);
     const game = gameOf(s, farm, port);
     const info = await untilAnswers(game);
+    s.caps = game.caps;
+    await save(file, s);
     const pid = s.pid ? ` · 프로세스 ${s.pid}` : '';
     const where = via === 'farm' ? `디바이스 팜 ${udid}` : via === 'usb' ? 'USB' : via === 'pc' ? `PC${pid}` : `iPhone ${udid}${pid}`;
-    return `세션 ${sname} 열림 — ${info.app} ${info.version} (${where})\n${await shot(game, s, appium, file, sname, o.dir)}`;
+    const engine = info.engine ? ` · ${info.engine} ${info.engineVersion} · SDK ${info.sdkVersion}` : '';
+    return `세션 ${sname} 열림 — ${info.app} ${info.version} (${where})${engine}\n${await shot(game, s, appium, file, sname, o.dir)}`;
   }
 
   const s = await load(file);
@@ -209,8 +216,13 @@ export async function run(argv: string[], o: Options): Promise<string> {
   const after = async (line: string) => `${line}\n${await shot(game, s, appium, file, sname, o.dir, true)}`;
 
   switch (name) {
-    case 'ping':
-      return JSON.stringify(await game.ping());
+    case 'ping': {
+      // 게임을 다시 띄웠으면 SDK 가 바뀌었을 수 있다 — 받은 caps 를 세션에 적는다.
+      const r = await game.ping();
+      s.caps = game.caps;
+      await save(file, s);
+      return JSON.stringify(r);
+    }
     case 'tree':
       return JSON.stringify(await game.tree());
     case 'snapshot':
@@ -288,6 +300,15 @@ export async function run(argv: string[], o: Options): Promise<string> {
       await game.tap(x, y);
       return after(`- 좌표 (${x}, ${y}) 누름 — 케이스에는 주소로 씁니다`);
     }
+    case 'conform': {
+      const r = await conform(game);
+      s.caps = game.caps;
+      await save(file, s);
+      const out = report(r);
+      // 실패가 있으면 종료 코드 1 — CI · 스크립트가 알아챈다.
+      if (r.failed > 0) throw new Error(out);
+      return out;
+    }
     case 'crawl':
       return crawl(game, {
         // Appium 이 없으면(PC · USB 로 이미 켠 게임) Escape 키 — Unity 는 폰 뒤로 키를 Escape 로 준다. iPhone 에는 뒤로 키가 없다.
@@ -309,7 +330,7 @@ function gameOf(s: Session, farm: Conn, port: number): Game {
     : s.via === 'usb' ? usbLink(s.udid, port)
     : s.via === 'ios' ? iosLink(s.udid, port)
     : tcpLink(port);
-  return new Game(link);
+  return new Game(link, s.caps);
 }
 
 // PC 게임을 띄운다 — macOS .app 은 Contents/MacOS 안 실행 파일을 바로 띄워야 프로세스 번호를 잡아 close 가 끌 수 있다.
@@ -352,7 +373,7 @@ async function load(file: string): Promise<Session> {
 const save = (file: string, s: Session) => writeFile(file, JSON.stringify(s, null, 2));
 
 // Unity 가 뜨고 첫 장면이 SDK 포트를 열 때까지 — 스플래시 · 로딩이 길다.
-async function untilAnswers(game: Game): Promise<{ app: string; version: string }> {
+async function untilAnswers(game: Game): Promise<PingReply> {
   const end = Date.now() + TIMING.openWaitMs;
   for (;;) {
     try {
