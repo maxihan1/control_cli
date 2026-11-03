@@ -1,0 +1,75 @@
+# 샘플 Unity 프로젝트에 SDK 를 넣어(instrument — 게임 QA 빌드 잡과 같은 길) QA 빌드를 굽는다 — 실기기 실측용 (game-ci · Unity 라이선스 Secret)
+name: sample
+
+on:
+  pull_request:
+    paths: ['sdk/**', 'sample/**', 'src/instrument.ts', '.github/workflows/sample.yml']
+  workflow_dispatch:
+
+# Personal 좌석은 취소된 잡에서 반납되지 않을 수 있어 진행 중인 실행을 취소하지 않는다(Ashveil D-34).
+concurrency:
+  group: sample-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  license:
+    runs-on: ubuntu-latest
+    outputs:
+      available: ${{ steps.check.outputs.available }}
+    steps:
+      - id: check
+        env:
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        run: |
+          if [ -n "$UNITY_EMAIL" ] && [ -n "$UNITY_PASSWORD" ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "::warning title=Unity 라이선스 Secret 없음::저장소 Secret UNITY_EMAIL · UNITY_PASSWORD 를 등록하면 샘플 빌드가 돈다"
+          fi
+
+  build:
+    needs: license
+    if: needs.license.outputs.available == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      # 좌석 하나를 차례로 쓴다.
+      max-parallel: 1
+      matrix:
+        include:
+          - unity: 6000.0.84f1
+            target: Android
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - run: npm ci
+      # PR 이면 브랜치 머리 커밋을 받는다 — 합침 커밋은 UPM 이 git 으로 못 받을 수 있다.
+      - run: node dist/main.js instrument sample --ref ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/cache@v6
+        with:
+          path: sample/Library
+          key: sample-library-${{ matrix.unity }}-${{ matrix.target }}-${{ hashFiles('sample/Packages/manifest.json') }}
+          restore-keys: sample-library-${{ matrix.unity }}-${{ matrix.target }}-
+      - uses: game-ci/unity-builder@v6
+        env:
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          projectPath: sample
+          unityVersion: ${{ matrix.unity }}
+          targetPlatform: ${{ matrix.target }}
+          androidExportType: androidPackage
+          buildName: control-cli-sample
+          buildMethod: SampleBuild.Build
+          versioning: None
+          allowDirtyBuild: true
+      - uses: actions/upload-artifact@v7
+        with:
+          name: sample-${{ matrix.unity }}-${{ matrix.target }}
+          path: build/${{ matrix.target }}
+          retention-days: 14
