@@ -3,9 +3,12 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 export interface Arg {
-  type: 'string' | 'number';
+  /** array 는 글자 배열 — 메서드 인자 */
+  type: 'string' | 'number' | 'array';
   required: boolean;
   summary: string;
+  /** 고를 수 있는 글자 — string 칸만 */
+  enum?: string[];
 }
 
 export interface CommandSpec {

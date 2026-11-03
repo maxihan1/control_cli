@@ -60,6 +60,88 @@
       "name": "layout",
       "summary": "누를 수 있는 UI 가 안전 영역 밖이거나 서로 겹치는지",
       "args": { "target": { "type": "string", "required": false, "summary": "이 오브젝트 아래만 본다" } }
+    },
+    {
+      "name": "call",
+      "summary": "컴포넌트 메서드를 부르고 돌려준 값을 준다 — 인자 수가 맞고 글자를 다 바꿀 수 있는 첫 꼴",
+      "args": {
+        "target": { "type": "string", "required": true, "summary": "오브젝트 주소" },
+        "method": { "type": "string", "required": true, "summary": "컴포넌트.메서드 — PlayerController.Jump" },
+        "args": { "type": "array", "required": false, "summary": "인자 — 글자로 보내면 SDK 가 메서드 칸 타입으로 바꾼다('2' · 'true' · '[0,1,0]' · 열거 이름)" }
+      }
+    },
+    {
+      "name": "set",
+      "summary": "컴포넌트 칸 값을 쓰고 다시 읽은 값을 준다",
+      "args": {
+        "target": { "type": "string", "required": true, "summary": "오브젝트 주소" },
+        "prop": { "type": "string", "required": true, "summary": "컴포넌트.칸[.칸…] — Transform.position.y" },
+        "value": { "type": "string", "required": true, "summary": "get 이 주는 꼴의 글자 — '2.5' · 'true' · '[0,1,0]' · 열거 이름" }
+      }
+    },
+    {
+      "name": "static-call",
+      "summary": "static 메서드를 부르고 돌려준 값을 준다",
+      "args": {
+        "method": { "type": "string", "required": true, "summary": "타입.메서드 — 전체 이름(Game.Cheats.AddGold) 또는 하나뿐인 짧은 이름" },
+        "args": { "type": "array", "required": false, "summary": "인자 — call 과 같다" }
+      }
+    },
+    {
+      "name": "static-get",
+      "summary": "static 칸 값을 읽는다",
+      "args": { "prop": { "type": "string", "required": true, "summary": "타입.칸[.칸…] — UnityEngine.Time.timeScale" } }
+    },
+    {
+      "name": "static-set",
+      "summary": "static 칸 값을 쓰고 다시 읽은 값을 준다",
+      "args": {
+        "prop": { "type": "string", "required": true, "summary": "타입.칸[.칸…]" },
+        "value": { "type": "string", "required": true, "summary": "set 과 같은 꼴의 글자" }
+      }
+    },
+    {
+      "name": "pref-get",
+      "summary": "저장 값(PlayerPrefs) 하나 — 없으면 found:false",
+      "args": {
+        "key": { "type": "string", "required": true, "summary": "키" },
+        "type": { "type": "string", "required": false, "enum": ["string", "int", "float"], "summary": "넣을 때의 타입(기본 string)" }
+      }
+    },
+    {
+      "name": "pref-set",
+      "summary": "저장 값을 넣고 바로 디스크에 쓴다",
+      "args": {
+        "key": { "type": "string", "required": true, "summary": "키" },
+        "value": { "type": "string", "required": true, "summary": "값 — int · float 도 글자로('3' · '0.5')" },
+        "type": { "type": "string", "required": false, "enum": ["string", "int", "float"], "summary": "타입(기본 string)" }
+      }
+    },
+    {
+      "name": "pref-delete",
+      "summary": "저장 값 키 하나를 지운다",
+      "args": { "key": { "type": "string", "required": true, "summary": "키" } }
+    },
+    { "name": "pref-clear", "summary": "저장 값을 다 지운다", "args": {} },
+    { "name": "timescale-get", "summary": "시간 배율(1 이 보통 · 0 은 멈춤)", "args": {} },
+    {
+      "name": "timescale-set",
+      "summary": "시간 배율을 바꾼다",
+      "args": { "scale": { "type": "number", "required": true, "summary": "0~100 — 0 은 멈춤, 2 는 두 배 빠르게" } }
+    },
+    { "name": "scenes", "summary": "지금 장면 · 열린 장면 목록 · 장면이 열리고 닫힌 수", "args": {} },
+    {
+      "name": "scene-load",
+      "summary": "빌드에 넣은 장면을 열기 시작한다 — 다 열렸는지는 scenes 로 본다",
+      "args": {
+        "name": { "type": "string", "required": true, "summary": "장면 이름 또는 경로(Assets/Scenes/Shop.unity)" },
+        "mode": { "type": "string", "required": false, "enum": ["single", "add"], "summary": "single 은 지금 장면을 닫고(기본), add 는 위에 더한다" }
+      }
+    },
+    {
+      "name": "scene-unload",
+      "summary": "열린 장면 하나를 닫기 시작한다 — 마지막 장면은 못 닫는다",
+      "args": { "name": { "type": "string", "required": true, "summary": "장면 이름" } }
     }
   ]
 }

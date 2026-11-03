@@ -24,7 +24,12 @@ namespace ControlCli
         public const int Port = 13100;
         private const int ReplyTimeoutMs = 10000;
         // protocol/commands.json 의 명령 이름과 같은 차례(src/protocol.test.ts 가 본다) — ping 의 caps 로 CLI 에 알린다.
-        private static readonly string[] Caps = { "ping", "tree", "find", "click", "drag", "type", "get", "tap", "key", "screenshot", "errors", "layout" };
+        private static readonly string[] Caps =
+        {
+            "ping", "tree", "find", "click", "drag", "type", "get", "tap", "key", "screenshot", "errors", "layout",
+            "call", "set", "static-call", "static-get", "static-set", "pref-get", "pref-set", "pref-delete", "pref-clear",
+            "timescale-get", "timescale-set", "scenes", "scene-load", "scene-unload",
+        };
         // sdk/unity/package.json 의 version 과 같다(src/protocol.test.ts 가 본다).
         public const string SdkVersion = "0.3.0";
 
