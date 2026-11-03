@@ -106,3 +106,9 @@
 - run 41604854616 의 iOS 잡만 빨강 — `LocationService class is used but Location Usage Description is empty in Player Settings`. 샘플 게임 코드는 위치를 안 쓴다. 가짜 `Input` 이 `UnityEngine.Input` 을 전부 감싸며 `location` 까지 적어 IL 에 LocationService 가 남았다(엔진 코드 줄이기를 켠 16ff5bc 에서도 실패 — 샘플 설정 탓이 아니다)
 - 같은 까닭으로 Android QA 빌드는 위치 권한을 얻었다 — 2021.3 APK `aapt dump permissions` 에 `ACCESS_FINE_LOCATION` · `ACCESS_COARSE_LOCATION`. Ashveil QA 빌드도 같았을 것이다
 - 고침 — `location` 을 감싸지 않는다. 대가는 `Input.location` 을 적은 게임 파일이 QA 빌드에서만 CS0117(`UnityEngine.Input.location` 으로 적으면 풀림). 위치를 쓰는 게임은 드물고 권한 · iOS 빌드 부작용은 모든 게임에 생겨 빼는 쪽을 골랐다
+
+## 2026-11-03 — uGUI type 차례 (사용자 결정)
+
+- 키 입력 차례로 — uGUI 도 TMP 처럼 SDK 가 글자마다 거르고(`onValidateInput` 이 있으면 그것, 없으면 비공개 `Validate(string, int, char)`) 거른 결과가 `characterLimit` 에 차면 멈춘다. 그 결과를 `text` 에 넣으면 setter 는 이미 맞는 글자라 더 자르지 않는다
+- 까닭 — `type` 은 사람이 친 결과를 흉내 낸다. uGUI · TMP 가 같은 답(`qauser01`)을 낸다
+- 대가 — Ashveil 이 쓰는 uGUI 길이 바뀐다. 글자 수를 넘는 글자를 거르는 칸에 넣는 케이스만 결과가 달라진다(전에는 더 짧았다). test_platform 다음 줄 1번(Ashveil 회귀)에서 본다

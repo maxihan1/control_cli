@@ -6,7 +6,7 @@
 - 샘플 빌드 — `unity-u8` push 로 PR #13 의 `sample` 이 새로 돈다(좌석 하나 · 7개 · 1~2시간). 그 APK 로 아래 실측을 다시 한다. 결과물은 `gh run download <run> -R maxihan1/control_cli`
 - 실측 차례 — 팜 `hold --udid R3CR10TCVCD` → `open --app <APK 경로>` → `type IdInput/TmpIdInput/UitkIdInput 'qa_user01!'` → `click LoginButton/TmpLoginButton/UitkLoginButton`(상태 글자 바뀌나) → `drag Item /SampleCanvas/Bag/Slot[3]` → `click WorldCube`(TouchText `cube 1`) → `key I`(TouchText `key I`) → `errors` → `close` · `release`. APK 넷(6000.0 옛 Input · 6000.0 Input System · 2022.3 둘 다 · 2021.3 옛 Input)마다. macOS 앱은 이 맥에서 `open --pc --app`
 - 팜 연결값 — `PLATFORM_APPIUM_URL=https://vision.maxihan.com/wd/hub` · `PLATFORM_APPIUM_TOKEN`(팜 PAT `pat_…`, 사용자에게 받는다 — 저장소에 적지 않는다)
-- 열린 결정 — uGUI `type` 의 글자 수 · 거르기 차례([context-notes](context-notes.md) 「첫 실기기 시험」)
+- ~~열린 결정 — uGUI `type` 의 글자 수 · 거르기 차례~~ → 키 입력 차례로 정함(사용자, [context-notes](context-notes.md) 「uGUI type 차례」)
 
 계획: TMP · 새 Input System · Unity 2021.3/2022.3 LTS · UI Toolkit · PC · iOS (2026-11-03 사용자 선택). 결정과 까닭은 [context-notes.md](context-notes.md).
 한 줄(U번호)이 브랜치 하나 · PR 하나다.
@@ -36,6 +36,7 @@
 - [x] asmdef 참조 · versionDefines
 - [x] TextOf · TypeText · FindReply
 - [x] 샘플 TMP 화면
+- [x] uGUI `type` 도 키 입력 차례로 거른다(`UguiFiltered` — 첫 실기기 시험에서 uGUI 만 `qauser0`)
 - [ ] 샘플에서 `type IdInput 'qa_user01!'` · `type TmpIdInput 'qa_user01!'` 가 둘 다 `qauser01`
 
 ## U4. 입력

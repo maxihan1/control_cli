@@ -114,7 +114,7 @@ macOS 의 usbmuxd 로 폰의 `127.0.0.1:13100` 에 명령마다 바로 잇는다
 |---|---|---|
 | `click <ref\|주소>` | 가운데를 가짜 터치로 누른다. 월드 오브젝트는 주 카메라로 비춘 자리 | `game.click('LoginButton')` |
 | `drag <ref\|주소> <ref\|주소>` | 앞 자리에서 뒤 자리로 10프레임에 걸쳐 끈다 | `game.drag('/Hud/Bag/Slot[0]', '/Hud/Bag/Slot[3]')` |
-| `type <ref\|주소> <글자>` | InputField · TMP_InputField · UI Toolkit TextField 에 바로 넣는다(화면 키보드 없이). 글자 수 제한 · 거르기는 그 칸 규칙대로다 — TMP 는 넣을 때 안 거르므로 SDK 가 키로 칠 때와 같은 거르개를 부른다. 비밀번호 칸이면 Ran 줄에 글자 대신 `'***'` | `game.type('IdInput', 'qa_user01')` |
+| `type <ref\|주소> <글자>` | InputField · TMP_InputField · UI Toolkit TextField 에 바로 넣는다(화면 키보드 없이). 글자 수 제한 · 거르기는 그 칸 규칙대로, 키로 칠 때의 차례(글자마다 거르고 거른 결과로 자름)다 — 글자 수 8 · 영숫자 칸에 `qa_user01!` 면 `qauser01`. uGUI · TMP 는 SDK 가 그 칸의 거르개를 글자마다 부른다. 비밀번호 칸이면 Ran 줄에 글자 대신 `'***'` | `game.type('IdInput', 'qa_user01')` |
 | `text <ref\|주소>` | 글자 읽기 | `game.text('StatusText')` |
 | `get <ref\|주소> <컴포넌트.칸>` | 속성 읽기 — 게임이 폰에서 셈하는 값. `material` · `materials` · `mesh` 는 읽기만 해도 사본을 만들어 거절한다(`shared…` 를 읽는다). UI Toolkit 요소는 컴포넌트가 없어 거절한다 | `game.get('Player', 'PlayerController.moveSpeed')` |
 | `find <ref\|주소>` | 있으면 `{path, text, interactable}`, 없으면 `null` | `game.find('ShopPanel')` |

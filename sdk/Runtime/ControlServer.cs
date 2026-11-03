@@ -271,8 +271,7 @@ namespace ControlCli
             if (field != null)
             {
                 if (!field.IsInteractable()) return Error(target + " 은 잠겨 있어 글자를 넣을 수 없습니다");
-                // uGUI 는 text 를 넣을 때 글자 수 제한 · 거르기를 스스로 한다.
-                field.text = text;
+                field.text = UguiFiltered(field, text);
                 field.onEndEdit.Invoke(field.text);
                 return "{\"ok\":true,\"text\":" + Json.Str(Tree.TextOf(item)) + "}";
             }
@@ -287,6 +286,24 @@ namespace ControlCli
             }
 #endif
             return Error(target + " 은 입력칸(InputField · TMP_InputField · TextField)이 아닙니다");
+        }
+
+        private static readonly System.Reflection.MethodInfo UguiValidate = typeof(InputField).GetMethod(
+            "Validate", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic, null, new[] { typeof(string), typeof(int), typeof(char) }, null);
+
+        // uGUI text setter 는 넣을 글자를 먼저 글자 수로 자르고 거른다(qa_user01! → qa_user0 → qauser0) — 키로 칠 때처럼 글자마다 거르고 거른 결과로 자른다(qauser01).
+        private static string UguiFiltered(InputField field, string text)
+        {
+            var result = "";
+            foreach (var c in text)
+            {
+                if (field.characterLimit > 0 && result.Length >= field.characterLimit) break;
+                var ch = field.onValidateInput != null ? field.onValidateInput(result, result.Length, c)
+                    : field.characterValidation != InputField.CharacterValidation.None && UguiValidate != null ? (char)UguiValidate.Invoke(field, new object[] { result, result.Length, c })
+                    : c;
+                if (ch != 0) result += ch;
+            }
+            return result;
         }
 
 #if CONTROL_CLI_TMP
