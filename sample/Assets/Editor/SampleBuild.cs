@@ -16,6 +16,7 @@ public static class SampleBuild
         var target = EditorUserBuildSettings.activeBuildTarget;
         var group = BuildPipeline.GetBuildTargetGroup(target);
         var named = NamedBuildTarget.FromBuildTargetGroup(group);
+        ImportTmpResources();
         EditorSceneManager.SaveScene(EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single), Scene);
         PlayerSettings.productName = "control_cli sample";
         PlayerSettings.SetApplicationIdentifier(named, "com.maxihan1.controlcli.sample");
@@ -39,6 +40,19 @@ public static class SampleBuild
             throw new Exception("샘플 빌드 실패: " + report.summary.result + " (오류 " + report.summary.totalErrors + "개)");
         // game-ci 는 로그에서 이 문구를 찾아 성공으로 본다.
         Console.WriteLine("Build succeeded!");
+    }
+
+    // TMP 를 쓰는 게임은 기본 글꼴 · 설정(TMP Essential Resources)을 가져와 둔다 — 샘플도 같게. Unity 6 은 ugui 안, 옛 판은 textmeshpro 패키지에 있고 TMP 가 없는 구성은 건너뛴다.
+    private static void ImportTmpResources()
+    {
+        foreach (var package in new[] { "Packages/com.unity.ugui", "Packages/com.unity.textmeshpro" })
+        {
+            var resources = package + "/Package Resources/TMP Essential Resources.unitypackage";
+            if (!File.Exists(Path.GetFullPath(resources))) continue;
+            AssetDatabase.ImportPackage(resources, false);
+            AssetDatabase.Refresh();
+            return;
+        }
     }
 
     private static string Arg(string name)

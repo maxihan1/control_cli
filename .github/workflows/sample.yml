@@ -40,14 +40,18 @@ jobs:
       max-parallel: 1
       matrix:
         include:
+          # Unity 6 의 TMP 는 ugui 2.0 안에 있다. 옛 판은 textmeshpro 패키지를 따로 넣는다.
           - unity: 6000.0.84f1
             ugui: 2.0.0
+            tmp: ''
             target: Android
           - unity: 2022.3.62f1
             ugui: 1.0.0
+            tmp: 3.0.9
             target: Android
           - unity: 2021.3.45f1
             ugui: 1.0.0
+            tmp: 3.0.9
             target: Android
     steps:
       - uses: actions/checkout@v7
@@ -58,7 +62,7 @@ jobs:
       # 판마다 프로젝트를 그 판으로 연다 — 낮은 판이 높은 판 프로젝트를 여는 「내려가기」를 피하고, ugui 는 판에 묶인 core 패키지다.
       - run: |
           printf 'm_EditorVersion: %s\n' '${{ matrix.unity }}' > sample/ProjectSettings/ProjectVersion.txt
-          node -e 'const f="sample/Packages/manifest.json",m=JSON.parse(require("fs").readFileSync(f));m.dependencies["com.unity.ugui"]=process.argv[1];require("fs").writeFileSync(f,JSON.stringify(m,null,2))' '${{ matrix.ugui }}'
+          node -e 'const f="sample/Packages/manifest.json",m=JSON.parse(require("fs").readFileSync(f)),[ugui,tmp]=process.argv.slice(1);m.dependencies["com.unity.ugui"]=ugui;if(tmp)m.dependencies["com.unity.textmeshpro"]=tmp;require("fs").writeFileSync(f,JSON.stringify(m,null,2))' '${{ matrix.ugui }}' '${{ matrix.tmp }}'
       # PR 이면 브랜치 머리 커밋을 받는다 — 합침 커밋은 UPM 이 git 으로 못 받을 수 있다.
       - run: node dist/main.js instrument sample --ref ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions/cache@v6
