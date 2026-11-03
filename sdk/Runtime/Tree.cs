@@ -123,8 +123,10 @@ namespace ControlCli
 #if CONTROL_CLI_UITK
             if (item.Ve != null)
             {
+                // uGUI 에도 같은 이름(Button · Toggle · Slider)이 있어 UI Toolkit 쪽은 전체 이름으로 쓴다.
                 var ve = item.Ve;
-                var control = ve is Button || ve is Toggle || ve is RadioButton || ve is TextField || ve is DropdownField || ve is Slider || ve is SliderInt;
+                var control = ve is UnityEngine.UIElements.Button || ve is UnityEngine.UIElements.Toggle || ve is RadioButton || ve is TextField || ve is DropdownField ||
+                              ve is UnityEngine.UIElements.Slider || ve is SliderInt;
                 return control ? ve.GetType().Name : null;
             }
 #endif
