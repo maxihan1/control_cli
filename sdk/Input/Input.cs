@@ -4,7 +4,7 @@ using ControlCli;
 
 // 전역 이름공간에 둬야 게임 파일의 `using UnityEngine;` 보다 먼저 잡힌다(C# 이름 찾기는 이름공간 멤버가 using 보다 앞선다).
 // UnityEngine.Input 의 멤버를 전부 감싼다 — 빠진 멤버를 쓰는 게임 파일은 QA 빌드에서만 컴파일이 깨지기 때문이다.
-// 터치 · 마우스 왼쪽 단추만 가짜를 섞고 나머지는 그대로 넘긴다.
+// 터치 · 마우스 왼쪽 단추 · 키(KeyCode)만 가짜를 섞고 나머지는 그대로 넘긴다.
 // ponytail: 펜(GetPenEvent 등) · mousePositionDelta 는 Unity 판마다 있고 없고가 달라 뺐다. 쓰는 게임이 오면 더한다.
 // IsJoystickPreconfigured 는 리눅스 데스크톱 전용이라 Android 빌드에 없다(CS0117) — 감싸지 않는다.
 public static class Input
@@ -37,14 +37,15 @@ public static class Input
     public static bool GetMouseButtonDown(int button) => UnityEngine.Input.GetMouseButtonDown(button) || (Mirrored(button) && FakeTouches.MouseDown);
     public static bool GetMouseButtonUp(int button) => UnityEngine.Input.GetMouseButtonUp(button) || (Mirrored(button) && FakeTouches.MouseUp);
 
-    public static bool anyKey => UnityEngine.Input.anyKey;
-    public static bool anyKeyDown => UnityEngine.Input.anyKeyDown;
+    // 키 이름(string)으로 묻는 것은 가짜 키를 섞지 않는다 — KeyCode 와 이름이 일대일이 아니다.
+    public static bool anyKey => UnityEngine.Input.anyKey || FakeKeys.Any;
+    public static bool anyKeyDown => UnityEngine.Input.anyKeyDown || FakeKeys.Any;
     public static string inputString => UnityEngine.Input.inputString;
-    public static bool GetKey(KeyCode key) => UnityEngine.Input.GetKey(key);
+    public static bool GetKey(KeyCode key) => UnityEngine.Input.GetKey(key) || FakeKeys.Held(key);
     public static bool GetKey(string name) => UnityEngine.Input.GetKey(name);
-    public static bool GetKeyDown(KeyCode key) => UnityEngine.Input.GetKeyDown(key);
+    public static bool GetKeyDown(KeyCode key) => UnityEngine.Input.GetKeyDown(key) || FakeKeys.Down(key);
     public static bool GetKeyDown(string name) => UnityEngine.Input.GetKeyDown(name);
-    public static bool GetKeyUp(KeyCode key) => UnityEngine.Input.GetKeyUp(key);
+    public static bool GetKeyUp(KeyCode key) => UnityEngine.Input.GetKeyUp(key) || FakeKeys.Up(key);
     public static bool GetKeyUp(string name) => UnityEngine.Input.GetKeyUp(name);
 
     public static float GetAxis(string axisName) => UnityEngine.Input.GetAxis(axisName);

@@ -1,5 +1,6 @@
 // 폰 안 127.0.0.1 포트로 JSON 명령 한 줄을 받아 게임 메인 스레드에서 처리하고 JSON 한 줄로 답한다
 using System;
+using System.Collections;
 using System.Collections.Concurrent;
 using System.IO;
 using System.Net;
@@ -22,14 +23,14 @@ namespace ControlCli
         // 127.0.0.1 만 연다 — 폰 밖에서는 adb forward 로만 닿는다.
         public const int Port = 13100;
         private const int ReplyTimeoutMs = 10000;
-        private const string Commands = "ping · tree · find · click · drag · type · get · tap · errors · layout";
+        private const string Commands = "ping · tree · find · click · drag · type · get · tap · key · screenshot · errors · layout";
 
         private sealed class Request
         {
             public string Line;
             public string Reply;
             public readonly ManualResetEventSlim Done = new ManualResetEventSlim();
-            // 0 기다림 · 1 게임이 가져감 · 2 시간 초과로 버림 · 3 터치가 도는 중에 시간 초과 — 먼저 바꾼 쪽만 이긴다.
+            // 0 기다림 · 1 게임이 가져감 · 2 시간 초과로 버림 · 3 답을 미룬 동안(터치 · 키 · 스크린샷) 시간 초과 — 먼저 바꾼 쪽만 이긴다.
             public int State;
         }
 
@@ -42,6 +43,7 @@ namespace ControlCli
             public string to;
             public string text;
             public string prop;
+            public string key;
             public long since;
             public float x;
             public float y;
@@ -50,8 +52,12 @@ namespace ControlCli
         private readonly ConcurrentQueue<Request> _requests = new ConcurrentQueue<Request>();
         private TcpListener _listener;
         private Thread _acceptThread;
-        // 누르기 · 끌기는 가짜 터치가 다 나가고 게임이 처리한 뒤에 답한다 — 답 다음 명령이 바뀐 화면을 보게.
-        private Request _touching;
+        // 답을 미룬 명령 — 누르기 · 끌기 · 키는 가짜 입력이 다 나가고 게임이 처리한 뒤에, 스크린샷은 프레임 끝에서 찍은 뒤에 답한다.
+        // _ready 는 준비 전이면 null, 준비되면 답을 준다. 그동안 다음 명령은 꺼내지 않는다(받은 차례대로).
+        private Request _waiting;
+        private static Func<string> _ready;
+        private static Action _cancel;
+        private static ControlServer _self;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad), Preserve]
         private static void Boot()
@@ -59,8 +65,13 @@ namespace ControlCli
             var go = new GameObject("[ControlCli]");
             DontDestroyOnLoad(go);
             Tree.KeptScene = go.scene;
+            // PC 는 터미널이 창 초점을 가져가면 게임이 멈추고(Update 가 안 돌아 명령이 10초에 실패) 입력을 버린다. 폰에서는 둘 다 영향이 없다.
+            Application.runInBackground = true;
+#if CONTROL_CLI_INPUTSYSTEM && ENABLE_INPUT_SYSTEM
+            UnityEngine.InputSystem.InputSystem.settings.backgroundBehavior = UnityEngine.InputSystem.InputSettings.BackgroundBehavior.IgnoreFocus;
+#endif
             go.AddComponent<FakeTouches>();
-            go.AddComponent<ControlServer>();
+            _self = go.AddComponent<ControlServer>();
         }
 
         private void Awake()
@@ -102,7 +113,7 @@ namespace ControlCli
                         _requests.Enqueue(request);
                         // 실패로 답한 명령이 게임이 깨어난 뒤 늦게 눌리면 다음 명령이 엉뚱한 화면에서 돈다. 버린 요청은 Update 가 건너뛴다.
                         var timedOut = !request.Done.Wait(ReplyTimeoutMs) && Interlocked.CompareExchange(ref request.State, 2, 0) == 0;
-                        // 게임이 가져간 누르기 · 끌기가 터치 도중 멈추면(백그라운드) Done 이 안 온다 — 버림으로 바꾸면 Update 가 남은 터치를 거둔다.
+                        // 게임이 가져간 명령이 답을 미룬 채 멈추면(백그라운드) Done 이 안 온다 — 버림으로 바꾸면 Update 가 남은 가짜 입력을 거둔다.
                         if (!timedOut && !request.Done.IsSet) timedOut = Interlocked.CompareExchange(ref request.State, 3, 1) == 1;
                         if (!timedOut) request.Done.Wait();
                         writer.WriteLine(timedOut ? Error("게임이 10초 안에 답하지 않았습니다(멈췄거나 일시정지)") : request.Reply);
@@ -114,24 +125,43 @@ namespace ControlCli
 
         private void Update()
         {
-            // 터치가 도는 동안은 다음 명령을 꺼내지 않는다 — 명령은 받은 차례대로 돈다.
-            if (_touching != null)
+            // 답을 미룬 명령이 있으면 준비될 때까지 다음 명령을 꺼내지 않는다 — 명령은 받은 차례대로 돈다.
+            if (_waiting != null)
             {
-                if (Volatile.Read(ref _touching.State) == 3) FakeTouches.Cancel();
-                else if (!FakeTouches.Idle) return;
-                else _touching.Done.Set();
-                _touching = null;
+                // 시간 초과(3)면 답할 곳이 없다 — 남은 가짜 입력을 거두고 넘어간다.
+                if (Volatile.Read(ref _waiting.State) == 3) _cancel?.Invoke();
+                else
+                {
+                    var reply = _ready();
+                    if (reply == null) return;
+                    _waiting.Reply = reply;
+                    _waiting.Done.Set();
+                }
+                _waiting = null;
+                _ready = null;
+                _cancel = null;
             }
             while (_requests.TryDequeue(out var request))
             {
                 if (Interlocked.CompareExchange(ref request.State, 1, 0) != 0) continue;
-                try { request.Reply = Handle(request.Line.Trim()); }
-                catch (Exception e) { request.Reply = Error(e.GetType().Name + ": " + e.Message); }
-                if (!FakeTouches.Idle)
+                string reply;
+                try { reply = Handle(request.Line.Trim()); }
+                catch (Exception e) { reply = Error(e.GetType().Name + ": " + e.Message); }
+                // null 은 Handle 이 _ready 를 걸고 답을 미뤘다는 뜻이다.
+                if (reply != null && !FakeTouches.Idle)
                 {
-                    _touching = request;
+                    // 람다는 변수를 잡는다 — 아래에서 reply 를 비우므로 답을 따로 둔다.
+                    var done = reply;
+                    _ready = () => FakeTouches.Idle ? done : null;
+                    _cancel = FakeTouches.Cancel;
+                    reply = null;
+                }
+                if (reply == null)
+                {
+                    _waiting = request;
                     return;
                 }
+                request.Reply = reply;
                 request.Done.Set();
             }
         }
@@ -152,6 +182,17 @@ namespace ControlCli
                     var point = new Vector2(c.x, c.y);
                     FakeTouches.Tap(point);
                     return Touched(point);
+                case "key":
+                    // 키 이름은 KeyCode 이름(대소문자 무시) — Escape 는 폰 뒤로 키와 같다(Unity 가 뒤로 키를 Escape 로 준다).
+                    if (string.IsNullOrEmpty(c.key) || !Enum.TryParse<KeyCode>(c.key, true, out var key) || key == KeyCode.None)
+                        return Error("모르는 키입니다: " + c.key + " (KeyCode 이름 — Escape · Space · Return · A · Alpha1 · F1 · UpArrow …)");
+                    FakeKeys.Press(key);
+                    return "{\"ok\":true,\"key\":" + Json.Str(key.ToString()) + "}";
+                case "screenshot":
+                    _shot = null;
+                    _self.StartCoroutine(Capture());
+                    _ready = () => _shot;
+                    return null;
                 case "click":
                 {
                     if (!Point(c.target, out var at, out var problem)) return Error(problem);
@@ -280,6 +321,24 @@ namespace ControlCli
             return result;
         }
 #endif
+
+        private static string _shot;
+
+        // 다 그린 화면은 프레임 끝에서만 읽힌다 — Appium 이 없는 PC · iOS · 이미 켠 USB 게임의 스크린샷. JPEG 라 PNG 보다 몇 배 작다.
+        private static IEnumerator Capture()
+        {
+            yield return new WaitForEndOfFrame();
+#if CONTROL_CLI_IMAGECONVERSION
+            var texture = new Texture2D(Screen.width, Screen.height, TextureFormat.RGB24, false);
+            texture.ReadPixels(new Rect(0, 0, Screen.width, Screen.height), 0, 0);
+            texture.Apply(false);
+            var jpg = texture.EncodeToJPG(80);
+            Destroy(texture);
+            _shot = "{\"ok\":true,\"jpg\":\"" + Convert.ToBase64String(jpg) + "\"}";
+#else
+            _shot = Error("이 게임은 ImageConversion 모듈(com.unity.modules.imageconversion)을 빼서 화면을 찍을 수 없습니다");
+#endif
+        }
 
         private static string Touched(Vector2 p) =>
             "{\"ok\":true,\"x\":" + Mathf.RoundToInt(p.x) + ",\"y\":" + Mathf.RoundToInt(p.y) + "}";

@@ -39,10 +39,11 @@ namespace ControlCli
         {
             Pending.Clear();
             if (_down) Pending.Enqueue((_lastPosition, TouchPhase.Canceled));
+            FakeKeys.Cancel();
         }
 
-        // 내보낼 터치가 남았거나 이번 프레임에 터치를 내보냈거나 Input System 이 아직 안 받았으면 바쁘다 — 명령 답을 그 뒤로 미룬다.
-        public static bool Idle => Pending.Count == 0 && !_current.HasValue
+        // 내보낼 터치 · 키가 남았거나 이번 프레임에 내보냈거나 Input System 이 아직 안 받았으면 바쁘다 — 명령 답을 그 뒤로 미룬다.
+        public static bool Idle => Pending.Count == 0 && !_current.HasValue && FakeKeys.Idle
 #if CONTROL_CLI_INPUTSYSTEM && ENABLE_INPUT_SYSTEM
             && !FakeInputSystem.Waiting
 #endif
@@ -72,6 +73,7 @@ namespace ControlCli
 
         private void Update()
         {
+            FakeKeys.Tick();
             _current = null;
             if (Pending.Count > 0)
             {
@@ -88,10 +90,17 @@ namespace ControlCli
 #endif
             }
             // 장면이 바뀌면 EventSystem 이 새로 생기므로 매 프레임 확인한다.
-            var module = EventSystem.current != null ? EventSystem.current.currentInputModule : null;
+            var events = EventSystem.current;
+            var module = events != null ? events.currentInputModule : null;
             if (module != null && !(module.inputOverride is FakeBaseInput))
                 module.inputOverride = module.gameObject.AddComponent<FakeBaseInput>();
+            // PC 는 창 초점이 없으면 uGUI 입력 모듈이 입력을 버린다 — 가짜 터치가 나가는 동안 EventSystem 에 초점을 다시 알린다.
+            if (_current.HasValue && events != null && !events.isFocused && !Application.isMobilePlatform) Focus?.Invoke(events, Focused);
         }
+
+        private static readonly object[] Focused = { true };
+        private static readonly System.Reflection.MethodInfo Focus =
+            typeof(EventSystem).GetMethod("OnApplicationFocus", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public);
     }
 
     // UI 는 게임 코드가 아니라 입력 모듈이 터치를 읽으므로 inputOverride 로 같은 가짜 터치를 넣는다.
