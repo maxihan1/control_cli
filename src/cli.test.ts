@@ -7,11 +7,13 @@ import { after, before, test } from 'node:test';
 
 import { capabilities } from './appium.js';
 import { run, TIMING } from './cli.js';
-import { button, fakeFarm, FakeGame, fakeTcp, fakeUsbmux, node } from './fake-game.js';
+import { CONFORM } from './conform.js';
+import { button, fakeFarm, FakeGame, fakeTcp, fakeUsbmux, node, standardScreen } from './fake-game.js';
 import { SETTLE, WAIT } from './game.js';
 
 Object.assign(SETTLE, { maxMs: 30, stepMs: 5 });
 Object.assign(WAIT, { intervalMs: 5 });
+Object.assign(CONFORM, { waitMs: 50 });
 Object.assign(TIMING, { openWaitMs: 200, openStepMs: 5, cleanWaitMs: 100, cleanStepMs: 5 });
 
 const status = node('StatusText', { text: '' });
@@ -179,6 +181,22 @@ test('게임 SDK 의 caps 에 없는 명령은 보내지 않고 미리 거절한
     await cli('-s=caps', 'close');
   } finally {
     pc.server.close();
+  }
+});
+
+test('conform — 표준 화면이면 16줄 통과, 다르면 종료 코드로 알린다', async () => {
+  const ok = await fakeTcp(standardScreen());
+  const bad = await fakeTcp(new FakeGame([node('Boot')]));
+  try {
+    await cli('-s=cf', 'open', '--pc', '--port', String(ok.port));
+    assert.match(await cli('-s=cf', 'conform', '--port', String(ok.port)), /통과 16 · 실패 0 · 건너뜀 0/);
+    await cli('-s=cf', 'close');
+    await cli('-s=cf2', 'open', '--pc', '--port', String(bad.port));
+    await assert.rejects(cli('-s=cf2', 'conform', '--port', String(bad.port)), /통과 \d+ · 실패 [1-9]/);
+    await cli('-s=cf2', 'close');
+  } finally {
+    ok.server.close();
+    bad.server.close();
   }
 });
 

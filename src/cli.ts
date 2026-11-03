@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { parseArgs } from 'node:util';
 
 import { back, call, connect, farmOf, openSession, screenshot, type Conn } from './appium.js';
+import { conform, report } from './conform.js';
 import { crawl, CRAWL } from './crawl.js';
 import { installAndLaunch, terminate } from './devicectl.js';
 import { Game, settled, type PingReply, type WaitOptions } from './game.js';
@@ -58,6 +59,7 @@ export const HELP = `control-cli [-s=<세션>] <명령>
   key <키>                                         키 한 번(KeyCode 이름 — Escape · Space · Return · I · Alpha1). Escape 는 폰 뒤로 키와 같다
   tap <x> <y>                                      좌표 누르기(살펴볼 때만 — Ran 줄 없음)
   ping · tree
+  conform                                          표준 화면(샘플)에 명령을 차례로 보내 기대값과 견준다 — open 바로 뒤에
   crawl [--max ${CRAWL.maxWindows}] [--minutes ${CRAWL.minutes}] [--exclude <정규식>]… [--out <폴더>]   창 훑기
   close                                            Appium 세션을 닫는다
   release [--udid <serial>]                        폰을 놓는다 — 팜이 깐 게임 · 데이터를 지운다
@@ -291,6 +293,13 @@ export async function run(argv: string[], o: Options): Promise<string> {
       if (args.length !== 2 || !Number.isFinite(x) || !Number.isFinite(y)) throw new Error('tap <x> <y> 꼴이어야 합니다');
       await game.tap(x, y);
       return after(`- 좌표 (${x}, ${y}) 누름 — 케이스에는 주소로 씁니다`);
+    }
+    case 'conform': {
+      const r = await conform(game);
+      const out = report(r);
+      // 실패가 있으면 종료 코드 1 — CI · 스크립트가 알아챈다.
+      if (r.failed > 0) throw new Error(out);
+      return out;
     }
     case 'crawl':
       return crawl(game, {
