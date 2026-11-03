@@ -3,7 +3,8 @@
 ## ▶ 다음 세션은 여기부터 (2026-11-03)
 
 - P1 MCP — 설계 · 구현 계획(writing-plans)부터. 브랜치 `p1` 을 `p0` 위에 쌓고 PR 은 `p0` 로. 도구 목록은 `protocol/commands.json`(P0) 에서, 끝 기준은 Unity 샘플 `conform` 차례를 MCP 도구로 돌려 초록
-- P0 끝 — 팜 · 이 맥 `conform` 모두 초록(draft PR #15 · `p0` → `roadmap`, 로드맵은 #14 · `roadmap` → `unity-u8`)
+- P0 끝 — 팜 · 이 맥 `conform` 모두 초록, 코드 리뷰 고침 뒤 PR #15 를 `roadmap` 에 합침(로드맵은 #14 · `roadmap` → `unity-u8`)
+- main 에 합치기 전에 정할 것 — `instrument` 의 기본 ref `main` 과 UPM 경로 `?path=/sdk/unity` 가 엇갈린다(main 에 `sdk/unity/` 가 생기기 전엔 새 CLI 가, 생긴 뒤엔 옛 CLI 의 `?path=/sdk#main` 이 깨진다). 기본 ref 를 CLI 판 tag(`v0.3.0`)로 두는 안 — context-notes 「P0 코드 리뷰」
 - 차례 — P0 바탕 → P1 MCP → P2 Unity 를 AltTester 와 똑같이 → P3 relay · WebGL · Linux → P4 드라이버 → P5 인스펙터 · Recorder → P6~P10 엔진(맨 뒤 — 사용자 결정)
 - P0 → P1 → P2 는 순차, P3~P10 은 P2 가 main 에 합쳐진 뒤 병행(트랙마다 세션 · worktree · 팜 폰 하나 — plan.md 「순차와 병행」)
 - 브랜치 — `roadmap`(`unity-u8` 위). P0~P2 는 단계마다 브랜치 하나 · PR 하나(`p0` · `p1` · `p2a` …)를 앞 단계 위에 쌓고, P3 부터는 main 에서 트랙마다 따로
