@@ -97,7 +97,7 @@ npx control-cli open --pc                          # 이미 켜 둔 게임에 �
 npx control-cli key I                              # Ran: await game.key('I')
 ```
 
-PC 게임의 SDK 는 이 컴퓨터의 `127.0.0.1:13100` 에 열려 adb 없이 TCP 로 바로 붙는다. 스크린샷은 게임이 프레임 끝에서 찍고, 창 훑기의 뒤로 키는 `Escape` 다. QA 빌드는 창 초점이 없어도 돈다(SDK 가 `runInBackground` · Input System `IgnoreFocus` 를 켜고 uGUI 에 초점을 다시 알린다). `PLATFORM_APP` 은 팜 · USB 의 APK 라 PC 는 `--app` 만 본다.
+PC 게임의 SDK 는 이 컴퓨터의 `127.0.0.1:13100` 에 열려 adb 없이 TCP 로 바로 붙는다. 스크린샷은 게임이 프레임 끝에서 찍고, 창 훑기의 뒤로 키는 `Escape` 다. QA 빌드는 창 초점이 없어도 돈다(SDK 가 `runInBackground` · Input System `IgnoreFocus` 를 켜고 uGUI 에 초점을 다시 알린다). 다만 화면은 켜져 있어야 한다 — macOS 는 디스플레이가 꺼지면 Metal 이 프레임을 못 내보내 게임이 멈추고 명령이 「멈췄거나 일시정지」로 실패한다. `PLATFORM_APP` 은 팜 · USB 의 APK 라 PC 는 `--app` 만 본다.
 
 ### 루프 — iOS (USB)
 

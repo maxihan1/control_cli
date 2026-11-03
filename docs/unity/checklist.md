@@ -62,7 +62,8 @@
 - [x] 샘플 StandaloneOSX · StandaloneWindows64 matrix
 - [x] 샘플 StandaloneOSX 실측 (이 맥) — 세로 창에서 다 됨. 가로 전체 화면은 샘플 UI Toolkit 패널이 uGUI 를 덮어 안 됨
 - [x] 샘플 PC 빌드를 540×1200 창으로(`SampleBuild.cs`)
-- [ ] 새 샘플 PC 빌드가 `open --pc --app` 만으로 세로 창으로 뜨는지
+- [x] 새 샘플 PC 빌드가 `open --pc --app` 만으로 세로 창으로 뜨는지 — 첫 화면 「화면 540×1200」(run 41619067888)
+- [ ] 새 샘플 PC 빌드로 loop 전체 (이 맥 — 디스플레이가 켜져 있을 때. 꺼져 있으면 Unity 가 Metal 프레임 내보내기에서 멈춘다)
 
 ## U7. iOS
 - [x] usbmuxd 연결(`src/usbmux.ts` · `iosLink`)
