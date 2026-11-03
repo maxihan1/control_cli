@@ -11,24 +11,25 @@
 | AltTester 갈래 | 명령 · 기능 | 지금 | 단계 |
 |---|---|---|---|
 | 찾기 | FindObject · GetAllElements · WaitForObject · WaitForObjectNotBePresent | ✓ `find` · `tree` · `wait` · `wait --gone` | — |
-| 찾기 | FindObjects · FindObjectWhichContains · FindObjectsWhichContain · WaitForObjectWhichContains · FindObjectAtCoordinates · 선택자(By NAME · PATH · TAG · LAYER · COMPONENT · TEXT · ID) | | P1-B |
-| 설정 | SetCommandResponseTimeout · Get/SetDelayAfterCommand · Get/SetImplicitTimeout | 고정값 | P1-B |
+| 찾기 | FindObjects · FindObjectWhichContains · FindObjectsWhichContain · WaitForObjectWhichContains · FindObjectAtCoordinates · 선택자(By NAME · PATH · TAG · LAYER · COMPONENT · TEXT · ID) | | P2-B |
+| 설정 | SetCommandResponseTimeout · Get/SetDelayAfterCommand · Get/SetImplicitTimeout | 고정값 | P2-B |
 | 입력 | PressKey · Click · Tap(좌표) · Swipe | ✓ `key` · `tap` · `drag` | — |
-| 입력 | KeyDown · KeyUp · HoldButton · PressKeys · MoveMouse · Scroll · MultipointSwipe · BeginTouch · MoveTouch · EndTouch · Tilt · ResetInput · 조이스틱 · Pointer Down/Up/Enter/Exit | | P1-C |
-| 스크린샷 | GetPNGScreenshot | ✓ JPEG | P1-B(PNG 고르기) |
+| 입력 | KeyDown · KeyUp · HoldButton · PressKeys · MoveMouse · Scroll · MultipointSwipe · BeginTouch · MoveTouch · EndTouch · Tilt · ResetInput · 조이스틱 · Pointer Down/Up/Enter/Exit | | P2-C |
+| 스크린샷 | GetPNGScreenshot | ✓ JPEG | P2-B(PNG 고르기) |
 | 게임 상태 | GetCurrentScene · GetApplicationScreenSize | ✓ `tree` 의 `scene` · `screen` | — |
-| 게임 상태 | LoadScene · UnloadScene · GetAllLoadedScenes · WaitForCurrentSceneToBe · Get/SetTimeScale · PlayerPrefs(읽기 · 쓰기 · 키 지우기 · 다 지우기) · CallStaticMethod · Get/SetStaticProperty | | P1-A |
+| 게임 상태 | LoadScene · UnloadScene · GetAllLoadedScenes · WaitForCurrentSceneToBe · Get/SetTimeScale · PlayerPrefs(읽기 · 쓰기 · 키 지우기 · 다 지우기) · CallStaticMethod · Get/SetStaticProperty | | P2-A |
 | 오브젝트 | FindObjectFromObject · GetComponentProperty · GetText · SetText(입력칸) · Tap · Click · UpdateObject · GetWorldPosition | ✓ 경로 주소 · `get` · `text` · `type` · `click` | — |
-| 오브젝트 | CallComponentMethod · SetComponentProperty · WaitForComponentProperty · GetParent · GetScreenPosition · SetText(글자 컴포넌트) · 컴포넌트 · 필드 · 메서드 목록 | | P1-A · P1-B |
-| 오브젝트 | GetVisualElementProperty · WaitForVisualElementProperty(UI Toolkit) | | P1-B |
-| 알림 | 장면 열림 · 닫힘 · 로그 · 앱 일시정지 · SetServerLogging | `errors`(오류만) | P1-D |
-| 연결 | Android 역방향 포트 연결 · iOS 역방향 · AltTester Server(로컬 · 원격 중계) | ✓ adb forward · 팜 · usbmuxd | P2 |
+| 오브젝트 | CallComponentMethod · SetComponentProperty · WaitForComponentProperty · GetParent · GetScreenPosition · SetText(글자 컴포넌트) · 컴포넌트 · 필드 · 메서드 목록 | | P2-A · P2-B |
+| 오브젝트 | GetVisualElementProperty · WaitForVisualElementProperty(UI Toolkit) | | P2-B |
+| 알림 | 장면 열림 · 닫힘 · 로그 · 앱 일시정지 · SetServerLogging | `errors`(오류만) | P2-D |
+| 연결 | Android 역방향 포트 연결 · iOS 역방향 · AltTester Server(로컬 · 원격 중계) | ✓ adb forward · 팜 · usbmuxd | P3 |
 | 플랫폼 | Android · iOS · Windows · macOS | ✓ | — |
-| 플랫폼 | Linux · WebGL | | P2 |
+| 플랫폼 | Linux · WebGL | | P3 |
 | 엔진 | Unity | ✓ | — |
-| 엔진 | Unreal(+ 사용자가 고른 Godot · GameMaker · RPG Maker · CryEngine) | | P3~P7 |
-| 드라이버 | C# · Python · Java · Robot Framework | TS(CLI · test_platform kit) | P8 |
-| Desktop | 인스펙터(트리 · 컴포넌트 · 메서드) · Recorder(단계 · assertion) · 테스트 생성 · 기록 돌리기 · 마지막 연결 기억 · AI 확장(MCP) | CLI 화면 파일 · `Ran:` 줄 | P9 |
+| 엔진 | Unreal(+ 사용자가 고른 Godot · GameMaker · RPG Maker · CryEngine) | | P6~P10 |
+| 드라이버 | C# · Python · Java · Robot Framework | TS(CLI · test_platform kit) | P4 |
+| Desktop | AI 확장(MCP) | CLI(셸을 쓰는 AI 는 지금도 씀) | P1 |
+| Desktop | 인스펙터(트리 · 컴포넌트 · 메서드) · Recorder(단계 · assertion) · 테스트 생성 · 기록 돌리기 · 마지막 연결 기억 | CLI 화면 파일 · `Ran:` 줄 | P5 |
 
 ## 2. 구조
 
@@ -49,7 +50,7 @@
 
 ### 통신 길
 - 네이티브(폰 · PC) — 지금처럼 게임이 `127.0.0.1:13100` 에 TCP 로 연다. adb forward · 팜 · usbmuxd · PC TCP 그대로
-- 브라우저(Unity WebGL · Godot 웹 · GameMaker HTML5 · RPG Maker 웹 · 모바일 웹 묶음) — 브라우저는 서버를 못 연다. 게임이 밖으로 WebSocket 을 걸고 CLI 의 중계(`control-cli relay`)가 받는다. 같은 중계가 AltTester Server 처럼 원격 연결도 맡는다(P2)
+- 브라우저(Unity WebGL · Godot 웹 · GameMaker HTML5 · RPG Maker 웹 · 모바일 웹 묶음) — 브라우저는 서버를 못 연다. 게임이 밖으로 WebSocket 을 걸고 CLI 의 중계(`control-cli relay`)가 받는다. 같은 중계가 AltTester Server 처럼 원격 연결도 맡는다(P3)
 
 ### 저장소 모양
 - `sdk/unity/`(지금 `sdk/` 를 옮김) · `sdk/unreal/` · `sdk/godot/` · `sdk/gamemaker/` · `sdk/rpgmaker/` · `sdk/cryengine/`
@@ -66,20 +67,21 @@
 | 단계 | 하는 일 | 끝 기준 | 크기 |
 |---|---|---|---|
 | **P0** 바탕 | 통신 꼴 v2(`ping` caps) · `protocol/commands.json` · `conform` · `sdk/` → `sdk/unity/` · instrument 경로 | Unity 샘플에서 `conform` 초록(지금 명령만) | 1~2일 |
-| **P1-A** Unity 게임 상태 | 메서드 호출(컴포넌트 · static) · 속성 쓰기 · static 속성 · PlayerPrefs · timeScale · 장면 열기 · 닫기 · 목록 · 기다리기 | `conform` A 줄 초록 · 팜 | 1~2일 |
-| **P1-B** Unity 찾기 · 설정 | 선택자(이름 일부 · 태그 · 레이어 · 컴포넌트 · 글자 · id) · 여러 개 · 좌표로 찾기 · 부모 · 화면 좌표 · 속성 값 기다리기 · 컴포넌트/필드/메서드 목록 · UI Toolkit 속성 · 시간 초과 · 명령 뒤 쉼 설정 · PNG | `conform` B 줄 초록 | 1~2일 |
-| **P1-C** Unity 입력 | 여러 손가락(`FakeTouches` 를 손가락 여럿으로) · 누름/움직임/뗌 따로 · 여러 점 끌기 · 스크롤 · 길게 누르기 · 키 누름/뗌 · 여러 키 · 마우스 옮기기 · 기울이기 · 조이스틱 · Pointer 이벤트 · 입력 거두기 — 옛 Input · Input System · UI Toolkit 세 길 | `conform` C 줄 초록(Android · macOS) | 3~4일 |
-| **P1-D** Unity 알림 | 장면 · 로그 · 일시정지 알림(가져가기 방식 — `errors` 처럼 번호 뒤만) · SDK 로그 켜고 끄기 | `conform` D 줄 초록 | 반나절~1일 |
-| **P2** 연결 · 플랫폼 | `control-cli relay`(WebSocket · 원격) · Unity WebGL · Linux 빌드 · iOS 역방향 | WebGL · Linux 샘플 `conform` 초록 | 3~5일 |
-| **P3** Godot | `sdk/godot/` 애드온(GDScript) · 표준 화면 · CI(headless export) · Android · PC · 웹 | Godot `conform` 전 줄(맞출 수 있는 것) | 1~2주 |
-| **P4** Unreal | `sdk/unreal/` C++ 플러그인 · UMG · Enhanced Input · CI(자체 러너) | Unreal `conform` | 2~4주 |
-| **P5** GameMaker | `sdk/gamemaker/` 확장(GML) · 방 · 인스턴스 · HTML5 는 relay | GameMaker `conform` | 1~2주 |
-| **P6** RPG Maker | `sdk/rpgmaker/` 플러그인(JS · MZ 먼저, MV) · NW.js 는 TCP, 웹 · 모바일은 relay | RPG Maker `conform` | 1주 |
-| **P7** CryEngine | `sdk/cryengine/` C++ 플러그인 — 시작 전 할지 말지 정함(아래 위험) | CryEngine `conform` | 2~3주 |
-| **P8** 드라이버 | Python · C# · Java · Robot — `protocol/commands.json` 에서 얇게 만든다 | 언어마다 `conform` 을 그 언어로 | 1주 |
-| **P9** 인스펙터 · Recorder | `control-cli inspect`(로컬 웹 화면 — 트리 · 상세 · 스크린샷 · 누르면 명령) · 기록 → TS · Python · C# · Java · Robot 테스트 · 기록 돌리기 · 마지막 연결 기억 · MCP 서버 | 기록한 테스트가 다시 초록 | 2~3주 |
+| **P1** MCP | `control-cli mcp` — stdio MCP 서버가 CLI 의 `Game` 위에서 `protocol/commands.json` 의 명령을 도구로 내준다(따로 띄우는 프로그램 아님 — AI 앱이 이 명령을 실행) | Claude Desktop 에서 Unity 샘플 `conform` 차례를 MCP 도구로 돌림 | 1일 |
+| **P2-A** Unity 게임 상태 | 메서드 호출(컴포넌트 · static) · 속성 쓰기 · static 속성 · PlayerPrefs · timeScale · 장면 열기 · 닫기 · 목록 · 기다리기 | `conform` A 줄 초록 · 팜 | 1~2일 |
+| **P2-B** Unity 찾기 · 설정 | 선택자(이름 일부 · 태그 · 레이어 · 컴포넌트 · 글자 · id) · 여러 개 · 좌표로 찾기 · 부모 · 화면 좌표 · 속성 값 기다리기 · 컴포넌트/필드/메서드 목록 · UI Toolkit 속성 · 시간 초과 · 명령 뒤 쉼 설정 · PNG | `conform` B 줄 초록 | 1~2일 |
+| **P2-C** Unity 입력 | 여러 손가락(`FakeTouches` 를 손가락 여럿으로) · 누름/움직임/뗌 따로 · 여러 점 끌기 · 스크롤 · 길게 누르기 · 키 누름/뗌 · 여러 키 · 마우스 옮기기 · 기울이기 · 조이스틱 · Pointer 이벤트 · 입력 거두기 — 옛 Input · Input System · UI Toolkit 세 길 | `conform` C 줄 초록(Android · macOS) | 3~4일 |
+| **P2-D** Unity 알림 | 장면 · 로그 · 일시정지 알림(가져가기 방식 — `errors` 처럼 번호 뒤만) · SDK 로그 켜고 끄기 | `conform` D 줄 초록 | 반나절~1일 |
+| **P3** 연결 · 플랫폼 | `control-cli relay`(WebSocket · 원격) · Unity WebGL · Linux 빌드 · iOS 역방향 | WebGL · Linux 샘플 `conform` 초록 | 3~5일 |
+| **P4** 드라이버 | Python · C# · Java · Robot — `protocol/commands.json` 에서 얇게 만든다 | 언어마다 `conform` 을 그 언어로 | 1주 |
+| **P5** 인스펙터 · Recorder | `control-cli inspect`(로컬 웹 화면 — 트리 · 상세 · 스크린샷 · 누르면 명령) · 기록 → TS · Python · C# · Java · Robot 테스트 · 기록 돌리기 · 마지막 연결 기억 | 기록한 테스트가 다시 초록 | 2~3주 |
+| **P6** Godot | `sdk/godot/` 애드온(GDScript) · 표준 화면 · CI(headless export) · Android · PC · 웹 | Godot `conform` 전 줄(맞출 수 있는 것) | 1~2주 |
+| **P7** Unreal | `sdk/unreal/` C++ 플러그인 · UMG · Enhanced Input · CI(자체 러너) | Unreal `conform` | 2~4주 |
+| **P8** GameMaker | `sdk/gamemaker/` 확장(GML) · 방 · 인스턴스 · HTML5 는 relay | GameMaker `conform` | 1~2주 |
+| **P9** RPG Maker | `sdk/rpgmaker/` 플러그인(JS · MZ 먼저, MV) · NW.js 는 TCP, 웹 · 모바일은 relay | RPG Maker `conform` | 1주 |
+| **P10** CryEngine | `sdk/cryengine/` C++ 플러그인 — 시작 전 할지 말지 정함(아래 위험) | CryEngine `conform` | 2~3주 |
 
-차례 까닭 — Unity 를 먼저 AltTester 와 똑같이 만들어 기준 구현으로 삼는다(고객 게임 Ashveil 이 Unity). 통신 꼴은 P0 에서 고정해 다른 엔진이 따라온다. 둘째 엔진은 Godot — 열린 소스 · headless CI · 동적 reflection 이라 「엔진과 무관한 꼴」을 가장 싸게 검증한다. 브라우저 중계(P2)를 웹이 주력인 엔진(GameMaker HTML5 · RPG Maker) 앞에 둔다.
+차례 까닭 — Unity 를 먼저 AltTester 와 똑같이 만들어 기준 구현으로 삼는다(고객 게임 Ashveil 이 Unity). 통신 꼴은 P0 에서 고정한다. MCP(P1)는 1일로 싸고 도구 목록이 `protocol/commands.json` 에서 따라와 바로 앞에 둔다. 엔진(P6~P10)은 맨 뒤 — 사용자 결정(2026-11-03). 그때는 통신 꼴 · MCP · 드라이버 · 인스펙터가 다 서 있어 엔진 SDK 만 만들면 도구가 모두 따라온다. 엔진 안 차례는 Godot 먼저(열린 소스 · headless CI · 동적 reflection 이라 가장 싸게 검증), 실제 게임이 있는 엔진이 생기면 그 엔진을 앞당긴다.
 크기는 구현 · CI · 실기기 확인까지의 대략이다 — 합쳐 몇 달. 단계마다 이 표의 끝 기준을 지키고 다음으로 넘어간다.
 
 ## 4. 열린 결정 (기본값으로 가되 단계 시작 때 다시 묻는다)
@@ -88,16 +90,16 @@
 |---|---|---|
 | `sdk/` 를 `sdk/unity/` 로 옮기나 | 옮긴다(박힌 ref 는 그대로 돈다) | P0 |
 | 엔진 판 | Unreal 5.4 이상 · Godot 4.3 이상 · GameMaker LTS · RPG Maker MZ(MV 는 뒤) · CryEngine 5.7.1 | 각 엔진 단계 |
-| Unreal CI | 자체 러너(Epic 컨테이너는 Epic–GitHub 계정 잇기 필요, 디스크 100GB+) | P4 |
-| GameMaker · RPG Maker CI | 사용자 라이선스로 빌드(GameMaker Igor CLI) | P5 · P6 |
-| 드라이버 만드는 법 | `protocol/commands.json` 에서 생성 | P8 |
-| 인스펙터 모양 | 로컬 웹 화면(설치 없음) | P9 |
+| Unreal CI | 자체 러너(Epic 컨테이너는 Epic–GitHub 계정 잇기 필요, 디스크 100GB+) | P7 |
+| GameMaker · RPG Maker CI | 사용자 라이선스로 빌드(GameMaker Igor CLI) | P8 · P9 |
+| 드라이버 만드는 법 | `protocol/commands.json` 에서 생성 | P4 |
+| 인스펙터 모양 | 로컬 웹 화면(설치 없음) | P5 |
 | test_platform kit | 단계마다 같은 이름 `game.*` 함수를 kit 에 더한다(다른 저장소) | 단계 끝마다 |
 
 ## 5. 위험
 
-- **CryEngine** — 공개판이 5.7.1 LTS(2022-05)에서 멈췄고 라이선스 고객만 지원받는다. P7 은 이 엔진으로 만든 실제 게임이 있을 때만 시작한다
+- **CryEngine** — 공개판이 5.7.1 LTS(2022-05)에서 멈췄고 라이선스 고객만 지원받는다. P10 은 이 엔진으로 만든 실제 게임이 있을 때만 시작한다
 - **Unreal 의 reflection 한계** — UPROPERTY · UFUNCTION 이 아닌 C++ 멤버는 못 읽고 못 부른다. AltTester Unreal SDK 와 같은 한계다
-- **GameMaker 트리 없음** — 인스턴스는 부모-자식이 없다. 주소 꼴을 `/<레이어>/<오브젝트 종류>[n]` 으로 맞춘다(P5 설계에서 확정)
+- **GameMaker 트리 없음** — 인스턴스는 부모-자식이 없다. 주소 꼴을 `/<레이어>/<오브젝트 종류>[n]` 으로 맞춘다(P8 설계에서 확정)
 - **브라우저 빌드 실측** — 팜은 Android 앱만 받는다. 웹 빌드는 이 맥 브라우저(Playwright)로 돌린다
 - **좌석 · 라이선스 · CI 시간** — 엔진마다 샘플 빌드가 늘어 CI 시간이 커진다. 엔진별 워크플로를 나눠 그 엔진 경로가 바뀔 때만 돈다
