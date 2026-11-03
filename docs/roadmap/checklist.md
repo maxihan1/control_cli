@@ -22,9 +22,9 @@
 
 ## P1. MCP
 - [x] 설계 · 구현 계획 — [p1-plan.md](p1-plan.md)(태스크 6개)
-- [ ] `control-cli mcp` — stdio MCP 서버 · 도구 목록은 `protocol/commands.json` 에서
-- [ ] Claude Desktop 설정 한 줄 · README
-- [ ] Unity 샘플 `conform` 차례를 MCP 도구로 돌려 초록
+- [x] `control-cli mcp` — stdio MCP 서버 · 도구 목록은 `protocol/commands.json` 에서 — 손으로 쓴 JSON-RPC(`src/mcp.ts` · 5c839ee), 게임 도구 12개 + 세션 도구 `hold` · `open` · `close` · `release`(da722f9). sdk-compile meta 잡이 `mcp.test` 도 돈다(58d4aeb)
+- [x] Claude Desktop 설정 한 줄 · README — MCP 절 · 도구 표(f7719f6). 세션 파일은 `~/.control-cli/`
+- [x] Unity 샘플 `conform` 차례를 MCP 도구로 돌려 초록 — 테스트(가짜 표준 화면 · `dist/main.js mcp` 를 띄워) 16/16, 이 맥 macOS 앱 · 팜 RF9R408GKRR(6000.0 Input System) 모두 「통과 16 · 실패 0 · 건너뜀 0」(run 41642343858 결과물). Claude Code headless 가 진짜 MCP 클라이언트로 붙어 open → … → close
 
 ## P2-A. Unity 게임 상태
 - [ ] 설계 · 구현 계획

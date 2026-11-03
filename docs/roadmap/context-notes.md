@@ -66,3 +66,12 @@
 - 뺀 것 — `snapshot` ref · `Ran:` 줄 · `wait` · `text` · `conform` · `crawl` · `instrument`. ref · Ran 은 셸 CLI 의 케이스 쓰기 몫이고 `wait` · `text` 는 `find` 로 된다
 - 끝 기준을 재는 법 — MCP 클라이언트가 `conform` 의 `Game` 을 MCP 링크(`tools/call` 하나 = 명령 하나)로 돌린다. 「conform 차례를 MCP 도구로」가 같은 16줄 · 같은 통과 수로 잰다. 테스트는 `dist/main.js mcp` 를 진짜로 띄워 stdio 로 부른다
 - CI — CLI 테스트는 지금 CI 에서 안 돈다. 도구 목록 ↔ commands.json 은 `protocol.test` 와 같은 계약이라 sdk-compile meta 잡에 `mcp.test` 를 더한다
+
+## 2026-11-04 — P1 실기기 (MCP 도구로 conform · sample run 41642343858 · 커밋 f7719f6)
+
+- 재는 법 — 저장소 밖 스크립트가 `dist/main.js -s p1mcp mcp` 를 AI 앱처럼 띄워 `initialize`(MCP 2025-06-18) → `tools/list`(16개) → 세션 도구 → `conform` 의 `Game` 을 MCP 링크(`tools/call` 하나 = 명령 하나)로 → `screenshot` → `close` → `release`. 세션 파일은 진짜 `~/.control-cli/`(시험 뒤 지움 — 처음엔 폴더가 없었다)
+- 이 맥 macOS 앱(StandaloneOSX · 세로 창 540×1200) — `open {via: "pc", app}` 뒤 「통과 16 · 실패 0 · 건너뜀 0」(05:54). MCP 스크린샷은 진짜 화면(JPEG 그림 · 로그인 글 · 큐브 · touch 10,10)
+- 팜 RF9R408GKRR(6000.0 Input System APK) — `hold {udid}` → `open {app: 로컬 APK 경로}` → 「통과 16 · 실패 0 · 건너뜀 0」 → `close` → `release`(05:56). 팜 기기 목록에서 그 폰은 「IDLE · ready」. P0 에서 APK 넷이 같은 SDK · 같은 conform 으로 초록이었고 MCP 층은 APK 를 가리지 않아 하나만 돌렸다
+- 진짜 MCP 클라이언트 — Claude Code headless(`claude -p --strict-mcp-config --mcp-config …`)가 손으로 쓴 서버에 붙었다(`status: connected`, 도구 16개). 말로 시킨 open → tree → type → click → find → screenshot → close 를 다 부르고 스크린샷 그림을 읽어 「touch 135,815」라고 답했다. Claude Desktop 과 같은 공식 SDK 클라이언트라 Desktop 의 손 확인은 사용자 몫으로 남긴다(이 세션은 Desktop 앱을 못 띄운다)
+- **잠금 화면은 `caffeinate -d` 를 무시한다** — 첫 macOS 시도에서 `-u -t 3` 으로 깨우고 `-d -t 900` 을 걸었는데 13초 뒤(05:52:33) 다시 꺼져 open 뒤 스크린샷 · ping 이 「게임이 10초 안에 답하지 않았습니다(멈췄거나 일시정지)」 — P0 의 Metal 멈춤과 같은 증상. `ioreg -n Root -d1 -a` 의 `CGSSessionScreenIsLocked` 가 true 였다. P0(04:48)에는 WindowServer 의 HID 신호(UserIsActive)가 화면을 잡아 줬다. `caffeinate -d -u -t 900`(시험 내내 「사용자 활동 중」)으로 바꾸니 끝까지 켜져 16/16. 그 caffeinate PID 만 껐다
+- 계획과 다르게 한 것 — ① 인자 꼴 실패 글 「target 가 필요합니다」가 영어 칸 이름 뒤 조사를 못 고른다 → 「target 칸이 필요합니다」 ② 실기기 스크립트는 hold 가 성공한 폰만 release 한다(남이 잡은 폰을 놓지 않게)
