@@ -75,3 +75,13 @@
 - 창 초점 — `runInBackground` · Input System `backgroundBehavior = IgnoreFocus`(1.1.0 부터 있어 `CONTROL_CLI_INPUTSYSTEM` 조건을 1.1.0 이상으로 올렸다 · Unity 2021.3 용은 1.3 이상) · uGUI 는 `StandaloneInputModule` 이 `!isFocused` 면 입력을 버려 가짜 터치가 나가는 프레임에 EventSystem 의 `OnApplicationFocus(true)` 를 reflection 으로 부른다(SendMessage 는 같은 오브젝트의 게임 스크립트까지 부른다)
 - `open --pc` 는 팜용 `PLATFORM_APP`(APK)을 보지 않는다. macOS `.app` 은 `Contents/MacOS` 안 실행 파일을 바로 띄워야 프로세스 번호를 잡아 `close` 가 끈다
 - 샘플 PC 빌드는 Mono — 리눅스 CI 는 mac · Windows IL2CPP 를 못 굽는다
+
+## 2026-11-03 — U7 iOS
+
+- 폰 포트는 usbmuxd 로 명령마다 잇는다 — `/var/run/usbmuxd` 는 누구나 쓸 수 있는 유닉스 소켓(이 맥 확인)이고, plist `Connect`(DeviceID · network byte order 포트)가 `Result 0` 이면 그 소켓이 그대로 폰의 13100 이다. iproxy 처럼 떠 있는 프로세스를 세션마다 맡을 일이 없다
+- plist 는 다 풀지 않는다 — 기기마다 Properties 키가 알파벳 차례라 `ConnectionType → DeviceID → SerialNumber` 로 읽는다. 같은 폰이 USB · Wi-Fi 로 두 번 나와 USB 만 고른다
+- Connect 답을 읽고 소켓을 `pause()` 해 둔다 — 명시적으로 멈춘 소켓은 `data` listener 를 붙여도 안 흐르므로 `talk` 가 `resume()` 한다
+- 깔기 · 켜기 · 끄기는 `xcrun devicectl`(Xcode 15+ · iOS 17+, 이 맥 Xcode 26.3) — Appium XCUITest 의 WebDriverAgent 서명 없이 된다. `install app` 은 `.app` 묶음을 받고, bundle id 는 `plutil` 로 `Info.plist` 에서 읽는다. 결과는 표 대신 `--json-output` 파일을 읽는다(`result.process.processIdentifier`). 실기기 없이 확인 못 한 부분이다
+- `open --ios` 는 Android 용 `PLATFORM_APP` · `PLATFORM_DEVICE_UDID` 를 보지 않는다. 뒤로 키가 없어 창 훑기는 `back` 없이 돈다
+- 테스트는 libimobiledevice 와 같은 환경값 `USBMUXD_SOCKET_ADDRESS` 로 가짜 usbmuxd 를 띄운다 — Wi-Fi(7) · USB(9) 두 줄에서 9 로, 포트 13100 으로 잇는지 본다
+- PC 테스트 스크립트를 `exec sleep` 으로 — `sh` 만 끄면 `sleep` 이 고아로 남는다

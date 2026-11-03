@@ -52,8 +52,11 @@
 - [ ] 샘플 StandaloneOSX 실측 (이 맥 — 샘플 빌드 뒤)
 
 ## U7. iOS
-- [ ] usbmuxd 연결 · devicectl
-- [ ] iPhone 실측
+- [x] usbmuxd 연결(`src/usbmux.ts` · `iosLink`)
+- [x] devicectl 깔기 · 켜기 · 끄기(`src/devicectl.ts`)
+- [x] CLI 테스트 — 가짜 usbmuxd 로 열기 · 누르기 · jpg 스크린샷 · 없는 UDID 거절
+- [x] 샘플 iOS(Xcode 프로젝트) matrix
+- [ ] iPhone 실측 (사용자 — iOS 17+ iPhone · Apple 팀 서명)
 
 ## U8. 마무리
 - [ ] README 지원 표 · help · 0.2.0
