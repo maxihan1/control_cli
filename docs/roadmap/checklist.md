@@ -4,7 +4,8 @@
 
 - 로드맵([plan.md](plan.md))을 사용자가 검토한다 → 승인되면 P0 설계 · 구현 계획(writing-plans)부터
 - 차례 — P0 바탕 → P1 MCP → P2 Unity 를 AltTester 와 똑같이 → P3 relay · WebGL · Linux → P4 드라이버 → P5 인스펙터 · Recorder → P6~P10 엔진(맨 뒤 — 사용자 결정)
-- 브랜치 — `roadmap`(`unity-u8` 위). 단계마다 브랜치 하나 · PR 하나(`p0` · `p1` · `p2a` …), 앞 단계 위에 쌓는다
+- P0 → P1 → P2 는 순차, P3~P10 은 P2 가 main 에 합쳐진 뒤 병행(트랙마다 세션 · worktree · 팜 폰 하나 — plan.md 「순차와 병행」)
+- 브랜치 — `roadmap`(`unity-u8` 위). P0~P2 는 단계마다 브랜치 하나 · PR 하나(`p0` · `p1` · `p2a` …)를 앞 단계 위에 쌓고, P3 부터는 main 에서 트랙마다 따로
 - 그 전에 Unity 넓히기 마무리(U0~U8 draft PR #5~#13 합치기 · `v0.2.0` · Ashveil 회귀 · 팜 안내 창) — [docs/unity/checklist.md](../unity/checklist.md)
 
 단계마다 「설계 → 구현 계획 → 구현 → `conform` 초록(CI + 실기기) → README 지원 표 · AltTester 표 갱신 → test_platform kit 다음 줄」 차례다.
