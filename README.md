@@ -4,6 +4,7 @@ Unity 게임을 자동화 테스트로 조작하는 SDK 와 CLI.
 
 - **SDK** (Unity UPM 패키지) — QA 빌드에서만 게임 안 `127.0.0.1` 에 포트를 열고, 오브젝트 트리 읽기 · 찾기 · 누르기 · 끌기 · 글자 넣기 · 키 · 속성 읽기 · 스크린샷을 받는다. 터치는 빌드 때 이름이 같은 가짜 `Input` 으로 바꿔치기하고, 새 Input System 게임에는 장치 이벤트로 넣는다
 - **CLI** — appium-cli 꼴. snapshot(줄인 트리 + 스크린샷) → ref → 액션, 액션마다 케이스에 붙일 코드 한 줄(`Ran:`)을 찍는다. 디바이스 팜 게임 명령 주소 · USB `adb forward` · PC(TCP) · USB iPhone(usbmuxd) 로 잇는다
+- **MCP** — `control-cli mcp`. AI 앱(Claude Desktop · Claude Code)이 띄우는 stdio MCP 서버로, 같은 명령을 도구로 내준다 — 셸 없는 AI 앱도 게임을 조작한다
 - **라이브러리** — CLI 와 같은 드라이버(`Game`)와 연결 길(`farmLink` · `usbLink` · `tcpLink` · `iosLink`). test_platform kit 이 CLI 를 띄우지 않고 쓴다
 
 0단계 실측 결과는 [docs/step0.md](docs/step0.md). Unity 지원 넓히기의 결정 기록은 [docs/unity/](docs/unity/context-notes.md).
@@ -145,6 +146,32 @@ npx control-cli crawl --max 30 --minutes 5 --exclude '/설정|settings/i' --excl
 | `NNN.yml` | `# <주소>` · `# 연 곳: <창> 의 <버튼> 「글자」` · 줄인 목록 |
 | `list.json` | `[{주소, 이름, 틀, 파일, 지문, 글자지문, 연곳: {창, 버튼, 글자} \| null}]` — 첫 줄은 시작 화면 `scene:<장면>`. 지문은 순번을 뗀 구조, 글자지문은 글자 |
 | `summary.json` | `{멈춘까닭, 창, 누름, 초}` |
+
+### MCP — AI 앱에서
+
+`control-cli mcp` 는 stdio MCP 서버다 — 따로 띄워 두는 프로그램이 아니라 AI 앱이 이 명령을 실행해 붙는다.
+
+```bash
+npm i -g github:maxihan1/control_cli#<태그>      # control-cli 를 PATH 에
+claude mcp add control-cli -- control-cli mcp     # Claude Code
+```
+
+Claude Desktop — `claude_desktop_config.json`(macOS `~/Library/Application Support/Claude/` · Windows `%APPDATA%\Claude\`)의 `mcpServers` 에 한 줄. 팜을 안 쓰면 `env` 는 뺀다.
+
+```json
+"control-cli": { "command": "control-cli", "args": ["mcp"], "env": { "PLATFORM_APPIUM_URL": "http://<팜>:4723/wd/hub", "PLATFORM_APPIUM_TOKEN": "pat_…" } }
+```
+
+Desktop 은 셸의 PATH 를 안 볼 수 있다 — `control-cli` · `node` 를 못 찾으면 `"command": "<which node 의 경로>", "args": ["<npm root -g 의 경로>/control-cli/dist/main.js", "mcp"]` 로 쓴다.
+
+| 도구 | 하는 일 |
+|---|---|
+| `hold` · `open` · `close` · `release` | 세션 — CLI 의 같은 명령. `open` 의 `via` 는 `farm`(기본 · `hold` 먼저) · `usb` · `pc` · `ios` |
+| `ping` · `tree` · `find` · `click` · `drag` · `type` · `get` · `tap` · `key` · `screenshot` · `errors` · `layout` | `protocol/commands.json` 의 명령 그대로 — 인자는 그 칸, 답은 SDK 답 JSON(`ok` 뺌). `screenshot` 은 그림으로 준다 |
+
+- 명령을 `protocol/commands.json` 에 더하면 도구도 따라 는다(`src/mcp.test.ts` 가 잡는다)
+- 세션 파일은 `~/.control-cli/` — Claude Desktop 은 MCP 서버를 쓸 수 없는 `/` 에서 띄운다. 셸 CLI 의 `./.control-cli/` 와 따로다. `-s <세션>` · `--port` · `--url` · `--token` 은 `control-cli … mcp` 로 띄울 때 준다
+- 셸 CLI 의 `snapshot` ref · `Ran:` 줄 · `wait` · `text` 는 MCP 에 없다 — `tree` · `find` 로 본다
 
 ### 연결
 
