@@ -37,5 +37,20 @@
 - SDK 코드는 고칠 것이 없었다 — U0 하네스가 2021.3 · 2022.3 에서 처음부터 초록이었다. `package.json` 의 `unity` · ugui 의존만 낮춘다
 - ugui 는 판에 묶인 core 패키지라 의존을 `1.0.0` 으로 적어도 Unity 6 에서는 2.0.0 이 잡힌다(계획 검토). 샘플 6000.0 빌드의 packages-lock 으로 실측한다
 - 샘플 workflow 는 판마다 `ProjectVersion.txt` · manifest ugui 판을 그 판으로 바꿔 연다 — 낮은 판이 높은 판 프로젝트를 여는 내려가기를 피한다
+
+## 2026-11-03 — U3 TextMeshPro
+
+- **TMP 3.0.9 `TMP_InputField.SetText` 는 글자 수 제한 · 거르기 코드가 주석 처리돼 있다** — `text =` 로 넣으면 `characterLimit` · `contentType` 이 안 먹는다. uGUI `InputField` 는 setter 가 둘 다 한다. README 의 「글자 수 제한 · 거르기는 그 칸 규칙대로」를 지키려고 SDK 가 키로 칠 때(`Append`)와 같은 차례로 `onValidateInput` → `CustomValidator`(`inputValidator`) → 내장 `Validate`(protected 라 reflection)를 글자마다 부른다
+- `Append` 를 그대로 부르지 않은 까닭 — caret 위치 · `textInfo` 에 기대 초점 없이 부르면 깨지기 쉽다
+- TMP 입력칸은 글자 칸 끝에 caret 자리용 `​` 를 붙인다(`m_TextComponent.text = processed + "​"`) — `TextOf` 가 뗀다
+- 샘플은 TMP Essential Resources 를 빌드 스크립트가 가져온다 — TMP 소스도 같은 `AssetDatabase.ImportPackage("Packages/<패키지>/Package Resources/…")` 길을 쓴다. 실제 게임은 늘 가지고 있다
+
+## 2026-11-03 — U4 입력
+
+- 답 미루기 일반화는 U6 로 미룬다 — Input System 이벤트가 처리될 때까지 `FakeTouches.Idle` 이 바쁨으로 남으면 지금 `_touching` 길로 충분하다. 스크린샷이 생길 때 필요한 만큼만 넓힌다
+- 처리 확인은 `InputState.updateCount` 가 넣을 때보다 커졌는지로 본다 — FixedUpdate 에서 처리하는 게임도 같다
+- 옛 Input 마우스 흉내는 `simulateMouseWithTouches`(기본 켜짐)일 때만 — PC 에서도 기본이 켜짐이라 U6 의 「옛 Input 게임 가짜 마우스」가 여기서 같이 풀린다. 뗀 프레임에는 `GetMouseButtonUp` 만 참(Unity 와 같게)
+- 샘플 입력 설정은 빌드 스크립트가 `PlayerSettings` 를 직렬화로 고친다(`activeInputHandler`) — 공개 API 가 없고 Input System 패키지 설정 창도 같은 길이다. 같은 실행 안에서 플레이어 컴파일 정의에 먹는지는 샘플 빌드로 확인한다
+- 샘플 matrix 는 4개 — 6000.0 옛 Input(Ashveil 모양) · 6000.0 Input System 만 · 2022.3 둘 다 · 2021.3 옛 Input. Personal 좌석이라 차례로 돌아 하나에 수십 분이다
 - 판 — 2021.3.45f1 · 2022.3.62f1 · 6000.0.84f1(Ashveil). 주소는 Release API 에서 받는다(세 판 모두 `LinuxEditorInstaller/Unity-<판>.tar.xz` 확인)
 - 패키지 — Input System 1.11.2(`unity: 2019.4` 라 세 판 공통) · TMP 3.0.9(2021/2022 만. Unity 6 은 ugui 2.0 안에 있다)

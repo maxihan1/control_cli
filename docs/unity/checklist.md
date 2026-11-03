@@ -25,15 +25,17 @@
 - [ ] 샘플 세 판 빌드 · 6000.0 packages-lock 의 ugui 2.0.0 확인
 
 ## U3. TextMeshPro
-- [ ] asmdef 참조 · versionDefines
-- [ ] TextOf · TypeText · FindReply
-- [ ] 샘플 TMP 화면 · characterLimit 확인
+- [x] asmdef 참조 · versionDefines
+- [x] TextOf · TypeText · FindReply
+- [x] 샘플 TMP 화면
+- [ ] 샘플에서 `type IdInput 'qa_user01!'` · `type TmpIdInput 'qa_user01!'` 가 둘 다 `qauser01`
 
 ## U4. 입력
-- [ ] 옛 Input 마우스 비추기
-- [ ] Input System 가짜 터치 · updateCount 확인
-- [ ] 답 미루기 일반화
-- [ ] 샘플 matrix New · Both
+- [x] 옛 Input 마우스 비추기
+- [x] Input System 가짜 터치 · updateCount 확인
+- [ ] 답 미루기 일반화 — U6 로 미룸(U4 는 Idle 로 충분)
+- [x] 샘플 matrix New · Both
+- [ ] 샘플 Input System 빌드에서 click · drag · TouchText
 
 ## U5. UI Toolkit
 - [ ] 노드 refactoring
