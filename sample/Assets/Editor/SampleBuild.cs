@@ -29,6 +29,13 @@ public static class SampleBuild
         var standalone = target == BuildTarget.StandaloneOSX || target == BuildTarget.StandaloneWindows64;
         PlayerSettings.SetScriptingBackend(named, standalone ? ScriptingImplementation.Mono2x : ScriptingImplementation.IL2CPP);
         if (target == BuildTarget.Android) PlayerSettings.Android.targetArchitectures = AndroidArchitecture.ARM64;
+        // PC 도 폰과 같은 세로 창 — 가로 전체 화면이면 아래 붙인 UI Toolkit 패널이 uGUI 칸을 덮어 누르기 · 끌기가 패널에 먹힌다(이 맥 실측).
+        if (standalone)
+        {
+            PlayerSettings.fullScreenMode = UnityEngine.FullScreenMode.Windowed;
+            PlayerSettings.defaultScreenWidth = 540;
+            PlayerSettings.defaultScreenHeight = 1200;
+        }
         // 큐브의 BoxCollider 는 코드가 안 불러 엔진 코드 줄이기가 뺀다(실기기 「class 'BoxCollider' doesn't exist」) — 샘플은 줄이지 않는다.
         PlayerSettings.stripEngineCode = false;
 
