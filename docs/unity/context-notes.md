@@ -122,3 +122,4 @@
 - UI Toolkit 칸 글자가 화면에 안 보인다 — 샘플 PanelSettings 에 테마(글꼴)가 없어서다. SDK 로 읽은 값은 맞아 두었다(큐브 분홍과 같은 모양 문제)
 - **macOS 앱(이 맥 · `open --pc --app`)** — 가로 전체 화면(3024×1898)에서는 uGUI · TMP 로그인 · `drag` 가 안 먹고 UI Toolkit 로그인 · 큐브 · `key I` · `type` 은 됐다. 화면을 보니 아래 붙인 UI Toolkit 패널이 가로에서 uGUI 칸 위를 덮어 누르는 자리가 패널에 먹혔다. 같은 앱을 세로 창(`-screen-fullscreen 0 -screen-width 540 -screen-height 1200`)으로 띄우니 다 됐다(uGUI 는 고침 전이라 `qauser0`) — SDK 가 아니라 샘플 화면 문제. 샘플 PC 빌드를 540×1200 창으로 굽는다. Unity 는 마지막 창 크기를 `~/Library/Preferences/com.maxihan1.controlcli.sample.plist` 에 기억하지만 「… Default」 키로 빌드 기본값이 바뀐 것을 알아채 새 기본값을 쓴다
 - 346a64c run 의 iOS 잡도 같은 LocationService 로 빨강 — location 을 뺀 3e98be8 전 커밋이라 예상대로
+- 세 고침 확인(run 41618229974 · d645827) — 7개 초록(iOS 포함). APK 권한은 `INTERNET` 만(6000.0 · 2021.3). 팜에서 6000.0 · 2021.3 APK 모두 uGUI `qauser01` · `login qauser01 1` 까지 전 단계 통과. 폰을 놓았다 다시 잡아도 전체 화면 안내 창은 다시 안 떴다(팜 정리가 그 기억을 안 지운다)

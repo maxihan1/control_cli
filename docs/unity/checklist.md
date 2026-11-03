@@ -1,12 +1,13 @@
 # Unity 지원 넓히기 — 체크리스트
 
-## ▶ 다음 세션은 여기부터 (2026-11-03 세션 끝)
+## ▶ 다음 세션은 여기부터 (2026-11-03 두 번째 세션 끝)
 
-- 코드 · PR — U0~U8 이 draft PR #5~#13 으로 쌓여 있다(브랜치 `unity-u0` … `unity-u8`, 맨 위 `unity-u8` 에서 이어 일한다). 맨 위에만 넣은 고침(TMP 리소스 직접 풀기 · 손가락 19 · 샘플 두 고침)은 차례로 합치면 main 에 들어간다
-- 샘플 빌드 — `unity-u8` push 로 PR #13 의 `sample` 이 새로 돈다(좌석 하나 · 7개 · 1~2시간). 그 APK 로 아래 실측을 다시 한다. 결과물은 `gh run download <run> -R maxihan1/control_cli`
-- 실측 차례 — 팜 `hold --udid R3CR10TCVCD` → `open --app <APK 경로>` → `type IdInput/TmpIdInput/UitkIdInput 'qa_user01!'` → `click LoginButton/TmpLoginButton/UitkLoginButton`(상태 글자 바뀌나) → `drag Item /SampleCanvas/Bag/Slot[3]` → `click WorldCube`(TouchText `cube 1`) → `key I`(TouchText `key I`) → `errors` → `close` · `release`. APK 넷(6000.0 옛 Input · 6000.0 Input System · 2022.3 둘 다 · 2021.3 옛 Input)마다. macOS 앱은 이 맥에서 `open --pc --app`
-- 팜 연결값 — `PLATFORM_APPIUM_URL=https://vision.maxihan.com/wd/hub` · `PLATFORM_APPIUM_TOKEN`(팜 PAT `pat_…`, 사용자에게 받는다 — 저장소에 적지 않는다)
-- ~~열린 결정 — uGUI `type` 의 글자 수 · 거르기 차례~~ → 키 입력 차례로 정함(사용자, [context-notes](context-notes.md) 「uGUI type 차례」)
+- 코드 · PR — U0~U8 이 draft PR #5~#13 으로 쌓여 있다(브랜치 `unity-u0` … `unity-u8`, 맨 위 `unity-u8` 에서 이어 일한다). 맨 위에만 넣은 고침(TMP 리소스 직접 풀기 · 손가락 19 · 샘플 고침 · 가짜 Input 에서 `location` 뺌 · uGUI `type` 키 입력 차례 · `open` 다시 깔기 · 샘플 PC 세로 창)은 차례로 합치면 main 에 들어간다
+- 실측 끝 — 팜 RF9R408GKRR 에서 APK 넷 · 이 맥 macOS 앱(세로 창) 모두 체크리스트 차례 통과, iOS 빌드 초록. 결과 · 원인은 [context-notes](context-notes.md) 「두 번째 실기기 시험」
+- 남은 것 — ① 샘플 PC 빌드가 `open --pc --app` 만으로 세로 창으로 뜨는지(U6, 최신 `sample` run 의 StandaloneOSX 결과물) ② iPhone 실측(U7, 사용자) ③ 합친 뒤 `v0.2.0` 태그(U8, 사용자) ④ test_platform 다음 줄 1~6
+- 실측 차례 — 팜 `hold --udid <폰>` → `open --app <APK 경로>` → `type IdInput/TmpIdInput/UitkIdInput 'qa_user01!'` → `click LoginButton/TmpLoginButton/UitkLoginButton` → `drag Item /SampleCanvas/Bag/Slot[3]` → `click WorldCube`(`cube 1`) → `key I`(`key I`) → `errors` → `close` · `release`. 기대값 — uGUI · TMP `qauser01`, UI Toolkit `qa_user0`. 결과물은 `gh run download <run> -R maxihan1/control_cli`
+- 팜 연결값 — `PLATFORM_APPIUM_URL=https://vision.maxihan.com/wd/hub` · `PLATFORM_APPIUM_TOKEN`(팜 PAT `pat_…`, 사용자에게 받는다 — 저장소에 적지 않는다). 폰은 세션마다 사용자가 정한다(이번 세션은 RF9R408GKRR)
+- 팜 폰이 처음 켜는 게임에 전체 화면 안내 창을 띄우면 Unity 6 이 첫 장면을 안 올려 `open` 이 60초 뒤 실패한다 — 폰 화면 아래에서 위로 밀고 「확인」(패키지마다 한 번). 근본은 팜 폰 준비(test_platform 다음 줄 6)
 
 계획: TMP · 새 Input System · Unity 2021.3/2022.3 LTS · UI Toolkit · PC · iOS (2026-11-03 사용자 선택). 결정과 까닭은 [context-notes.md](context-notes.md).
 한 줄(U번호)이 브랜치 하나 · PR 하나다.
@@ -38,7 +39,7 @@
 - [x] TextOf · TypeText · FindReply
 - [x] 샘플 TMP 화면
 - [x] uGUI `type` 도 키 입력 차례로 거른다(`UguiFiltered` — 첫 실기기 시험에서 uGUI 만 `qauser0`)
-- [ ] 샘플에서 `type IdInput 'qa_user01!'` · `type TmpIdInput 'qa_user01!'` 가 둘 다 `qauser01`
+- [x] 샘플에서 `type IdInput 'qa_user01!'` · `type TmpIdInput 'qa_user01!'` 가 둘 다 `qauser01` — d645827 빌드 6000.0(ugui 2.0.0) · 2021.3(ugui 1.0.0)
 
 ## U4. 입력
 - [x] 옛 Input 마우스 비추기
@@ -69,7 +70,7 @@
 - [x] CLI 테스트 — 가짜 usbmuxd 로 열기 · 누르기 · jpg 스크린샷 · 없는 UDID 거절
 - [x] 샘플 iOS(Xcode 프로젝트) matrix
 - [x] 가짜 `Input` 에서 `location` 뺌 — iOS 빌드가 위치 사용 문구를 요구해 깨지고 Android 는 위치 권한이 붙었다
-- [ ] 샘플 iOS 빌드 초록 · Android APK 에 위치 권한 없음(`aapt dump permissions`)
+- [x] 샘플 iOS 빌드 초록 · Android APK 에 위치 권한 없음(`aapt dump permissions`) — run 41618229974(d645827) 7개 초록, APK 권한은 `INTERNET` 만
 - [ ] iPhone 실측 (사용자 — iOS 17+ iPhone · Apple 팀 서명)
 
 ## U8. 마무리
