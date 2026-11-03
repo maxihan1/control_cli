@@ -186,6 +186,7 @@ def configure(line, inp):
         guids.update(g)
     for a in every.values():
         a["defines"] = defines_of(a, line, pkgs, base)
+        a["extra"] = [d for d in a["defines"] if d not in base]
     for a in every.values():
         # 없는 이름 · GUID 참조는 Unity 처럼 조용히 버린다.
         refs = [guids.get(r[5:]) if r.startswith("GUID:") else r for r in a["def"].get("references", [])]
@@ -261,7 +262,9 @@ def main():
             for name, a in assemblies.items():
                 write_csproj(out, name, a, assemblies, dlls)
             ours = [n for n, a in assemblies.items() if a["ours"]]
-            print(f"== {line} · {inp}: {', '.join(sorted(assemblies))}", flush=True)
+            # SDK · 샘플은 켜진 versionDefines 를 같이 찍는다 — #if 로 감싼 코드가 정말 컴파일됐는지 로그로 보인다.
+            shown = [f"{n}[+{','.join(a['extra'])}]" if a["ours"] and a["extra"] else n for n, a in sorted(assemblies.items())]
+            print(f"== {line} · {inp}: {', '.join(shown)}", flush=True)
             builds.append((out.name, ours))
     # 구성마다 SDK · 확인 어셈블리를 빌드하면 참조한 패키지 어셈블리가 따라 빌드된다. 컨테이너는 하나만 띄운다.
     script = ["fail=0"]
