@@ -187,7 +187,8 @@ export async function run(argv: string[], o: Options): Promise<string> {
     await save(file, s);
     const game = gameOf(s, farm, port);
     const info = await untilAnswers(game);
-    s.caps = info.caps;
+    s.caps = game.caps;
+    await save(file, s);
     const pid = s.pid ? ` · 프로세스 ${s.pid}` : '';
     const where = via === 'farm' ? `디바이스 팜 ${udid}` : via === 'usb' ? 'USB' : via === 'pc' ? `PC${pid}` : `iPhone ${udid}${pid}`;
     const engine = info.engine ? ` · ${info.engine} ${info.engineVersion} · SDK ${info.sdkVersion}` : '';
@@ -215,8 +216,13 @@ export async function run(argv: string[], o: Options): Promise<string> {
   const after = async (line: string) => `${line}\n${await shot(game, s, appium, file, sname, o.dir, true)}`;
 
   switch (name) {
-    case 'ping':
-      return JSON.stringify(await game.ping());
+    case 'ping': {
+      // 게임을 다시 띄웠으면 SDK 가 바뀌었을 수 있다 — 받은 caps 를 세션에 적는다.
+      const r = await game.ping();
+      s.caps = game.caps;
+      await save(file, s);
+      return JSON.stringify(r);
+    }
     case 'tree':
       return JSON.stringify(await game.tree());
     case 'snapshot':
@@ -296,6 +302,8 @@ export async function run(argv: string[], o: Options): Promise<string> {
     }
     case 'conform': {
       const r = await conform(game);
+      s.caps = game.caps;
+      await save(file, s);
       const out = report(r);
       // 실패가 있으면 종료 코드 1 — CI · 스크립트가 알아챈다.
       if (r.failed > 0) throw new Error(out);

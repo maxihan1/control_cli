@@ -178,6 +178,15 @@ test('게임 SDK 의 caps 에 없는 명령은 보내지 않고 미리 거절한
     assert.match(await cli('-s=caps', 'open', '--pc', '--port', port), /\(PC\) · fake 0 · SDK 0\.3\.0/);
     await assert.rejects(cli('-s=caps', 'layout', '--port', port), /이 게임의 SDK 는 layout 를 못 합니다/);
     assert.ok(!g.commands.some((c) => c.cmd === 'layout'), 'layout 이 게임에 갔습니다');
+    // 게임을 새 SDK 로 다시 띄운 뒤 — ping 이 세션의 caps 를 새로 적는다
+    g.caps.push('layout');
+    await cli('-s=caps', 'ping', '--port', port);
+    assert.match(await cli('-s=caps', 'layout', '--port', port), /Ran: await game\.layout\(\)/);
+    await cli('-s=caps', 'close');
+    // 배열이 아닌 caps 는 믿지 않는다 — 글자 일부로 맞춰 거절하지 않고 옛 SDK 처럼 다 보낸다
+    (g as unknown as { caps: unknown }).caps = 'ping tree';
+    await cli('-s=caps', 'open', '--pc', '--port', port);
+    assert.match(await cli('-s=caps', 'layout', '--port', port), /Ran: await game\.layout\(\)/);
     await cli('-s=caps', 'close');
   } finally {
     pc.server.close();

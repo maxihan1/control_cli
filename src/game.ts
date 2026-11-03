@@ -62,10 +62,10 @@ export interface GameErrors {
 export const WAIT = { timeoutMs: 10_000, intervalMs: 300 };
 
 export class Game {
-  /** caps 는 open 때 ping 으로 받은 그 게임 SDK 의 명령 목록 — 없으면(옛 SDK) 다 보낸다 */
+  /** caps 는 그 게임 SDK 의 명령 목록 — 세션 파일에서 받고 ping 마다 새로 적는다. 없으면(옛 SDK) 다 보낸다 */
   constructor(
     private readonly link: Link,
-    private readonly caps?: string[],
+    public caps?: string[],
   ) {}
 
   private async call(command: Command): Promise<Reply> {
@@ -77,7 +77,11 @@ export class Game {
   }
 
   async ping(): Promise<PingReply> {
-    return (await this.call({ cmd: 'ping' })) as unknown as PingReply;
+    const reply = (await this.call({ cmd: 'ping' })) as unknown as PingReply;
+    // 게임이 보낸 값이라 꼴을 본다 — 글자 하나면 includes 가 글자 일부로 맞춘다. 꼴이 틀리면 옛 SDK 처럼 다 보낸다.
+    const caps: unknown = reply.caps;
+    this.caps = Array.isArray(caps) && caps.every((c) => typeof c === 'string') ? caps : undefined;
+    return reply;
   }
 
   async tree(): Promise<TreeReply> {
