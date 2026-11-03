@@ -59,7 +59,30 @@ export function tools(h: Handlers): Tool[] {
       return typeof jpg === 'string' ? [{ type: 'image', data: jpg, mimeType: 'image/jpeg' }] : text(JSON.stringify(rest));
     },
   }));
-  return game;
+  const flag = (k: string, v: unknown) => (v === undefined ? [] : [`--${k}=${String(v)}`]);
+  const cli = async (argv: string[]) => text(await h.session(argv));
+  const udid = { type: 'string', description: '폰 serial(팜 · USB) 또는 iPhone UDID' } as const;
+  const session: Tool[] = [
+    {
+      name: 'hold',
+      description: '디바이스 팜 폰을 잡는다 — udid 가 없으면 빈 폰 하나. 다 쓰면 close 뒤 release',
+      inputSchema: schema({ udid, minutes: { type: 'number', enum: [30, 60, 120], description: '잡아 둘 분(기본 30)' } }),
+      run: (a) => cli(['hold', ...flag('udid', a.udid), ...flag('minutes', a.minutes)]),
+    },
+    {
+      name: 'open',
+      description: '게임에 붙고 첫 화면을 찍는다 — farm(기본)은 hold 로 잡은 폰에 app 을 깔고 켠다 · usb 는 꽂힌 Android · pc 는 이 컴퓨터 게임(app 이 있으면 띄운다) · ios 는 USB iPhone',
+      inputSchema: schema({
+        via: { type: 'string', enum: ['farm', 'usb', 'pc', 'ios'], description: '어디의 게임인가(기본 farm)' },
+        app: { type: 'string', description: 'QA APK 주소 · 경로(farm · usb) · PC 실행 파일 · .app(pc) · 서명된 .app(ios)' },
+        udid,
+      }),
+      run: (a) => cli(['open', ...(a.via === undefined || a.via === 'farm' ? [] : [`--${String(a.via)}`]), ...flag('app', a.app), ...flag('udid', a.udid)]),
+    },
+    { name: 'close', description: '세션을 닫는다 — open 이 띄운 PC · iPhone 게임은 끈다. 팜 폰은 잡힌 채로 남는다(release)', inputSchema: schema({}), run: () => cli(['close']) },
+    { name: 'release', description: '잡은 팜 폰을 놓는다 — 팜이 깐 게임 · 데이터를 지운다', inputSchema: schema({ udid }), run: (a) => cli(['release', ...flag('udid', a.udid)]) },
+  ];
+  return [...game, ...session];
 }
 
 // AI 가 준 인자를 도구 꼴과 견준다 — 틀리면 도구 실패로 알려 AI 가 고쳐 다시 부른다. 꼴 밖 칸은 버린다.
