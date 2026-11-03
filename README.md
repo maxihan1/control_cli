@@ -10,6 +10,8 @@ Unity 게임을 자동화 테스트로 조작하는 SDK 와 CLI.
 
 ## 게임에 넣기 (QA 빌드만)
 
+Unity 2021.3 LTS 이상 — 2021.3 · 2022.3 · 6000.0 에서 컴파일을 검사한다(`tools/unity-compile-check`).
+
 게임 저장소에는 SDK 를 넣지 않는다. QA 빌드 잡에서 Unity 를 켜기 전에 한 번 돌린다.
 
 ```bash
