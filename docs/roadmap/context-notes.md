@@ -39,3 +39,14 @@
 - 사용자 「p0 ~ p2 까지 순차 진행하고 나머지는 병행해서 작업 진행 할 수 있지?」 → 된다. P0~P2 가 통신 꼴 · `conform` · 표준 화면 · Unity 기준 구현을 굳히면 P3~P10 은 서로 거의 안 엮인다(엔진끼리 무관 · 엔진 웹 빌드만 P3 relay 뒤 · Recorder 의 TS 밖 출력만 P4 뒤)
 - 조건 — P2 가 main 에 합쳐진 뒤 시작(그 전에 Unity U-stack #5~#13 도). 통신 꼴 바꿈은 작은 PR 로 main 에 먼저. 트랙마다 세션 · worktree · 팜 폰 하나
 - 한꺼번에가 아니라 세 트랙씩 묶음을 권했다 — 병목이 코드가 아니라 PR 검토 · 팜 폰 둘 · Unreal 러너 · GameMaker/RPG Maker 라이선스라서
+
+## 2026-11-03 — P0 끝 (팜 RF9R408GKRR · sample run 41642343858 · 커밋 07062ec)
+
+- 경로 — Unity SDK 는 `sdk/unity/`(c6a60c1). UPM 주소는 `?path=/sdk/unity`, 엔진이 늘면 `sdk/<엔진>/`. 워크플로 `paths: ['sdk/**']` 는 그대로 받는다
+- protocol 2 — `ping` 이 `engine` · `engineVersion` · `sdkVersion` · `protocol` · `caps` 를 준다(SDK · CLI 판 0.3.0). 명령 이름은 `protocol/commands.json` 한 곳, Unity 쪽 `Caps` 배열과 `SdkVersion` 은 `src/protocol.test.ts` 가 글로 읽어 대조한다(C# 을 돌리지 않고 잡는다). npm 패키지에 `protocol/` 을 싣는다
+- caps 미리 거절 — `open` 이 받은 caps 를 세션 파일에 적고, `Game` 이 caps 밖 명령을 보내기 전에 「이 게임의 SDK 는 X 를 못 합니다」로 던진다. 옛 SDK(caps 없음)는 다 보낸다 — 0.2.0 게임도 그대로 쓴다
+- conform 16줄 — tree · find · type 셋(uGUI · TMP · UI Toolkit) · 로그인 셋 · drag · 큐브 · 키 · get · tap · layout · screenshot · errors. 누른 횟수는 안 보고 글자가 들어 있는지만 봐 같은 세션에서 다시 돌려도 맞다. caps 에 없는 명령 줄은 「건너뜀」, 실패가 있으면 종료 코드 1
+- 실기기 결과 — APK 넷(6000.0 옛 Input · 6000.0 Input System · 2022.3 둘 다 · 2021.3 옛 Input) 모두 「통과 16 · 실패 0 · 건너뜀 0」. `open` 줄에 「· unity <판> · SDK 0.3.0」이 나와 새 ping 이 실기기에서도 온다. uGUI `type` 이 이제 `qauser01`(2db810e 고침이 들어간 첫 conform). 전체 화면 안내 창은 안 떴다(패키지 이름으로 기억 — 「두 번째 실기기 시험」 그대로)
+- CI 에서 새로 안 것 — 6000.0 옛 Input Android 잡이 Gradle 단계에서 Maven Central 의 POM(`commons-io:2.16.1` · `asm:9.8` · `kotlin-stdlib:2.2.10` …)을 「Could not find」로 4분 넘게 못 받아 빨강. 저장소 쪽 문제라 `gh run rerun --failed` 한 번에 초록. 같은 Unity 판 Input System 잡은 바로 다음 차례에 같은 run 에서 초록이었다
+- 남음 — 이 맥 macOS 앱 `conform`. pmset 마지막 기록이 19:43 「Display is turned off」라 돌리지 않았다(꺼지면 Unity 가 Metal 프레임 내보내기에서 멈춘다 — docs/unity/context-notes.md). 결과물은 run 41642343858 의 `sample-6000.0.84f1-StandaloneOSX-input0`(14일 보관)
+- 계획과 다르게 한 것 — ① Task 1 확인 때 앞 작업자가 남긴 Task 2 실패 테스트(`src/protocol.test.ts`)가 build 를 막아 잠깐 치우고 돌렸다 ② roadmap PR 본문은 `origin/roadmap` 의 plan.md 에 attribution 을 붙였다 ③ `package-lock.json` 판은 0.0.1 그대로(0.2.0 때도 안 올렸다 — 계획대로 package.json 둘만)

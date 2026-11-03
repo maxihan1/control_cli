@@ -2,7 +2,8 @@
 
 ## ▶ 다음 세션은 여기부터 (2026-11-03)
 
-- P0 구현 — [p0-plan.md](p0-plan.md) Task 1 부터(브랜치 `p0`). 로드맵은 사용자 승인(2026-11-03, 「이어달리기로 진행」)
+- P1 MCP — 설계 · 구현 계획(writing-plans)부터. 브랜치 `p1` 을 `p0` 위에 쌓고 PR 은 `p0` 로. 도구 목록은 `protocol/commands.json`(P0) 에서, 끝 기준은 Unity 샘플 `conform` 차례를 MCP 도구로 돌려 초록
+- P0 구현 · 팜 `conform` 은 끝(draft PR #15 · `p0` → `roadmap`, 로드맵은 #14 · `roadmap` → `unity-u8`). 남은 칸 하나 — 이 맥 macOS 앱 `conform`(디스플레이가 꺼져 있어 못 돌림, 켜진 때 run 41642343858 의 StandaloneOSX 로)
 - 차례 — P0 바탕 → P1 MCP → P2 Unity 를 AltTester 와 똑같이 → P3 relay · WebGL · Linux → P4 드라이버 → P5 인스펙터 · Recorder → P6~P10 엔진(맨 뒤 — 사용자 결정)
 - P0 → P1 → P2 는 순차, P3~P10 은 P2 가 main 에 합쳐진 뒤 병행(트랙마다 세션 · worktree · 팜 폰 하나 — plan.md 「순차와 병행」)
 - 브랜치 — `roadmap`(`unity-u8` 위). P0~P2 는 단계마다 브랜치 하나 · PR 하나(`p0` · `p1` · `p2a` …)를 앞 단계 위에 쌓고, P3 부터는 main 에서 트랙마다 따로
@@ -12,11 +13,11 @@
 
 ## P0. 바탕
 - [x] 설계 · 구현 계획 — [p0-plan.md](p0-plan.md)(태스크 9개)
-- [ ] `ping` 이 `engine` · `engineVersion` · `protocol` · `caps` 를 준다 · CLI 가 `caps` 밖 명령을 미리 거절
-- [ ] `protocol/commands.json` — 지금 SDK 명령 12개
-- [ ] `control-cli conform` — 표준 화면 차례 · 기대값 · 엔진 × 기능 결과 표
-- [ ] `sdk/` → `sdk/unity/` · instrument 경로 · 하네스 · sample 워크플로
-- [ ] Unity 샘플 `conform` 초록(팜 · 이 맥)
+- [x] `ping` 이 `engine` · `engineVersion` · `protocol` · `caps` 를 준다 · CLI 가 `caps` 밖 명령을 미리 거절 — SDK 0.3.0 · protocol 2(453c351), 세션 파일에 caps(b6a6b64). 팜 `open` 줄 「· unity 6000.0.84f1 · SDK 0.3.0」
+- [x] `protocol/commands.json` — 지금 SDK 명령 12개(56dacce) · `src/protocol.test.ts` 가 Unity `Caps` · `SdkVersion` 과 대조 · npm 패키지에 실림(07062ec)
+- [x] `control-cli conform` — 표준 화면 차례 · 기대값 · 엔진 × 기능 결과 표 — 16줄(1c1f0ed) · 명령 · 실패면 종료 코드 1(d1a4ba5). 전체 `npm test` 32 통과
+- [x] `sdk/` → `sdk/unity/` · instrument 경로 · 하네스 · sample 워크플로 — c6a60c1. sdk-compile run 41642344008 초록(meta · 2021.3 · 2022.3 · 6000.0), 워크플로 `paths` 는 `sdk/**` 라 그대로
+- [ ] Unity 샘플 `conform` 초록(팜 · 이 맥) — 팜 RF9R408GKRR 초록: sample run 41642343858(7개 초록, 6000.0 옛 Input 은 Maven 저장소 못 닿음으로 rerun 한 번)의 APK 넷(6000.0 옛 Input · 6000.0 Input System · 2022.3 둘 다 · 2021.3 옛 Input) 모두 「통과 16 · 실패 0 · 건너뜀 0」. **이 맥은 남음** — 디스플레이 꺼짐(마지막 기록 19:43 「Display is turned off」)
 
 ## P1. MCP
 - [ ] 설계 · 구현 계획
