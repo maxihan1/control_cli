@@ -21,3 +21,9 @@
 - 명령 정의는 `protocol/commands.json` 한 곳 — 적합성 검사 · 드라이버 생성 · README 표가 같은 곳을 본다
 - 「모든 엔진에 적용」의 증거는 엔진마다 같은 표준 화면 + `control-cli conform`. 이번 세션 손 실측(loop 스크립트)을 명령으로 굳힌다
 - Unity 를 먼저 AltTester 와 똑같이(P1) — 고객 게임이 Unity 고, 다른 엔진이 따라올 기준 구현이 된다. 둘째 엔진은 Godot(열린 소스 · headless CI · 동적 reflection)
+
+## 2026-11-03 — P9 모양 (사용자 확인)
+
+- MCP 서버도 만든다(사용자 「mcp 도 추가해서 만든다는 말이지?」 → 예). `control-cli mcp` — stdio MCP 서버가 CLI 의 `Game` 위에 얇게 앉아 `click` · `type` · `snapshot` · `get` … 을 도구로 내준다. 셸이 없는 AI 클라이언트(Claude Desktop · claude.ai)도 게임을 조작하고, 도구 인자 꼴이 정해져 AI 가 덜 틀린다
+- 인스펙터는 `control-cli inspect` — 로컬 웹 화면(설치 없음 · 스크린샷을 보이기 쉬움). 터미널 UI 는 스크린샷을 못 보이고 데스크톱 앱(Electron)은 무거워 뺐다
+- MCP 도구 목록은 `protocol/commands.json` 에서 만든다 — 단계마다 늘어나는 명령이 MCP 에도 저절로 들어온다
