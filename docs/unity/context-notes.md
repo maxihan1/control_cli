@@ -93,3 +93,10 @@
 - U2 확인 — 의존을 `1.0.0` 으로 적어도 Unity 6 에서 `com.unity.ugui@2.0.0` 이 잡힌다
 - **TMP 기본 리소스가 안 들어왔다** — 공개 `AssetDatabase.ImportPackage` 는 `DelayedImportPackageAssets`(UnityCsReference 6000.0 `PackageUtility.bindings.cs`)로 미뤄 가져오고, game-ci 가 빌드 메서드 뒤 Unity 를 꺼 끝내 안 들어온다. 빌드 스크립트가 `.unitypackage`(tar.gz · GUID 폴더마다 asset · asset.meta · pathname — TMP 3.0.9 로 모양 확인)를 직접 풀고 `Refresh(ForceSynchronousImport)` 한다. 자리는 `PackageInfo.FindForAssetPath` 의 실제 폴더로
 - 이 고침은 맨 위 U8 에만 넣었다 — U3~U8 을 차례로 올리면 PR 여섯의 샘플 빌드가 한꺼번에 돌아 Personal 좌석을 다툰다. 차례대로 합치면 main 은 맞다
+
+## 2026-11-03 — 첫 실기기 시험 (팜 SM-G996N · 6000.0 옛 Input APK · 커밋 16ff5bc)
+
+- 됨 — 팜 `hold` → 로컬 APK 경로로 `open`(팜 Appium 이 이 맥 파일을 읽는다) → SDK 답. 트리에 uGUI · TMP(`TMP_InputField`) · UI Toolkit(`TextField` · `Button`)이 다 나온다. `type` 결과 — TMP `qauser01` · UI Toolkit `qa_user0`(maxLength 8 · 거르기 없음) · TMP · UI Toolkit 비밀번호 칸 `***` · Ran 줄도 `'***'`. 게임 코드(`TouchProbe`)는 가짜 터치를 받는다
+- **SDK 버그 — 가짜 손가락 번호 99** — UI Toolkit 은 터치 손가락을 0~19 만 받아(`PointerId.touchPointerCount`) EventSystem 의 `PanelRaycaster.Raycast` → `PointerDispatchState.GetCapturingElement` 가 `IndexOutOfRangeException` 을 던진다. 그 터치의 EventSystem 처리가 통째로 깨져 **uGUI · UI Toolkit 버튼이 다 안 눌렸다**. Ashveil(0단계)은 UI Toolkit 화면이 없어 몰랐다. 19 로 바꿨다(Input System `touchId` 도 같은 번호)
+- 샘플 — UI Toolkit 뿌리가 테마 없이 높이 0 이라 아래 붙임 패널이 화면 밖(안 보임) → 뿌리를 화면 가득으로. `BoxCollider` 를 엔진 코드 줄이기가 빼 큐브 누르기가 안 됨 → 샘플은 `stripEngineCode = false`. 큐브가 분홍(기본 셰이더 빠짐)인 것은 모양뿐이라 두었다
+- **열린 결정 — uGUI `type` 의 글자 수 · 거르기 차례** — uGUI `InputField.text` setter 는 먼저 `characterLimit` 로 자르고 거른다: `qa_user01!` → `qa_user0` → `qauser0`(7자). 키로 치면 한 글자씩 걸러 `qauser01`(8자)이고 TMP 는 SDK 가 그 차례로 거른다. uGUI 도 키 입력 차례로 바꿀지(지금 Ashveil 이 쓰는 길이 바뀐다) 사용자에게 묻는다

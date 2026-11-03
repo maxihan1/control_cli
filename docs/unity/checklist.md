@@ -1,5 +1,13 @@
 # Unity 지원 넓히기 — 체크리스트
 
+## ▶ 다음 세션은 여기부터 (2026-11-03 세션 끝)
+
+- 코드 · PR — U0~U8 이 draft PR #5~#13 으로 쌓여 있다(브랜치 `unity-u0` … `unity-u8`, 맨 위 `unity-u8` 에서 이어 일한다). 맨 위에만 넣은 고침(TMP 리소스 직접 풀기 · 손가락 19 · 샘플 두 고침)은 차례로 합치면 main 에 들어간다
+- 샘플 빌드 — `unity-u8` push 로 PR #13 의 `sample` 이 새로 돈다(좌석 하나 · 7개 · 1~2시간). 그 APK 로 아래 실측을 다시 한다. 결과물은 `gh run download <run> -R maxihan1/control_cli`
+- 실측 차례 — 팜 `hold --udid R3CR10TCVCD` → `open --app <APK 경로>` → `type IdInput/TmpIdInput/UitkIdInput 'qa_user01!'` → `click LoginButton/TmpLoginButton/UitkLoginButton`(상태 글자 바뀌나) → `drag Item /SampleCanvas/Bag/Slot[3]` → `click WorldCube`(TouchText `cube 1`) → `key I`(TouchText `key I`) → `errors` → `close` · `release`. APK 넷(6000.0 옛 Input · 6000.0 Input System · 2022.3 둘 다 · 2021.3 옛 Input)마다. macOS 앱은 이 맥에서 `open --pc --app`
+- 팜 연결값 — `PLATFORM_APPIUM_URL=https://vision.maxihan.com/wd/hub` · `PLATFORM_APPIUM_TOKEN`(팜 PAT `pat_…`, 사용자에게 받는다 — 저장소에 적지 않는다)
+- 열린 결정 — uGUI `type` 의 글자 수 · 거르기 차례([context-notes](context-notes.md) 「첫 실기기 시험」)
+
 계획: TMP · 새 Input System · Unity 2021.3/2022.3 LTS · UI Toolkit · PC · iOS (2026-11-03 사용자 선택). 결정과 까닭은 [context-notes.md](context-notes.md).
 한 줄(U번호)이 브랜치 하나 · PR 하나다.
 
