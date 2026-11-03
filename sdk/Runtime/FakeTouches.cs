@@ -41,13 +41,34 @@ namespace ControlCli
             if (_down) Pending.Enqueue((_lastPosition, TouchPhase.Canceled));
         }
 
-        // 내보낼 터치가 남았거나 이번 프레임에 터치를 내보냈으면 아직 바쁘다 — 명령 답을 그 뒤로 미룬다.
-        public static bool Idle => Pending.Count == 0 && !_current.HasValue;
+        // 내보낼 터치가 남았거나 이번 프레임에 터치를 내보냈거나 Input System 이 아직 안 받았으면 바쁘다 — 명령 답을 그 뒤로 미룬다.
+        public static bool Idle => Pending.Count == 0 && !_current.HasValue
+#if CONTROL_CLI_INPUTSYSTEM && ENABLE_INPUT_SYSTEM
+            && !FakeInputSystem.Waiting
+#endif
+            ;
 
-        public static int TouchCount => UnityEngine.Input.touchCount + (_current.HasValue ? 1 : 0);
+        // 옛 Input 을 끈 게임(Input System 만)은 UnityEngine.Input 을 부르면 던진다 — 가짜 터치만 센다.
+#if ENABLE_LEGACY_INPUT_MANAGER
+        private static int RealCount => UnityEngine.Input.touchCount;
+#else
+        private const int RealCount = 0;
+#endif
+
+        public static int TouchCount => RealCount + (_current.HasValue ? 1 : 0);
 
         public static Touch GetTouch(int index) =>
-            index < UnityEngine.Input.touchCount ? UnityEngine.Input.GetTouch(index) : _current.GetValueOrDefault();
+#if ENABLE_LEGACY_INPUT_MANAGER
+            index < RealCount ? UnityEngine.Input.GetTouch(index) :
+#endif
+            _current.GetValueOrDefault();
+
+        // 진짜 폰처럼 simulateMouseWithTouches 가 켜져 있으면 가짜 손가락을 마우스 왼쪽 단추로도 비춘다 — 마우스 API 로 터치를 읽는 게임용.
+        // 뗀 프레임에는 GetMouseButtonUp 만 참이다(Unity 와 같게).
+        public static bool MouseHeld => _down;
+        public static bool MouseDown => _current.HasValue && _current.Value.phase == TouchPhase.Began;
+        public static bool MouseUp => _current.HasValue && (_current.Value.phase == TouchPhase.Ended || _current.Value.phase == TouchPhase.Canceled);
+        public static Vector2? MousePosition => _down || _current.HasValue ? _lastPosition : (Vector2?)null;
 
         private void Update()
         {
@@ -59,6 +80,9 @@ namespace ControlCli
                 _lastPosition = position;
                 _down = phase == TouchPhase.Began || phase == TouchPhase.Moved || phase == TouchPhase.Stationary;
                 _current = new Touch { fingerId = FingerId, position = position, rawPosition = position, deltaPosition = delta, phase = phase, tapCount = 1, pressure = 1, maximumPossiblePressure = 1, type = TouchType.Direct };
+#if CONTROL_CLI_INPUTSYSTEM && ENABLE_INPUT_SYSTEM
+                FakeInputSystem.Send(FingerId, position, delta, phase);
+#endif
             }
             // 장면이 바뀌면 EventSystem 이 새로 생기므로 매 프레임 확인한다.
             var module = EventSystem.current != null ? EventSystem.current.currentInputModule : null;

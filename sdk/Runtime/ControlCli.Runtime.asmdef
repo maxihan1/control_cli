@@ -3,7 +3,8 @@
     "rootNamespace": "ControlCli",
     "references": [
         "UnityEngine.UI",
-        "Unity.TextMeshPro"
+        "Unity.TextMeshPro",
+        "Unity.InputSystem"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
@@ -24,6 +25,11 @@
             "name": "com.unity.ugui",
             "expression": "2.0",
             "define": "CONTROL_CLI_TMP"
+        },
+        {
+            "name": "com.unity.inputsystem",
+            "expression": "1.0",
+            "define": "CONTROL_CLI_INPUTSYSTEM"
         }
     ],
     "noEngineReferences": false
