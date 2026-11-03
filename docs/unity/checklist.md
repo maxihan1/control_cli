@@ -38,13 +38,18 @@
 - [ ] 샘플 Input System 빌드에서 click · drag · TouchText
 
 ## U5. UI Toolkit
-- [ ] 노드 refactoring
-- [ ] 트리 · 찾기 · 누를 자리 · 누르기 · type
-- [ ] 샘플 UIDocument 화면
+- [x] 노드 refactoring
+- [x] 트리 · 찾기 · 누를 자리 · 누르기 · type
+- [x] 샘플 UIDocument 화면
+- [ ] 샘플에서 `tree` 의 `UitkDocument/UitkPanel/…` · `type UitkIdInput` · `click UitkLoginButton`
+- [ ] EventSystem 없는 옛 Input 게임에서 panel 직접 보내기 (샘플에 없음 — 실제 게임)
 
 ## U6. PC
-- [ ] `open --pc` · screenshot · key · 포커스
-- [ ] 샘플 StandaloneOSX 실측
+- [x] 답 미루기 일반화(`_ready` · `_cancel`)
+- [x] `open --pc` · screenshot · key · 포커스
+- [x] CLI 테스트 — PC 열기 · jpg 스크린샷 · key Ran 줄 · close 가 게임 끔
+- [x] 샘플 StandaloneOSX · StandaloneWindows64 matrix
+- [ ] 샘플 StandaloneOSX 실측 (이 맥 — 샘플 빌드 뒤)
 
 ## U7. iOS
 - [ ] usbmuxd 연결 · devicectl

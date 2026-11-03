@@ -22,6 +22,8 @@
 - Ashveil 하네스는 어셈블리 목록을 손으로 적는다. 여기서는 TMP · Input System 같은 남의 패키지 소스까지 컴파일해야 해서 asmdef 를 읽어 잡는다
 - 남의 패키지는 asmdef 참조가 실제와 다르다 — TMP 3.0.9 는 `references: []` 인데 `UnityEngine.UI` 를 쓰고, Input System 은 없는 이름 `Unity.ugui` 를 적는다. 검사 대상이 아니므로 적힌 참조에 `UnityEngine.UI` 를 늘 더해 너그럽게 둔다. SDK · 확인 어셈블리만 적힌 참조 그대로, 건너 참조도 끄고 엄격하게
 - SDK · 확인 어셈블리에서 참조로 닿는 어셈블리만 빌드한다 — U0 에서는 TMP · Input System 이 아직 안 닿아 `UnityEngine.UI` 만 함께 빌드된다. U3 · U4 가 참조를 더하면 그때 소스로 빌드된다
+- 판 — 2021.3.45f1 · 2022.3.62f1 · 6000.0.84f1(Ashveil). 주소는 Release API 에서 받는다(세 판 모두 `LinuxEditorInstaller/Unity-<판>.tar.xz` 확인)
+- 패키지 — Input System 1.11.2(`unity: 2019.4` 라 세 판 공통) · TMP 3.0.9(2021/2022 만. Unity 6 은 ugui 2.0 안에 있다)
 - CI 첫 실행(PR #5, run 41595760258) — 9개 구성 모두 성공. 받기 2~6분, 컴파일 30초 안팎
 
 ## 2026-11-03 — U1 샘플
@@ -52,5 +54,24 @@
 - 옛 Input 마우스 흉내는 `simulateMouseWithTouches`(기본 켜짐)일 때만 — PC 에서도 기본이 켜짐이라 U6 의 「옛 Input 게임 가짜 마우스」가 여기서 같이 풀린다. 뗀 프레임에는 `GetMouseButtonUp` 만 참(Unity 와 같게)
 - 샘플 입력 설정은 빌드 스크립트가 `PlayerSettings` 를 직렬화로 고친다(`activeInputHandler`) — 공개 API 가 없고 Input System 패키지 설정 창도 같은 길이다. 같은 실행 안에서 플레이어 컴파일 정의에 먹는지는 샘플 빌드로 확인한다
 - 샘플 matrix 는 4개 — 6000.0 옛 Input(Ashveil 모양) · 6000.0 Input System 만 · 2022.3 둘 다 · 2021.3 옛 Input. Personal 좌석이라 차례로 돌아 하나에 수십 분이다
-- 판 — 2021.3.45f1 · 2022.3.62f1 · 6000.0.84f1(Ashveil). 주소는 Release API 에서 받는다(세 판 모두 `LinuxEditorInstaller/Unity-<판>.tar.xz` 확인)
-- 패키지 — Input System 1.11.2(`unity: 2019.4` 라 세 판 공통) · TMP 3.0.9(2021/2022 만. Unity 6 은 ugui 2.0 안에 있다)
+
+## 2026-11-03 — U5 UI Toolkit
+
+- 게임 오브젝트와 요소를 한 `Item` 으로 담고, 트리 · 이름 찾기 · 경로 찾기 · `PathOf` 가 모두 `ChildrenOf` 하나로 내려간다 — CLI `flatten` 이 트리에서 셈한 경로와 SDK 가 받는 경로가 늘 같아야 한다
+- `PathOf` 는 위로 올라가지 않는다 — 요소의 `parent` 사슬에는 트리에 없는 속 칸(ScrollView 내용 칸)이 끼어 아래로 내려간 경로와 어긋난다
+- 컨트롤 속은 내보내지 않는다 — 안쪽 요소는 컨트롤의 일부이고, 비밀번호 TextField 속 글자 칸이 실제 글자를 드러낼 수 있다
+- 누를 자리 — 공개 `RuntimePanelUtils.ScreenToPanel` 은 내부 `screenToPanelSpace(screen) / scale` 이라(UnityCsReference 2022.3 `Panel.cs`) 위아래 뒤집은 화면 좌표의 1차식이다. 두 점으로 거꾸로 풀어 배율 · 화면 맞춤 여백까지 맞춘다
+- EventSystem 이 없는 옛 Input 게임 — 기본 이벤트 시스템은 `UnityEngine.Input` 을 바로 읽는다(`DefaultEventSystem.ProcessTouchEvents`). SDK 가 EventSystem 을 만들면 QA 빌드에서만 `EventSystem.current` 가 달라져, 같은 차례(뒤집기 → `ScreenToPanel` → `GetPooled(touch)` → `visualTree.SendEvent`)로 panel 에 직접 보낸다. 이 길은 샘플에 없어(샘플은 EventSystem 이 있다) 실제 게임에서 본다
+- 하네스가 2021.3 에서 CS0104 를 잡았다 — `UnityEngine.UI` 와 `UnityEngine.UIElements` 둘 다 `Button` · `Toggle` · `Slider` 가 있다. UI Toolkit 쪽을 전체 이름으로 쓴다
+- `layout` 은 uGUI 만 본다(범위 밖) — UI Toolkit 요소를 범위로 주면 거절한다
+
+## 2026-11-03 — U6 PC
+
+- 답 미루기를 「준비되면 답」 하나로 — `_ready`(준비 전 null) · `_cancel`(시간 초과 때). 터치 · 키 · 스크린샷이 같은 길이다. 람다가 `reply` 변수를 잡아 아래에서 비우면 영원히 null 이라 답을 따로 둔다
+- 스크린샷은 `ReadPixels` + `EncodeToJPG(80)` — ScreenCapture 모듈 없이 ImageConversion 하나만 쓴다(`versionDefines` 로 없으면 실패 답). JPEG 라 PNG 보다 몇 배 작다. 팜은 수 MB 를 HTTP 로 나르지 않게 지금처럼 Appium
+- Appium 이 없으면 CLI 가 SDK 스크린샷을 쓴다 — PC 뿐 아니라 「USB 로 이미 켠 게임」도 이제 스크린샷이 생긴다
+- 키 — 한 프레임 누름 → 한 프레임 뗌. KeyCode 이름만 받는다. `GetKey(string)` 은 KeyCode 와 이름이 일대일이 아니라 섞지 않는다. Unity 는 Android 뒤로 키를 `Escape` 로 줘서 창 훑기의 뒤로 키를 Appium 없이 `key Escape` 로 한다
+- Input System 은 standalone 에서 `Touchscreen` 대신 `Mouse` — 둘 다 넣으면 UI 입력 모듈이 두 번 누른다. 플랫폼은 `#if UNITY_STANDALONE` 이 아니라 `Application.isMobilePlatform` 으로 가른다 — 하네스에 플랫폼 축이 없어 `#if` 안은 컴파일 검사를 못 받는다
+- 창 초점 — `runInBackground` · Input System `backgroundBehavior = IgnoreFocus`(1.1.0 부터 있어 `CONTROL_CLI_INPUTSYSTEM` 조건을 1.1.0 이상으로 올렸다 · Unity 2021.3 용은 1.3 이상) · uGUI 는 `StandaloneInputModule` 이 `!isFocused` 면 입력을 버려 가짜 터치가 나가는 프레임에 EventSystem 의 `OnApplicationFocus(true)` 를 reflection 으로 부른다(SendMessage 는 같은 오브젝트의 게임 스크립트까지 부른다)
+- `open --pc` 는 팜용 `PLATFORM_APP`(APK)을 보지 않는다. macOS `.app` 은 `Contents/MacOS` 안 실행 파일을 바로 띄워야 프로세스 번호를 잡아 `close` 가 끈다
+- 샘플 PC 빌드는 Mono — 리눅스 CI 는 mac · Windows IL2CPP 를 못 굽는다
