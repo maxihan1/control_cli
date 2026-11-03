@@ -7,6 +7,8 @@ using ControlCli;
 // 터치 · 마우스 왼쪽 단추 · 키(KeyCode)만 가짜를 섞고 나머지는 그대로 넘긴다.
 // ponytail: 펜(GetPenEvent 등) · mousePositionDelta 는 Unity 판마다 있고 없고가 달라 뺐다. 쓰는 게임이 오면 더한다.
 // IsJoystickPreconfigured 는 리눅스 데스크톱 전용이라 Android 빌드에 없다(CS0117) — 감싸지 않는다.
+// location 도 감싸지 않는다 — LocationService 를 적기만 해도 Android 는 위치 권한을 manifest 에 붙이고 iOS 는 위치 사용 문구가 없으면 빌드를 거절한다.
+// 위치를 쓰는 게임 파일은 QA 빌드에서 CS0117 이 나니 `UnityEngine.Input.location` 으로 적는다.
 public static class Input
 {
     public static int touchCount => FakeTouches.TouchCount;
@@ -69,6 +71,5 @@ public static class Input
     public static bool compensateSensors { get => UnityEngine.Input.compensateSensors; set => UnityEngine.Input.compensateSensors = value; }
     public static Gyroscope gyro => UnityEngine.Input.gyro;
     public static Compass compass => UnityEngine.Input.compass;
-    public static LocationService location => UnityEngine.Input.location;
     public static bool backButtonLeavesApp { get => UnityEngine.Input.backButtonLeavesApp; set => UnityEngine.Input.backButtonLeavesApp = value; }
 }

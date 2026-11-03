@@ -100,3 +100,9 @@
 - **SDK 버그 — 가짜 손가락 번호 99** — UI Toolkit 은 터치 손가락을 0~19 만 받아(`PointerId.touchPointerCount`) EventSystem 의 `PanelRaycaster.Raycast` → `PointerDispatchState.GetCapturingElement` 가 `IndexOutOfRangeException` 을 던진다. 그 터치의 EventSystem 처리가 통째로 깨져 **uGUI · UI Toolkit 버튼이 다 안 눌렸다**. Ashveil(0단계)은 UI Toolkit 화면이 없어 몰랐다. 19 로 바꿨다(Input System `touchId` 도 같은 번호)
 - 샘플 — UI Toolkit 뿌리가 테마 없이 높이 0 이라 아래 붙임 패널이 화면 밖(안 보임) → 뿌리를 화면 가득으로. `BoxCollider` 를 엔진 코드 줄이기가 빼 큐브 누르기가 안 됨 → 샘플은 `stripEngineCode = false`. 큐브가 분홍(기본 셰이더 빠짐)인 것은 모양뿐이라 두었다
 - **열린 결정 — uGUI `type` 의 글자 수 · 거르기 차례** — uGUI `InputField.text` setter 는 먼저 `characterLimit` 로 자르고 거른다: `qa_user01!` → `qa_user0` → `qauser0`(7자). 키로 치면 한 글자씩 걸러 `qauser01`(8자)이고 TMP 는 SDK 가 그 차례로 거른다. uGUI 도 키 입력 차례로 바꿀지(지금 Ashveil 이 쓰는 길이 바뀐다) 사용자에게 묻는다
+
+## 2026-11-03 — 샘플 iOS 빌드 실패 · 가짜 Input 에서 location 뺌
+
+- run 41604854616 의 iOS 잡만 빨강 — `LocationService class is used but Location Usage Description is empty in Player Settings`. 샘플 게임 코드는 위치를 안 쓴다. 가짜 `Input` 이 `UnityEngine.Input` 을 전부 감싸며 `location` 까지 적어 IL 에 LocationService 가 남았다(엔진 코드 줄이기를 켠 16ff5bc 에서도 실패 — 샘플 설정 탓이 아니다)
+- 같은 까닭으로 Android QA 빌드는 위치 권한을 얻었다 — 2021.3 APK `aapt dump permissions` 에 `ACCESS_FINE_LOCATION` · `ACCESS_COARSE_LOCATION`. Ashveil QA 빌드도 같았을 것이다
+- 고침 — `location` 을 감싸지 않는다. 대가는 `Input.location` 을 적은 게임 파일이 QA 빌드에서만 CS0117(`UnityEngine.Input.location` 으로 적으면 풀림). 위치를 쓰는 게임은 드물고 권한 · iOS 빌드 부작용은 모든 게임에 생겨 빼는 쪽을 골랐다

@@ -64,6 +64,8 @@
 - [x] devicectl 깔기 · 켜기 · 끄기(`src/devicectl.ts`)
 - [x] CLI 테스트 — 가짜 usbmuxd 로 열기 · 누르기 · jpg 스크린샷 · 없는 UDID 거절
 - [x] 샘플 iOS(Xcode 프로젝트) matrix
+- [x] 가짜 `Input` 에서 `location` 뺌 — iOS 빌드가 위치 사용 문구를 요구해 깨지고 Android 는 위치 권한이 붙었다
+- [ ] 샘플 iOS 빌드 초록 · Android APK 에 위치 권한 없음(`aapt dump permissions`)
 - [ ] iPhone 실측 (사용자 — iOS 17+ iPhone · Apple 팀 서명)
 
 ## U8. 마무리
@@ -72,7 +74,7 @@
 - [ ] 합친 뒤 `v0.2.0` 태그 (사용자 — main 에 합친 뒤)
 
 ### test_platform 다음 줄 (이 저장소에서는 고치지 않는다)
-1. **Ashveil 회귀 한 번** — QA 빌드 `instrument --ref` 를 0.2.0 으로 올려 스모크 · 회귀를 돈다. U5 트리 refactoring(`Item` · 경로를 내려가며 셈)과 U6 답 미루기 일반화가 지금 쓰는 uGUI · 옛 Input 길을 지난다
+1. **Ashveil 회귀 한 번** — QA 빌드 `instrument --ref` 를 0.2.0 으로 올려 스모크 · 회귀를 돈다. U5 트리 refactoring(`Item` · 경로를 내려가며 셈)과 U6 답 미루기 일반화가 지금 쓰는 uGUI · 옛 Input 길을 지난다. QA 빌드에 붙던 위치 권한(`ACCESS_FINE_LOCATION` · `ACCESS_COARSE_LOCATION`)이 빠진다
 2. 명세 `docs/spec/도메인/게임.md` 「1차 밖」 — 새 Input System · iOS · Unity 6 밖의 판을 뺀다(Unreal 은 남는다). 결정 2 의 「새 Input System · DLL 플러그인 · 전체 이름 호출은 1차 밖」에서 새 Input System 을 뺀다
 3. kit `packages/kit/src/runtime/game.ts` — `PLATFORM_GAME_LINK` 에 `pc` · `ios` (`tcpLink` · `iosLink`). 러너 — iOS · PC 게임 케이스는 팜이 없어 내 컴퓨터 테스트 실행만
 4. 작성 지침(`tpx-cases` 게임 갈래) — `game.key()` · UI Toolkit 주소 꼴(`/UitkDocument/…`) · TMP 칸도 `type` 이 거른다는 것
