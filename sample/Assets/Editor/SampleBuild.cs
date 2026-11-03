@@ -17,6 +17,7 @@ public static class SampleBuild
         var group = BuildPipeline.GetBuildTargetGroup(target);
         var named = NamedBuildTarget.FromBuildTargetGroup(group);
         ImportTmpResources();
+        SetInputHandler(Arg("activeInputHandler"));
         EditorSceneManager.SaveScene(EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single), Scene);
         PlayerSettings.productName = "control_cli sample";
         PlayerSettings.SetApplicationIdentifier(named, "com.maxihan1.controlcli.sample");
@@ -53,6 +54,15 @@ public static class SampleBuild
             AssetDatabase.Refresh();
             return;
         }
+    }
+
+    // Active Input Handling — 0 옛 Input · 1 Input System · 2 둘 다. 공개 API 가 없어 Input System 패키지 설정 창과 같이 PlayerSettings 를 직렬화로 고친다.
+    private static void SetInputHandler(string value)
+    {
+        if (value == null) return;
+        var settings = new SerializedObject(Unsupported.GetSerializedAssetInterfaceSingleton("PlayerSettings"));
+        settings.FindProperty("activeInputHandler").intValue = int.Parse(value);
+        settings.ApplyModifiedProperties();
     }
 
     private static string Arg(string name)

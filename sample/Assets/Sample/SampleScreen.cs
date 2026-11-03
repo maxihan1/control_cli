@@ -16,7 +16,12 @@ namespace Sample
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Build()
         {
+            // Input System 을 켠 게임은 그 UI 입력 모듈을 쓴다 — SDK 의 Touchscreen 이벤트 길을 본다.
+#if SAMPLE_INPUTSYSTEM && ENABLE_INPUT_SYSTEM
+            new GameObject("EventSystem", typeof(EventSystem), typeof(UnityEngine.InputSystem.UI.InputSystemUIInputModule));
+#else
             new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
+#endif
             new GameObject("Main Camera", typeof(Camera)) { tag = "MainCamera" }.transform.position = new Vector3(0, 0, -10);
             var cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
             cube.name = "WorldCube";
