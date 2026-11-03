@@ -56,6 +56,7 @@ namespace Sample
 #if SAMPLE_TMP
             BuildTmp(root);
 #endif
+            SampleUitk.Build();
         }
 
 #if SAMPLE_TMP
