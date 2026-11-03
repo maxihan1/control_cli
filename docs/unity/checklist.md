@@ -23,14 +23,15 @@
 ## U1. 샘플 Unity 프로젝트 + 실측 CI
 - [x] `sample/` 빌드 스크립트 · 런타임 화면
 - [x] `.github/workflows/sample.yml` (Unity 6 · uGUI · 옛 Input · Android)
-- [ ] Secret 등록 뒤 샘플 빌드 초록 (사용자 — `UNITY_EMAIL` · `UNITY_PASSWORD`)
-- [ ] 팜 폰 CLI 루프 (팜 연결값 필요)
+- [x] Secret 등록 뒤 샘플 빌드 초록 (사용자 — `UNITY_EMAIL` · `UNITY_PASSWORD`) — Android 셋 · PC 둘 초록(iOS 는 U7)
+- [x] 팜 폰 CLI 루프 — RF9R408GKRR(SM-A325N · Android 13)에서 APK 넷(346a64c, run 41613553747). 결과는 context-notes 「두 번째 실기기 시험」
+- [x] `open` 이 versionCode 가 같은 새 빌드도 다시 깐다(`appium:enforceAppInstall`) — 안 그러면 옛 빌드가 조용히 돈다
 
 ## U2. Unity 2021.3 · 2022.3 LTS
 - [x] `sdk/package.json` 판 · ugui 의존
 - [x] 컴파일 차이 고치기 — 없었다(U0 에서 이미 초록)
 - [x] 샘플 matrix (2021.3 · 2022.3 · 6000.0)
-- [ ] 샘플 세 판 빌드 · 6000.0 packages-lock 의 ugui 2.0.0 확인
+- [x] 샘플 세 판 빌드 · 6000.0 packages-lock 의 ugui 2.0.0 확인 — 세 판 APK 모두 팜에서 같은 결과
 
 ## U3. TextMeshPro
 - [x] asmdef 참조 · versionDefines
@@ -44,13 +45,13 @@
 - [x] Input System 가짜 터치 · updateCount 확인
 - [ ] 답 미루기 일반화 — U6 로 미룸(U4 는 Idle 로 충분)
 - [x] 샘플 matrix New · Both
-- [ ] 샘플 Input System 빌드에서 click · drag · TouchText
+- [x] 샘플 Input System 빌드에서 click · drag · TouchText — 6000.0 Input System 만 · 2022.3 둘 다(EventSystem 에 `InputSystemUIInputModule` 확인)
 
 ## U5. UI Toolkit
 - [x] 노드 refactoring
 - [x] 트리 · 찾기 · 누를 자리 · 누르기 · type
 - [x] 샘플 UIDocument 화면
-- [ ] 샘플에서 `tree` 의 `UitkDocument/UitkPanel/…` · `type UitkIdInput` · `click UitkLoginButton`
+- [x] 샘플에서 `tree` 의 `UitkDocument/UitkPanel/…` · `type UitkIdInput` · `click UitkLoginButton` — 세 판 모두(`qa_user0` · `uitk login qa_user0 1`)
 - [ ] EventSystem 없는 옛 Input 게임에서 panel 직접 보내기 (샘플에 없음 — 실제 게임)
 
 ## U6. PC
@@ -58,7 +59,9 @@
 - [x] `open --pc` · screenshot · key · 포커스
 - [x] CLI 테스트 — PC 열기 · jpg 스크린샷 · key Ran 줄 · close 가 게임 끔
 - [x] 샘플 StandaloneOSX · StandaloneWindows64 matrix
-- [ ] 샘플 StandaloneOSX 실측 (이 맥 — 샘플 빌드 뒤)
+- [x] 샘플 StandaloneOSX 실측 (이 맥) — 세로 창에서 다 됨. 가로 전체 화면은 샘플 UI Toolkit 패널이 uGUI 를 덮어 안 됨
+- [x] 샘플 PC 빌드를 540×1200 창으로(`SampleBuild.cs`)
+- [ ] 새 샘플 PC 빌드가 `open --pc --app` 만으로 세로 창으로 뜨는지
 
 ## U7. iOS
 - [x] usbmuxd 연결(`src/usbmux.ts` · `iosLink`)
@@ -80,3 +83,4 @@
 3. kit `packages/kit/src/runtime/game.ts` — `PLATFORM_GAME_LINK` 에 `pc` · `ios` (`tcpLink` · `iosLink`). 러너 — iOS · PC 게임 케이스는 팜이 없어 내 컴퓨터 테스트 실행만
 4. 작성 지침(`tpx-cases` 게임 갈래) — `game.key()` · UI Toolkit 주소 꼴(`/UitkDocument/…`) · TMP 칸도 `type` 이 거른다는 것
 5. 디바이스 팜 iOS(Devicefarm Phase 5 · D7) — 팜이 iOS 를 받으면 `iosLink` 자리에 팜 길을 더한다
+6. 디바이스 팜 폰 준비 — 전체 화면 안내 창 끄기. One UI · Android 13 폰(RF9R408GKRR)은 처음 켜는 몰입 모드 게임마다 안내 창이 포커스를 가져가 Unity 6 이 첫 장면을 안 올린다(SDK 가 안 켜져 `open` 60초 실패). 폰 준비에 `adb shell settings put secure immersive_mode_confirmations confirmed`(context-notes 「두 번째 실기기 시험」)

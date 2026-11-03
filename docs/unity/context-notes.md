@@ -112,3 +112,13 @@
 - 키 입력 차례로 — uGUI 도 TMP 처럼 SDK 가 글자마다 거르고(`onValidateInput` 이 있으면 그것, 없으면 비공개 `Validate(string, int, char)`) 거른 결과가 `characterLimit` 에 차면 멈춘다. 그 결과를 `text` 에 넣으면 setter 는 이미 맞는 글자라 더 자르지 않는다
 - 까닭 — `type` 은 사람이 친 결과를 흉내 낸다. uGUI · TMP 가 같은 답(`qauser01`)을 낸다
 - 대가 — Ashveil 이 쓰는 uGUI 길이 바뀐다. 글자 수를 넘는 글자를 거르는 칸에 넣는 케이스만 결과가 달라진다(전에는 더 짧았다). test_platform 다음 줄 1번(Ashveil 회귀)에서 본다
+
+## 2026-11-03 — 두 번째 실기기 시험 (팜 RF9R408GKRR · SM-A325N · Android 13 · run 41613553747 · 커밋 346a64c)
+
+- 이 세션은 RF9R408GKRR 만 썼다(사용자 — 다른 폰은 다른 세션 몫)
+- APK 넷(6000.0 옛 Input · 6000.0 Input System · 2022.3 둘 다 · 2021.3 옛 Input) 모두 같은 결과 — TMP `qauser01` · UI Toolkit `qa_user0` · 세 로그인 버튼 상태 글자 · `drag` 뒤 `/SampleCanvas/Bag/Slot[3]/Item` · `cube 1` · `key I` · `tree` 에 `/UitkDocument/UitkPanel/…` · `errors` 0. 손가락 19 고침(383ca98)으로 uGUI · UI Toolkit 버튼이 다 눌린다. uGUI 만 `qauser0` — 이 빌드는 uGUI type 고침(2db810e) 전이다
+- **전체 화면 안내 창이 게임 시작을 막았다** — 이 폰(One UI · Android 13)은 처음 켜는 몰입 모드 앱마다 「이 앱은 전체 화면 모드로 보도록 설정되어 있습니다」 창(`ImmersiveModeConfirmation`)을 띄워 포커스를 가져간다. Unity 6 은 켜질 때 창 포커스가 없으면 첫 장면을 안 올려 SDK(`AfterSceneLoad`)가 안 켜지고 `open` 이 60초 뒤 「QA 빌드인가요?」로 실패한다. 아래에서 위로 밀어 나온 「확인」을 누르자 포커스를 되찾은 지 0.13초 뒤 `[ControlCli] … 명령을 받습니다`. 확인은 패키지 이름으로 기억돼 다시 깔아도 안 뜬다. 첫 시험 폰(SM-G996N · Android 15)은 안 띄웠다. 팜 폰 준비(`settings put secure immersive_mode_confirmations confirmed`)로 막을 일이라 test_platform 다음 줄에 둔다
+- **`open` 이 새 빌드를 안 깔았다** — Appium 은 깔린 앱과 versionCode 가 같으면 안 깐다. 샘플(그리고 versionCode 를 안 올리는 QA 빌드)은 모두 1 이라, Input System APK 를 열어도 EventSystem 에 `StandaloneInputModule` 만 있었고(옛 Input 앱), 2022.3 APK 는 깔린 6000.0 앱에 없는 `UnityPlayerActivity` 를 띄우려다 HTTP 500. `appium:enforceAppInstall: true` 로 고쳤다(팜 · USB 같은 `capabilities()`). CI 빌드마다 서명 키가 달라도 다시 깔기는 됐다
+- UI Toolkit 칸 글자가 화면에 안 보인다 — 샘플 PanelSettings 에 테마(글꼴)가 없어서다. SDK 로 읽은 값은 맞아 두었다(큐브 분홍과 같은 모양 문제)
+- **macOS 앱(이 맥 · `open --pc --app`)** — 가로 전체 화면(3024×1898)에서는 uGUI · TMP 로그인 · `drag` 가 안 먹고 UI Toolkit 로그인 · 큐브 · `key I` · `type` 은 됐다. 화면을 보니 아래 붙인 UI Toolkit 패널이 가로에서 uGUI 칸 위를 덮어 누르는 자리가 패널에 먹혔다. 같은 앱을 세로 창(`-screen-fullscreen 0 -screen-width 540 -screen-height 1200`)으로 띄우니 다 됐다(uGUI 는 고침 전이라 `qauser0`) — SDK 가 아니라 샘플 화면 문제. 샘플 PC 빌드를 540×1200 창으로 굽는다. Unity 는 마지막 창 크기를 `~/Library/Preferences/com.maxihan1.controlcli.sample.plist` 에 기억하지만 「… Default」 키로 빌드 기본값이 바뀐 것을 알아채 새 기본값을 쓴다
+- 346a64c run 의 iOS 잡도 같은 LocationService 로 빨강 — location 을 뺀 3e98be8 전 커밋이라 예상대로
