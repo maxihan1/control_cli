@@ -3,13 +3,15 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { CONFORM, conform, report } from './conform.js';
-import { keyFilter, standardScreen, type FakeGame } from './fake-game.js';
+import { keyFilter, standardScreen, type FakeGame, type FakeNode } from './fake-game.js';
 import { Game, WAIT } from './game.js';
+import { flatten } from './snapshot.js';
 
 Object.assign(WAIT, { intervalMs: 5 });
 Object.assign(CONFORM, { waitMs: 50 });
 
 const direct = (g: FakeGame) => new Game(async (c) => g.handle(c));
+const byName = (g: FakeGame, name: string) => flatten(g.roots).find((e) => e.node.name === name)!.node as FakeNode;
 
 test('표준 화면이면 16줄이 모두 통과한다', async () => {
   const r = await conform(direct(standardScreen()));
@@ -24,4 +26,31 @@ test('옛 uGUI setter 차례(qauser0)면 그 줄과 로그인 줄이 실패하�
   assert.deepEqual([r.passed, r.failed, r.skipped], [13, 2, 1], report(r));
   assert.match(report(r), /✗ type IdInput 'qa_user01!' → qauser01 — IdInput: "qauser0"/);
   assert.match(report(r), /- layout 이 답한다 \(이 SDK 의 caps 에 layout 없음\)/);
+});
+
+test('같은 게임에 다시 돌려도 통과하고, 둘째 판은 Item 을 다른 칸(Slot[2])으로 옮긴다', async () => {
+  const g = standardScreen();
+  await conform(direct(g));
+  const r = await conform(direct(g));
+  assert.deepEqual([r.passed, r.failed, r.skipped], [16, 0, 0], report(r));
+  assert.ok(flatten(g.roots).some((e) => e.path === '/SampleCanvas/Bag/Slot[2]/Item'), report(r));
+});
+
+test('다시 돌릴 때 누르기 · 끌기가 안 먹으면 앞 판 글자 · 자리가 남아 있어도 실패한다', async () => {
+  const g = standardScreen();
+  await conform(direct(g));
+  byName(g, 'LoginButton').onClick = undefined;
+  byName(g, 'Item').movable = false;
+  const r = await conform(direct(g));
+  assert.deepEqual([r.passed, r.failed, r.skipped], [14, 2, 0], report(r));
+  assert.match(report(r), /✗ click LoginButton → StatusText 에 「login qauser01」 — StatusText: "login qauser01 1"/);
+  assert.match(report(r), /✗ drag Item → 다른 칸 — \/SampleCanvas\/Bag\/Slot\[2\]\/Item 있음: false/);
+});
+
+test('caps 에 find 가 없으면 find 로 확인하는 줄(누르기 · 끌기)도 건너뛴다', async () => {
+  const g = standardScreen();
+  g.caps = g.caps.filter((c) => c !== 'find');
+  const r = await conform(direct(g));
+  assert.deepEqual([r.passed, r.failed, r.skipped], [9, 0, 7], report(r));
+  assert.match(report(r), /- click LoginButton → StatusText 에 「login qauser01」 \(이 SDK 의 caps 에 find 없음\)/);
 });
