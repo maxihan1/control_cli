@@ -1,6 +1,9 @@
 // game-ci 가 부르는 샘플 빌드 — 빈 장면을 만들어 정의 심볼 CONTROL_CLI 를 켠 QA 빌드로 굽는다(장면 YAML 을 저장소에 두지 않는다)
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.IO.Compression;
+using System.Text;
 using UnityEditor;
 using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
@@ -45,16 +48,65 @@ public static class SampleBuild
     }
 
     // TMP 를 쓰는 게임은 기본 글꼴 · 설정(TMP Essential Resources)을 가져와 둔다 — 샘플도 같게. Unity 6 은 ugui 안, 옛 판은 textmeshpro 패키지에 있고 TMP 가 없는 구성은 건너뛴다.
+    // AssetDatabase.ImportPackage 는 미뤄서 가져와(DelayedImportPackageAssets) game-ci 가 빌드 뒤 Unity 를 끄면 안 들어온다 — 직접 풀고 Refresh 로 바로 가져온다.
     private static void ImportTmpResources()
     {
-        foreach (var package in new[] { "Packages/com.unity.ugui", "Packages/com.unity.textmeshpro" })
+        foreach (var name in new[] { "com.unity.ugui", "com.unity.textmeshpro" })
         {
-            var resources = package + "/Package Resources/TMP Essential Resources.unitypackage";
-            if (!File.Exists(Path.GetFullPath(resources))) continue;
-            AssetDatabase.ImportPackage(resources, false);
-            AssetDatabase.Refresh();
+            var package = UnityEditor.PackageManager.PackageInfo.FindForAssetPath("Packages/" + name);
+            var file = package == null ? null : Path.Combine(package.resolvedPath, "Package Resources", "TMP Essential Resources.unitypackage");
+            if (file == null || !File.Exists(file)) continue;
+            Unpack(file);
+            AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
+            Console.WriteLine("[SampleBuild] TMP Essential Resources 를 가져왔습니다: " + file);
             return;
         }
+    }
+
+    // .unitypackage 는 tar.gz 다 — GUID 폴더마다 asset(없으면 폴더) · asset.meta · pathname(프로젝트 안 자리).
+    private static void Unpack(string file)
+    {
+        var entries = new Dictionary<string, Dictionary<string, byte[]>>();
+        using (var gz = new GZipStream(File.OpenRead(file), CompressionMode.Decompress))
+        {
+            var header = new byte[512];
+            while (ReadFull(gz, header) && header[0] != 0)
+            {
+                var name = Encoding.ASCII.GetString(header, 0, 100).TrimEnd('\0');
+                var size = Convert.ToInt64(Encoding.ASCII.GetString(header, 124, 12).Trim('\0', ' '), 8);
+                var data = new byte[size];
+                ReadFull(gz, data);
+                ReadFull(gz, new byte[(512 - size % 512) % 512]);
+                var parts = name.StartsWith("./") ? name.Substring(2).Split('/') : name.Split('/');
+                if (parts.Length != 2 || parts[1].Length == 0) continue;
+                if (!entries.TryGetValue(parts[0], out var entry)) entries[parts[0]] = entry = new Dictionary<string, byte[]>();
+                entry[parts[1]] = data;
+            }
+        }
+        foreach (var entry in entries.Values)
+        {
+            if (!entry.TryGetValue("pathname", out var pathname)) continue;
+            var path = Encoding.UTF8.GetString(pathname).Split('\n')[0].Trim();
+            if (entry.TryGetValue("asset", out var asset))
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(path) ?? ".");
+                File.WriteAllBytes(path, asset);
+            }
+            else Directory.CreateDirectory(path);
+            if (entry.TryGetValue("asset.meta", out var meta)) File.WriteAllBytes(path + ".meta", meta);
+        }
+    }
+
+    private static bool ReadFull(Stream stream, byte[] buffer)
+    {
+        var read = 0;
+        while (read < buffer.Length)
+        {
+            var n = stream.Read(buffer, read, buffer.Length - read);
+            if (n == 0) return false;
+            read += n;
+        }
+        return true;
     }
 
     // Active Input Handling — 0 옛 Input · 1 Input System · 2 둘 다. 공개 API 가 없어 Input System 패키지 설정 창과 같이 PlayerSettings 를 직렬화로 고친다.
