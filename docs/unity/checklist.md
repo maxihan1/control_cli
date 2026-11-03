@@ -4,13 +4,13 @@
 한 줄(U번호)이 브랜치 하나 · PR 하나다.
 
 ## U0. 컴파일 검사 하네스
-- [ ] `tools/unity-compile-check/check.py` — 받기(`fetch`) · 컴파일 · 구성 9개(판 셋 × 입력 셋)
-- [ ] asmdef 를 읽어 어셈블리를 잡는다 — SDK 는 적힌 참조만, 남의 패키지는 앞서 빌드한 패키지 전부
-- [ ] `versionDefines` 식(`Unity` · 패키지 판 범위) 흉내
-- [ ] 게임 쪽 확인 어셈블리(`probe/`)
-- [ ] `src/sdk-meta.test.ts` — `.meta` 빠짐 · 남은 `.meta` · guid 겹침
-- [ ] `.github/workflows/sdk-compile.yml`
-- [ ] 실제로 돌려 9개 초록 (이 맥 Docker 또는 CI)
+- [x] `tools/unity-compile-check/check.py` — 받기(`fetch`) · 컴파일 · 구성 9개(판 셋 × 입력 셋)
+- [x] asmdef 를 읽어 어셈블리를 잡는다 — SDK 는 적힌 참조만, 남의 패키지는 적힌 참조 + `UnityEngine.UI`. SDK 에서 닿는 것만 빌드
+- [x] `versionDefines` 식(`Unity` · 패키지 판 범위) 흉내
+- [x] 게임 쪽 확인 어셈블리(`probe/`)
+- [x] `src/sdk-meta.test.ts` — `.meta` 빠짐 · 남은 `.meta` · guid 겹침
+- [x] `.github/workflows/sdk-compile.yml`
+- [x] 실제로 돌려 9개 초록 (이 맥 Docker 또는 CI)
 
 ## U1. 샘플 Unity 프로젝트 + 실측 CI
 - [ ] `sample/` 빌드 스크립트 · 런타임 화면
