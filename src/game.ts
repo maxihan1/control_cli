@@ -68,7 +68,8 @@ export class Game {
     public caps?: string[],
   ) {}
 
-  private async call(command: Command): Promise<Reply> {
+  /** 명령 하나를 그대로 보낸다 — caps 밖이면 보내기 전에, 실패 답이면 던진다(MCP 가 commands.json 의 명령을 이 길로 보낸다) */
+  async call(command: Command): Promise<Reply> {
     if (this.caps && !this.caps.includes(command.cmd))
       throw new Error(`이 게임의 SDK 는 ${command.cmd} 를 못 합니다(할 수 있는 것: ${this.caps.join(' · ')}) — SDK 를 올립니다`);
     const reply = await this.link(command);

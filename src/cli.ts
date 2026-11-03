@@ -2,6 +2,7 @@
 import { spawn } from 'node:child_process';
 import { existsSync, readdirSync } from 'node:fs';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { parseArgs } from 'node:util';
 
@@ -11,7 +12,8 @@ import { crawl, CRAWL } from './crawl.js';
 import { installAndLaunch, terminate } from './devicectl.js';
 import { Game, settled, type PingReply, type WaitOptions } from './game.js';
 import { instrument } from './instrument.js';
-import { farmLink, GAME_PORT, iosLink, tcpLink, usbLink } from './link.js';
+import { farmLink, GAME_PORT, iosLink, tcpLink, usbLink, type Command, type Reply } from './link.js';
+import { serve } from './mcp.js';
 import { snapshot } from './snapshot.js';
 import { phone } from './usbmux.js';
 
@@ -60,6 +62,7 @@ export const HELP = `control-cli [-s=<세션>] <명령>
   tap <x> <y>                                      좌표 누르기(살펴볼 때만 — Ran 줄 없음)
   ping · tree
   conform                                          표준 화면(샘플)에 명령을 차례로 보내 기대값과 견준다 — open 바로 뒤에
+  mcp                                              stdio MCP 서버 — AI 앱(Claude Desktop · Claude Code)이 띄운다. 세션 파일은 ~/.control-cli
   crawl [--max ${CRAWL.maxWindows}] [--minutes ${CRAWL.minutes}] [--exclude <정규식>]… [--out <폴더>]   창 훑기
   close                                            Appium 세션을 닫는다
   release [--udid <serial>]                        폰을 놓는다 — 팜이 깐 게임 · 데이터를 지운다
@@ -117,6 +120,8 @@ export async function run(argv: string[], o: Options): Promise<string> {
   const [name, ...args] = positionals;
   if (name === undefined || name === 'help') return HELP;
   const env = o.env;
+  // AI 앱이 MCP 서버를 어느 폴더에서 띄울지 모른다(Claude Desktop 은 쓸 수 없는 /) — MCP 세션 파일은 홈 폴더에 둔다.
+  if (name === 'mcp') o = { ...o, dir: join(env.HOME ?? homedir(), '.control-cli') };
 
   // 폰이 아니라 Unity 프로젝트 파일을 고치는 명령이다.
   if (name === 'instrument') {
@@ -142,6 +147,23 @@ export async function run(argv: string[], o: Options): Promise<string> {
   const port = values.port === undefined ? GAME_PORT : Number(values.port);
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('--port 는 1~65535 정수여야 합니다');
 
+  if (name === 'mcp') {
+    // 세션 도구는 이 run 을 그대로 부른다 — 서버를 띄울 때 준 세션 · 연결 옵션을 넘긴다.
+    const globals = [`--session=${sname}`, ...(['url', 'token', 'port'] as const).flatMap((k) => (values[k] === undefined ? [] : [`--${k}=${values[k]}`]))];
+    await serve(process.stdin, process.stdout, {
+      session: (argv) => run([...globals, ...argv], o),
+      game: async (command: Command): Promise<Reply> => {
+        const s = await load(file);
+        const game = gameOf(s, farm, port);
+        if (command.cmd !== 'ping') return game.call(command);
+        // CLI ping 처럼 받은 caps 를 세션에 적는다 — 게임을 새 SDK 로 다시 띄웠을 수 있다.
+        const reply = await game.ping();
+        await save(file, { ...s, caps: game.caps });
+        return reply as unknown as Reply;
+      },
+    });
+    return '';
+  }
   if (name === 'hold') {
     const minutes = Number(values.minutes ?? 30);
     if (![30, 60, 120].includes(minutes)) throw new Error('--minutes 는 30 · 60 · 120 중 하나입니다');

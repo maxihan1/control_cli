@@ -127,7 +127,7 @@ test('initialize 는 받은 판으로 답하고 tools/list 는 commands.json 명
 test('open 전에는 게임 도구가 실패로 답하고, 인자 꼴이 틀리면 고칠 글을 준다', async () => {
   const { call } = await server();
   assert.deepEqual(await call('tree'), { content: [{ type: 'text', text: '열린 세션이 없습니다 — open 부터 합니다' }], isError: true });
-  assert.match((await call('click')).content[0].text!, /^click 에 target 이 필요합니다/);
+  assert.match((await call('click')).content[0].text!, /^click 에 target 칸이 필요합니다/);
   assert.match((await call('tap', { x: '10', y: 10 })).content[0].text!, /^tap 의 x 는 number 여야 합니다 \(받은 값 "10"\)/);
 });
 ```
@@ -220,7 +220,7 @@ function pick(tool: Tool, args: unknown): Record<string, unknown> {
   for (const [k, p] of Object.entries(tool.inputSchema.properties)) {
     const v = given[k];
     if (v === undefined) {
-      if (tool.inputSchema.required.includes(k)) throw new Error(`${tool.name} 에 ${k} 가 필요합니다 — ${p.description}`);
+      if (tool.inputSchema.required.includes(k)) throw new Error(`${tool.name} 에 ${k} 칸이 필요합니다 — ${p.description}`);
       continue;
     }
     if (typeof v !== p.type || (p.enum !== undefined && !p.enum.includes(v as string | number)))
