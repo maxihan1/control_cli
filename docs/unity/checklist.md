@@ -59,5 +59,13 @@
 - [ ] iPhone 실측 (사용자 — iOS 17+ iPhone · Apple 팀 서명)
 
 ## U8. 마무리
-- [ ] README 지원 표 · help · 0.2.0
-- [ ] test_platform 다음 줄 목록
+- [x] README 지원 표(실기기 확인 / 컴파일만 확인을 나눠) · 개발 절 · help · CLI · SDK 판 0.2.0
+- [x] test_platform 다음 줄 목록 (아래)
+- [ ] 합친 뒤 `v0.2.0` 태그 (사용자 — main 에 합친 뒤)
+
+### test_platform 다음 줄 (이 저장소에서는 고치지 않는다)
+1. **Ashveil 회귀 한 번** — QA 빌드 `instrument --ref` 를 0.2.0 으로 올려 스모크 · 회귀를 돈다. U5 트리 refactoring(`Item` · 경로를 내려가며 셈)과 U6 답 미루기 일반화가 지금 쓰는 uGUI · 옛 Input 길을 지난다
+2. 명세 `docs/spec/도메인/게임.md` 「1차 밖」 — 새 Input System · iOS · Unity 6 밖의 판을 뺀다(Unreal 은 남는다). 결정 2 의 「새 Input System · DLL 플러그인 · 전체 이름 호출은 1차 밖」에서 새 Input System 을 뺀다
+3. kit `packages/kit/src/runtime/game.ts` — `PLATFORM_GAME_LINK` 에 `pc` · `ios` (`tcpLink` · `iosLink`). 러너 — iOS · PC 게임 케이스는 팜이 없어 내 컴퓨터 테스트 실행만
+4. 작성 지침(`tpx-cases` 게임 갈래) — `game.key()` · UI Toolkit 주소 꼴(`/UitkDocument/…`) · TMP 칸도 `type` 이 거른다는 것
+5. 디바이스 팜 iOS(Devicefarm Phase 5 · D7) — 팜이 iOS 를 받으면 `iosLink` 자리에 팜 길을 더한다
