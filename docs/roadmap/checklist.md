@@ -28,11 +28,11 @@
 - [x] Unity 샘플 `conform` 차례를 MCP 도구로 돌려 초록 — 테스트(가짜 표준 화면 · `dist/main.js mcp` 를 띄워) 16/16, 이 맥 macOS 앱 · 팜 RF9R408GKRR(6000.0 Input System) 모두 「통과 16 · 실패 0 · 건너뜀 0」(run 41642343858 결과물). Claude Code headless · Claude Desktop(대화) 이 진짜 MCP 클라이언트로 붙어 open → … → close
 
 ## P2-A. Unity 게임 상태
-- [ ] 설계 · 구현 계획
-- [ ] 컴포넌트 메서드 호출 · 속성 쓰기 · static 메서드 · static 속성 읽기/쓰기
-- [ ] PlayerPrefs 읽기 · 쓰기 · 키 지우기 · 다 지우기
-- [ ] timeScale 읽기 · 쓰기
-- [ ] 장면 열기(하나 · 더하기) · 닫기 · 열린 목록 · 이 장면이 될 때까지 기다리기
+- [x] 설계 · 구현 계획 — [p2a-plan.md](p2a-plan.md)(태스크 6개) · 명령 14개(b2ab0d5 · 7e114b6)
+- [x] 컴포넌트 메서드 호출 · 속성 쓰기 · static 메서드 · static 속성 읽기/쓰기 — `call` · `set` · `static-call` · `static-get` · `static-set`(Props.cs · 8f022b5). 값 타입 칸(`Transform.position.y`)은 사본을 거꾸로 다시 써 넣는다
+- [x] PlayerPrefs 읽기 · 쓰기 · 키 지우기 · 다 지우기 — `pref-get` · `pref-set` · `pref-delete` · `pref-clear`(`type` string · int · float, GameState.cs)
+- [x] timeScale 읽기 · 쓰기 — `timescale-get` · `timescale-set`(0~100)
+- [x] 장면 열기(하나 · 더하기) · 닫기 · 열린 목록 · 이 장면이 될 때까지 기다리기 — `scene-load [--add]` · `scene-unload` · `scenes` · CLI `scene-wait`(Game 이 `loads` · `unloads` 수로 기다림). CLI · MCP · Ran 줄 63522c1, sdk-compile run 41742741341 초록(meta · 2021.3 · 2022.3 · 6000.0)
 - [ ] 표준 화면 · `conform` A 줄 · 팜 초록
 
 ## P2-B. Unity 찾기 · 설정
