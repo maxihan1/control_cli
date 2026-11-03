@@ -1,0 +1,38 @@
+# SDK 를 Unity 판 · 입력 설정마다 컴파일만 해 보고 .meta 를 검사한다 — Unity 라이선스 없이 (tools/unity-compile-check)
+name: sdk-compile
+
+on:
+  pull_request:
+    paths: ['sdk/**', 'tools/unity-compile-check/**', 'src/sdk-meta.test.ts', '.github/workflows/sdk-compile.yml']
+  push:
+    branches: [main]
+    paths: ['sdk/**', 'tools/unity-compile-check/**', 'src/sdk-meta.test.ts', '.github/workflows/sdk-compile.yml']
+
+jobs:
+  meta:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: node --test dist/sdk-meta.test.js
+
+  compile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        unity: ['2021.3', '2022.3', '6000.0']
+    steps:
+      - uses: actions/checkout@v7
+      # 판마다 수 GB 를 내려받아 일부만 푼다 — 하네스가 바뀌어도 앞 캐시를 살려 쓴다(받은 판은 건너뛴다).
+      - uses: actions/cache@v6
+        with:
+          path: tools/unity-compile-check/.cache
+          key: unity-refs-${{ matrix.unity }}-${{ hashFiles('tools/unity-compile-check/check.py') }}
+          restore-keys: unity-refs-${{ matrix.unity }}-
+      - run: python3 tools/unity-compile-check/check.py fetch ${{ matrix.unity }}
+      - run: python3 tools/unity-compile-check/check.py ${{ matrix.unity }}

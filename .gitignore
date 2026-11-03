@@ -9,3 +9,6 @@ dist/
 [Bb]uilds/
 [Ll]ogs/
 *.apk
+# 컴파일 검사 하네스가 받은 Unity 참조 · 만든 csproj
+tools/unity-compile-check/.cache/
+tools/unity-compile-check/.work/
