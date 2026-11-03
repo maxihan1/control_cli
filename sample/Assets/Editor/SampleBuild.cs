@@ -22,8 +22,9 @@ public static class SampleBuild
         PlayerSettings.productName = "control_cli sample";
         PlayerSettings.SetApplicationIdentifier(named, "com.maxihan1.controlcli.sample");
         PlayerSettings.defaultInterfaceOrientation = UIOrientation.Portrait;
-        // QA 빌드처럼 IL2CPP — 코드 줄이기 뒤에도 SDK 가 남는지까지 본다.
-        PlayerSettings.SetScriptingBackend(named, ScriptingImplementation.IL2CPP);
+        // 폰은 QA 빌드처럼 IL2CPP — 코드 줄이기 뒤에도 SDK 가 남는지까지 본다. PC 는 Mono(리눅스 CI 는 mac · Windows IL2CPP 를 못 굽는다).
+        var standalone = target == BuildTarget.StandaloneOSX || target == BuildTarget.StandaloneWindows64;
+        PlayerSettings.SetScriptingBackend(named, standalone ? ScriptingImplementation.Mono2x : ScriptingImplementation.IL2CPP);
         if (target == BuildTarget.Android) PlayerSettings.Android.targetArchitectures = AndroidArchitecture.ARM64;
 
         var output = Arg("customBuildPath") ?? "Builds/sample";

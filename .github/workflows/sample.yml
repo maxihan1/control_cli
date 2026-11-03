@@ -66,6 +66,19 @@ jobs:
             input: 0
             inputsystem: ''
             target: Android
+          # PC — macOS 빌드는 이 맥에서 open --pc 로 실측, Windows 는 빌드만 확인. 둘 다 Mono.
+          - unity: 6000.0.84f1
+            ugui: 2.0.0
+            tmp: ''
+            input: 0
+            inputsystem: ''
+            target: StandaloneOSX
+          - unity: 6000.0.84f1
+            ugui: 2.0.0
+            tmp: ''
+            input: 1
+            inputsystem: 1.11.2
+            target: StandaloneWindows64
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7

@@ -13,10 +13,15 @@ namespace Sample
         {
 #if SAMPLE_INPUTSYSTEM && ENABLE_INPUT_SYSTEM
             var screen = UnityEngine.InputSystem.Touchscreen.current;
+            if (UnityEngine.InputSystem.Keyboard.current != null && UnityEngine.InputSystem.Keyboard.current.iKey.wasPressedThisFrame) Output.text = "key I";
+            // PC 는 SDK 가 Touchscreen 대신 Mouse 로 넣는다.
+            var mouse = UnityEngine.InputSystem.Mouse.current;
+            if (mouse != null && mouse.leftButton.wasPressedThisFrame) Began(mouse.position.ReadValue());
             if (screen == null) return;
             foreach (var touch in screen.touches)
                 if (touch.press.wasPressedThisFrame) Began(touch.position.ReadValue());
 #else
+            if (Input.GetKeyDown(KeyCode.I)) Output.text = "key I";
             for (var i = 0; i < Input.touchCount; i++)
             {
                 var touch = Input.GetTouch(i);
