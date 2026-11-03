@@ -1,6 +1,7 @@
 // 샘플 화면을 코드로 만든다 — 장면 YAML 없이 Unity 판마다 같은 화면. 왼쪽 칸은 uGUI(글자 · 입력칸 · 버튼 · 끌기 슬롯), 오른쪽 칸은 TextMeshPro
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 #if SAMPLE_TMP
 using TMPro;
@@ -13,7 +14,20 @@ namespace Sample
         private const float Left = -270, Right = 270;
         private static readonly DefaultControls.Resources Look = new DefaultControls.Resources();
 
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+        // 장면이 열릴 때마다 채운다 — conform 이 한 장면 열기로 Second 에 갔다 Sample 로 돌아오면 표준 화면을 다시 만든다. 첫 장면의 sceneLoaded 도 받으려고 장면을 열기 전에 건다.
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+        private static void Watch() => SceneManager.sceneLoaded += (scene, mode) =>
+        {
+            if (scene.name == "Sample")
+            {
+                // 새 오브젝트는 지금 장면에 생긴다.
+                SceneManager.SetActiveScene(scene);
+                Build();
+            }
+            // 더해 열면 지금 장면이 Sample 그대로라 표시를 Second 로 옮긴다 — scene-unload 하면 같이 사라진다.
+            else if (scene.name == "Second") SceneManager.MoveGameObjectToScene(new GameObject("SecondMarker"), scene);
+        };
+
         private static void Build()
         {
             // Input System 을 켠 게임은 그 UI 입력 모듈을 쓴다 — SDK 의 Touchscreen 이벤트 길을 본다.
