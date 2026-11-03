@@ -4,6 +4,7 @@ import { createServer as createNetServer, type AddressInfo, type Server as NetSe
 
 import type { Node } from './game.js';
 import type { Command, Reply } from './link.js';
+import { COMMANDS } from './protocol.js';
 import { flatten } from './snapshot.js';
 import { packet } from './usbmux.js';
 
@@ -21,6 +22,8 @@ export class FakeGame {
   clicks: string[] = [];
   keys: string[] = [];
   commands: Command[] = [];
+  /** SDK 의 Caps 흉내 — 테스트가 빼서 옛 SDK · 다른 엔진을 흉내 낸다 */
+  caps: string[] = [...COMMANDS];
   onBack?: () => void;
 
   constructor(public roots: FakeNode[], public scene = 'Boot') {}
@@ -44,7 +47,7 @@ export class FakeGame {
     if (f.error) return { ok: false, error: f.error };
     switch (c.cmd) {
       case 'ping':
-        return { ok: true, app: 'com.fake.game', version: '1.0' };
+        return { ok: true, app: 'com.fake.game', version: '1.0', engine: 'fake', engineVersion: '0', sdkVersion: '0.3.0', protocol: 2, caps: this.caps };
       case 'tree':
         return { ok: true, scene: this.scene, screen: [2400, 1080], tree: this.roots.map(strip) };
       case 'find':

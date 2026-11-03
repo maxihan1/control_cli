@@ -167,6 +167,21 @@ test('PC — 띄운 게임에 adb 없이 붙고, 스크린샷은 게임이 찍�
   }
 });
 
+test('게임 SDK 의 caps 에 없는 명령은 보내지 않고 미리 거절한다 · open 줄에 엔진 · SDK 판', async () => {
+  const g = new FakeGame([node('Boot', {}, [node('A', { text: 'a' })])]);
+  g.caps = g.caps.filter((c) => c !== 'layout');
+  const pc = await fakeTcp(g);
+  const port = String(pc.port);
+  try {
+    assert.match(await cli('-s=caps', 'open', '--pc', '--port', port), /\(PC\) · fake 0 · SDK 0\.3\.0/);
+    await assert.rejects(cli('-s=caps', 'layout', '--port', port), /이 게임의 SDK 는 layout 를 못 합니다/);
+    assert.ok(!g.commands.some((c) => c.cmd === 'layout'), 'layout 이 게임에 갔습니다');
+    await cli('-s=caps', 'close');
+  } finally {
+    pc.server.close();
+  }
+});
+
 test('iPhone — usbmuxd 로 USB 폰(Wi-Fi 쪽 말고)의 13100 에 붙고, 스크린샷은 게임이 찍는다', async () => {
   const path = join(dir, 'usbmuxd.sock');
   const mux = await fakeUsbmux(game, path);
