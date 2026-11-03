@@ -13,14 +13,16 @@
 - [x] 실제로 돌려 9개 초록 (이 맥 Docker 또는 CI)
 
 ## U1. 샘플 Unity 프로젝트 + 실측 CI
-- [ ] `sample/` 빌드 스크립트 · 런타임 화면
-- [ ] `.github/workflows/sample.yml` (Unity 6 · uGUI · 옛 Input · Android)
-- [ ] 팜 폰 CLI 루프
+- [x] `sample/` 빌드 스크립트 · 런타임 화면
+- [x] `.github/workflows/sample.yml` (Unity 6 · uGUI · 옛 Input · Android)
+- [ ] Secret 등록 뒤 샘플 빌드 초록 (사용자 — `UNITY_EMAIL` · `UNITY_PASSWORD`)
+- [ ] 팜 폰 CLI 루프 (팜 연결값 필요)
 
 ## U2. Unity 2021.3 · 2022.3 LTS
-- [ ] `sdk/package.json` 판 · ugui 의존
-- [ ] 컴파일 차이 고치기
-- [ ] 샘플 matrix
+- [x] `sdk/package.json` 판 · ugui 의존
+- [x] 컴파일 차이 고치기 — 없었다(U0 에서 이미 초록)
+- [x] 샘플 matrix (2021.3 · 2022.3 · 6000.0)
+- [ ] 샘플 세 판 빌드 · 6000.0 packages-lock 의 ugui 2.0.0 확인
 
 ## U3. TextMeshPro
 - [ ] asmdef 참조 · versionDefines
