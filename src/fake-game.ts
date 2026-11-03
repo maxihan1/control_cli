@@ -13,6 +13,10 @@ export interface FakeNode extends Node {
   onClick?: () => void;
   props?: Record<string, unknown>;
   password?: boolean;
+  /** type 이 넣을 글자를 거른다 — 입력칸의 글자 수 · 거르기 흉내 */
+  accept?: (text: string) => string;
+  /** drag 하면 놓은 자리의 자식으로 옮긴다 — 샘플 Bag/Slot 의 Item 흉내 */
+  movable?: boolean;
 }
 
 export const node = (name: string, extra: Partial<FakeNode> = {}, children?: FakeNode[]): FakeNode => ({ name, ...extra, ...(children ? { children } : {}) });
@@ -25,8 +29,18 @@ export class FakeGame {
   /** SDK 의 Caps 흉내 — 테스트가 빼서 옛 SDK · 다른 엔진을 흉내 낸다 */
   caps: string[] = [...COMMANDS];
   onBack?: () => void;
+  onKey?: (key: string) => void;
 
   constructor(public roots: FakeNode[], public scene = 'Boot') {}
+
+  private parentOf(child: FakeNode, nodes: FakeNode[] = this.roots): FakeNode | undefined {
+    for (const n of nodes) {
+      if (n.children?.includes(child)) return n;
+      const p = this.parentOf(child, n.children ?? []);
+      if (p) return p;
+    }
+    return undefined;
+  }
 
   // SDK 의 Tree.Find 와 같은 규칙 — 이름은 하나뿐일 때만, 경로는 [순번]
   private find(target: string): { node?: FakeNode; path?: string; error?: string } {
@@ -57,11 +71,20 @@ export class FakeGame {
         this.clicks.push(f.path!);
         f.node.onClick?.();
         return { ok: true, x: 1, y: 1 };
-      case 'drag':
-        return f.node ? { ok: true, x: 1, y: 1 } : { ok: false, error: '없음' };
+      case 'drag': {
+        const to = this.find(c.to as string);
+        if (!f.node || !to.node) return { ok: false, error: '없음' };
+        if (f.node.movable) {
+          const parent = this.parentOf(f.node);
+          if (parent) parent.children = parent.children!.filter((x) => x !== f.node);
+          else this.roots = this.roots.filter((x) => x !== f.node);
+          (to.node.children ??= []).push(f.node);
+        }
+        return { ok: true, x: 1, y: 1 };
+      }
       case 'type':
         if (!f.node) return { ok: false, error: '없음' };
-        f.node.text = c.text as string;
+        f.node.text = f.node.accept ? f.node.accept(c.text as string) : (c.text as string);
         return { ok: true, text: f.node.password ? '***' : f.node.text };
       case 'get':
         return f.node?.props && (c.prop as string) in f.node.props ? { ok: true, value: f.node.props[c.prop as string] } : { ok: false, error: `${c.prop as string} 칸이 없습니다` };
@@ -73,6 +96,7 @@ export class FakeGame {
         return { ok: true, x: c.x, y: c.y };
       case 'key':
         this.keys.push(c.key as string);
+        this.onKey?.(c.key as string);
         // SDK 처럼 Escape 는 뒤로 키와 같다.
         if (c.key === 'Escape') this.onBack?.();
         return { ok: true, key: c.key };
@@ -82,6 +106,44 @@ export class FakeGame {
         return { ok: false, error: `모르는 명령입니다: ${c.cmd}` };
     }
   }
+}
+
+/** 키로 칠 때처럼 영숫자만 남기고 글자 수로 자른다 — 샘플 IdInput(글자 수 8 · 영숫자) 흉내 */
+export const keyFilter = (limit: number) => (text: string) => text.replace(/[^A-Za-z0-9]/g, '').slice(0, limit);
+
+/** 표준 화면 흉내 — sample/Assets/Sample 과 같은 이름 · 같은 반응(conform 의 기대값) */
+export function standardScreen(idAccept = keyFilter(8)): FakeGame {
+  const status = node('StatusText', { text: '' });
+  const tmpStatus = node('TmpStatusText', { text: '' });
+  const uitkStatus = node('UitkStatusText', { text: '' });
+  const touch = node('TouchText', { text: '' });
+  const id = node('IdInput', { kind: 'InputField', interactable: true, text: '', accept: idAccept });
+  const tmpId = node('TmpIdInput', { kind: 'TMP_InputField', interactable: true, text: '', accept: keyFilter(8) });
+  const uitkId = node('UitkIdInput', { kind: 'TextField', interactable: true, text: '', accept: (t) => t.slice(0, 8) });
+  const login = (name: string, label: string, out: FakeNode, from: FakeNode) => {
+    let presses = 0;
+    return node(name, { kind: 'Button', interactable: true, onClick: () => (out.text = `${label} ${from.text} ${++presses}`) });
+  };
+  let cubes = 0;
+  const game = new FakeGame(
+    [
+      node('WorldCube', { onClick: () => (touch.text = `cube ${++cubes}`), props: { 'Transform.position': [0, 0, 5] } }),
+      node('SampleCanvas', {}, [
+        status,
+        id,
+        login('LoginButton', 'login', status, id),
+        touch,
+        tmpStatus,
+        tmpId,
+        login('TmpLoginButton', 'tmp login', tmpStatus, tmpId),
+        node('Bag', {}, [node('Slot', {}, [node('Item', { movable: true })]), node('Slot'), node('Slot'), node('Slot')]),
+      ]),
+      node('UitkDocument', {}, [node('UitkPanel', {}, [uitkStatus, uitkId, login('UitkLoginButton', 'uitk login', uitkStatus, uitkId)])]),
+    ],
+    'Sample',
+  );
+  game.onKey = (key) => (touch.text = `key ${key}`);
+  return game;
 }
 
 /** PC 게임 흉내 — SDK 처럼 127.0.0.1 포트에서 JSON 한 줄을 받아 한 줄로 답한다 */
