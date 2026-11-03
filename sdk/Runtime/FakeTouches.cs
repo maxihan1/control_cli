@@ -10,8 +10,9 @@ namespace ControlCli
     [DefaultExecutionOrder(-32000), Preserve]
     public sealed class FakeTouches : MonoBehaviour
     {
-        // 진짜 손가락 번호(0~9)와 겹치지 않게 큰 번호를 쓴다.
-        private const int FingerId = 99;
+        // 진짜 손가락 번호(0~9)와 겹치지 않게 뒤쪽 번호를 쓴다. UI Toolkit 은 터치 손가락을 0~19 만 받아(PointerId.touchPointerCount 20)
+        // 그보다 크면 EventSystem 의 PanelRaycaster 가 IndexOutOfRange 를 던져 uGUI 까지 아무것도 안 눌린다(샘플 실기기 2026-11-03).
+        private const int FingerId = 19;
         // 끌기를 몇 프레임에 나눠 움직이나 — EventSystem 의 끌기 문턱을 넘고 끌기 처리기가 중간 자리를 받게 한다.
         private const int DragSteps = 10;
 
