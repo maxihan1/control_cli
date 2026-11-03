@@ -85,3 +85,11 @@
 - `open --ios` 는 Android 용 `PLATFORM_APP` · `PLATFORM_DEVICE_UDID` 를 보지 않는다. 뒤로 키가 없어 창 훑기는 `back` 없이 돈다
 - 테스트는 libimobiledevice 와 같은 환경값 `USBMUXD_SOCKET_ADDRESS` 로 가짜 usbmuxd 를 띄운다 — Wi-Fi(7) · USB(9) 두 줄에서 9 로, 포트 13100 으로 잇는지 본다
 - PC 테스트 스크립트를 `exec sleep` 으로 — `sh` 만 끄면 `sleep` 이 고아로 남는다
+
+## 2026-11-03 — 샘플 첫 빌드 (Secret 등록 뒤, run 41604854616)
+
+- Secret 은 Ashveil 과 같은 CI 전용 Unity 계정으로 사용자가 넣었다(이 맥 Unity Hub 에 로그인된 계정과 같다). 같은 계정이라 Ashveil CI 와 동시에 돌면 좌석을 다툴 수 있다
+- 6000.0 · 옛 Input · Android 첫 빌드 초록 — Unity 로그인 · Personal 좌석 받기 · 끝에 돌려주기, instrument 가 PR 머리 커밋(16ff5bc)의 SDK 를 git UPM 으로 받음, IL2CPP 빌드에 `ControlCli.Runtime` · `ControlCli.Input` · `Sample` 이 든다, APK 28MB, SDK 경고 0
+- U2 확인 — 의존을 `1.0.0` 으로 적어도 Unity 6 에서 `com.unity.ugui@2.0.0` 이 잡힌다
+- **TMP 기본 리소스가 안 들어왔다** — 공개 `AssetDatabase.ImportPackage` 는 `DelayedImportPackageAssets`(UnityCsReference 6000.0 `PackageUtility.bindings.cs`)로 미뤄 가져오고, game-ci 가 빌드 메서드 뒤 Unity 를 꺼 끝내 안 들어온다. 빌드 스크립트가 `.unitypackage`(tar.gz · GUID 폴더마다 asset · asset.meta · pathname — TMP 3.0.9 로 모양 확인)를 직접 풀고 `Refresh(ForceSynchronousImport)` 한다. 자리는 `PackageInfo.FindForAssetPath` 의 실제 폴더로
+- 이 고침은 맨 위 U8 에만 넣었다 — U3~U8 을 차례로 올리면 PR 여섯의 샘플 빌드가 한꺼번에 돌아 Personal 좌석을 다툰다. 차례대로 합치면 main 은 맞다
