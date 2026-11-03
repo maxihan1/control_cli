@@ -56,3 +56,13 @@
 - 고침 — ① caps 는 ping 마다 새로 적는다(게임을 새 SDK 로 다시 띄워도 `ping` · `conform` 이 세션 caps 를 고친다) · 게임이 보낸 caps 가 글자 배열이 아니면 믿지 않고 다 보낸다(글자 하나면 `includes` 가 일부로 맞춘다) · `open` 이 caps 를 바로 저장(176f89d) ② conform 을 다시 돌리면 앞 판 상태 글자 · Item 자리가 남아 누르기 · 끌기가 안 먹어도 통과했다 — 누르기 전 글자와 달라져야 통과, Item 이 이미 Slot[3] 이면 Slot[2] 로 옮긴다. 줄마다 쓰는 명령 전부(`click` + `find` …)를 caps 와 견준다 · get 실패 글에 받은 값(7e39ba2). 이 맥 앱에서 한 세션 두 판 모두 16/16 ③ `protocol.test` 를 sdk-compile meta 잡에서 돌리고 SDK ping 의 `protocol` 숫자도 commands.json 과 대조, 테스트 안의 명령 목록 사본은 겹침 검사로 바꿈(d18a681) ④ `PingReply` 를 라이브러리 입구에서 export
 - 안 고침 — errors 를 conform 시작 뒤만 보자는 안: 표준 화면이 켜질 때 낸 에러도 적합성 실패가 맞다. 팜 screenshot 을 Appium 으로 돌리자는 안: conform 은 SDK screenshot 명령 자체를 본다(팜 SM-A325N 에서 통과). 가짜 drag 의 `to` 없음 · 일부만 v2 인 ping 의 `undefined` 글: 그런 입력이 없다
 - 미룸 — `instrument` 기본 ref `main` × `?path=/sdk/unity`. `roadmap` 에 합치는 데는 상관없고, main 에 합칠 때 옛 CLI(`?path=/sdk#main`)와 새 CLI 가 엇갈린다. 기본 ref 를 CLI 판 tag 로 두면 CLI 와 SDK 경로가 늘 맞는다(그 tag 를 먼저 찍어야 한다) — checklist 맨 위
+
+## 2026-11-04 — P1 설계 ([p1-plan.md](p1-plan.md))
+
+- 브랜치 — 체크리스트의 「`p1` 을 `p0` 위에 · PR 은 `p0` 로」는 P0 가 PR #15 로 `roadmap` 에 합쳐져(e1bdb6b) 낡았다. `p1` 은 `origin/roadmap` 에서, PR 은 `roadmap` 으로(사용자)
+- MCP 를 손으로 쓴다 — 쓰는 메서드가 `initialize` · `ping` · `tools/list` · `tools/call` 넷이고 답은 글 · 그림뿐이다. `@modelcontextprotocol/sdk` 는 zod · express 를 끌고 온다(지금 런타임 dependency 0). 판은 2025-11-25 를 앞에 두고 2024-11-05 까지 받는다 — 쓰는 꼴이 그 사이 안 바뀌었다
+- 도구 = commands.json 명령 12개 + 세션 도구 4개(`hold` · `open` · `close` · `release`). 세션 도구는 「셸이 없는 AI 클라이언트도 게임을 조작」(「MCP · 인스펙터 모양」)을 지키려고 넣었다 — 없으면 Desktop 사용자가 터미널에서 폰을 잡고 열어야 한다. 세션 도구는 CLI `run()` 을 그대로 부르고, 게임 도구는 세션 파일의 게임에 `{cmd, ...인자}` 를 `Game.call` 로 보낸다(새 명령이 도구로 저절로 들어온다)
+- MCP 세션 파일은 `~/.control-cli/` — Claude Desktop 은 MCP 서버를 cwd `/`(macOS 에서 쓸 수 없다)에서 띄운다. 셸 CLI 의 `./.control-cli/` 와 따로 두는 값을 치렀다(README 에 적음)
+- 뺀 것 — `snapshot` ref · `Ran:` 줄 · `wait` · `text` · `conform` · `crawl` · `instrument`. ref · Ran 은 셸 CLI 의 케이스 쓰기 몫이고 `wait` · `text` 는 `find` 로 된다
+- 끝 기준을 재는 법 — MCP 클라이언트가 `conform` 의 `Game` 을 MCP 링크(`tools/call` 하나 = 명령 하나)로 돌린다. 「conform 차례를 MCP 도구로」가 같은 16줄 · 같은 통과 수로 잰다. 테스트는 `dist/main.js mcp` 를 진짜로 띄워 stdio 로 부른다
+- CI — CLI 테스트는 지금 CI 에서 안 돈다. 도구 목록 ↔ commands.json 은 `protocol.test` 와 같은 계약이라 sdk-compile meta 잡에 `mcp.test` 를 더한다
