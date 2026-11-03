@@ -87,6 +87,15 @@ npx control-cli key I                              # Ran: await game.key('I')
 
 PC 게임의 SDK 는 이 컴퓨터의 `127.0.0.1:13100` 에 열려 adb 없이 TCP 로 바로 붙는다. 스크린샷은 게임이 프레임 끝에서 찍고, 창 훑기의 뒤로 키는 `Escape` 다. QA 빌드는 창 초점이 없어도 돈다(SDK 가 `runInBackground` · Input System `IgnoreFocus` 를 켜고 uGUI 에 초점을 다시 알린다). `PLATFORM_APP` 은 팜 · USB 의 APK 라 PC 는 `--app` 만 본다.
 
+### 루프 — iOS (USB)
+
+```bash
+npx control-cli open --ios --app ./Build/Game.app  # 서명된 .app 을 devicectl 로 깔고 켠다 — close 가 끈다
+npx control-cli open --ios                         # 이미 켜 둔 게임에 붙는다(USB iPhone 이 하나면 --udid 없이)
+```
+
+macOS 의 usbmuxd 로 폰의 `127.0.0.1:13100` 에 명령마다 바로 잇는다 — iproxy 같은 것을 깔거나 걸어 둘 것이 없다. 깔기 · 켜기 · 끄기는 Xcode 15+ 의 `devicectl`(iOS 17+ · 폰 개발자 모드)이고 bundle id 는 `.app` 의 `Info.plist` 에서 읽는다. 디바이스 팜은 iOS 를 아직 받지 않는다. 스크린샷은 게임이 찍고, iPhone 에는 뒤로 키가 없어 창 훑기는 닫기 버튼 · 저절로 사라지기로만 닫는다. 서명 · 프로비저닝은 Xcode 에서 직접 한다.
+
 ### 명령
 
 | 명령 | 하는 일 | Ran 줄 |
@@ -132,8 +141,9 @@ npx control-cli crawl --max 30 --minutes 5 --exclude '/설정|settings/i' --excl
 | 팜 토큰 (Bearer) | `--token` | `PLATFORM_APPIUM_TOKEN` |
 | 게임 APK | `--app` | `PLATFORM_APP` |
 | 폰 | `--udid` | `PLATFORM_DEVICE_UDID` |
-| USB · PC 게임 포트 | `--port` | — (기본 13100) |
-| PC 게임 실행 파일 | `--app` (`--pc` 와 같이) | — |
+| USB · PC · iOS 게임 포트 | `--port` | — (기본 13100) |
+| PC 게임 실행 파일 · iOS 서명된 .app | `--app` (`--pc` · `--ios` 와 같이) | — |
+| iPhone | `--udid` (`--ios` 와 같이 — 없으면 USB 로 꽂힌 하나) | `USBMUXD_SOCKET_ADDRESS` (usbmuxd 자리 — 테스트용, 없으면 `/var/run/usbmuxd`) |
 
 ## SDK 명령 (통신 꼴 정본)
 

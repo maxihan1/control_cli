@@ -7,19 +7,21 @@ import { parseArgs } from 'node:util';
 
 import { back, call, connect, farmOf, openSession, screenshot, type Conn } from './appium.js';
 import { crawl, CRAWL } from './crawl.js';
+import { installAndLaunch, terminate } from './devicectl.js';
 import { Game, settled, type WaitOptions } from './game.js';
 import { instrument } from './instrument.js';
-import { farmLink, GAME_PORT, tcpLink, usbLink } from './link.js';
+import { farmLink, GAME_PORT, iosLink, tcpLink, usbLink } from './link.js';
 import { snapshot } from './snapshot.js';
+import { phone } from './usbmux.js';
 
 interface Session {
-  /** pc 는 내 컴퓨터에서 도는 게임(Windows · macOS 빌드)에 바로 붙는다 */
-  via: 'farm' | 'usb' | 'pc';
-  /** USB 는 비면 adb 에 꽂힌 하나뿐인 폰 */
+  /** pc 는 내 컴퓨터에서 도는 게임(Windows · macOS 빌드), ios 는 USB iPhone(usbmuxd)에 바로 붙는다 */
+  via: 'farm' | 'usb' | 'pc' | 'ios';
+  /** USB 는 비면 adb 에 꽂힌 하나뿐인 폰. iPhone 은 열 때 찾은 UDID */
   udid?: string;
-  /** Appium 세션 번호 — 없으면(PC · USB 로 이미 켠 게임) 스크린샷 · 뒤로 키를 SDK 가 한다 */
+  /** Appium 세션 번호 — 없으면(PC · iPhone · USB 로 이미 켠 게임) 스크린샷 · 뒤로 키를 SDK 가 한다 */
   appium?: string;
-  /** open --pc --app 으로 띄운 게임 — close 가 끈다 */
+  /** open --pc · --ios --app 으로 띄운 게임 — close 가 끈다 */
   pid?: number;
   refs: Record<string, string>;
 }
@@ -40,6 +42,7 @@ export const HELP = `control-cli [-s=<세션>] <명령>
   open --app <QA APK 주소>                        잡은 폰에 깔고 켠 뒤 첫 화면을 찍는다
   open --usb [--app <APK>] [--udid <serial>]      USB 폰 — app 이 있으면 내 컴퓨터 Appium 이 깔고 켠다
   open --pc [--app <실행 파일 · .app>]            내 컴퓨터의 PC 게임 — app 이 있으면 띄우고 close 가 끈다
+  open --ios [--app <서명된 .app>] [--udid <UDID>]  USB iPhone(usbmuxd) — app 이 있으면 devicectl 로 깔고 켠다(Xcode 15+ · iOS 17+)
   snapshot                                         줄인 오브젝트 목록 + 스크린샷 파일
   click <ref|주소>                                 Ran: await game.click('LoginButton')
   drag <ref|주소> <ref|주소>
@@ -95,6 +98,7 @@ export async function run(argv: string[], o: Options): Promise<string> {
       udid: { type: 'string' },
       usb: { type: 'boolean' },
       pc: { type: 'boolean' },
+      ios: { type: 'boolean' },
       port: { type: 'string' },
       minutes: { type: 'string' },
       text: { type: 'string' },
@@ -158,22 +162,29 @@ export async function run(argv: string[], o: Options): Promise<string> {
 
   if (name === 'open') {
     if (await readFile(file).then(() => true, () => false)) throw new Error(`세션 ${sname} 이 이미 열려 있습니다 — close 부터 합니다`);
-    if (values.usb && values.pc) throw new Error('--usb 와 --pc 는 같이 쓰지 않습니다');
-    const via: Session['via'] = values.pc ? 'pc' : values.usb ? 'usb' : 'farm';
-    const udid = via === 'pc' ? undefined : (values.udid ?? env.PLATFORM_DEVICE_UDID ?? (via === 'farm' ? (await readFile(heldFile, 'utf8').catch(() => '')).trim() || undefined : undefined));
+    if ([values.usb, values.pc, values.ios].filter(Boolean).length > 1) throw new Error('--usb · --pc · --ios 는 하나만 씁니다');
+    const via: Session['via'] = values.ios ? 'ios' : values.pc ? 'pc' : values.usb ? 'usb' : 'farm';
+    // PC · iPhone 은 Appium 을 안 쓴다 — 팜 · USB Android 의 PLATFORM_APP(APK) · PLATFORM_DEVICE_UDID 를 보지 않는다.
+    const local = via === 'pc' || via === 'ios';
+    const udid =
+      via === 'pc' ? undefined
+      : via === 'ios' ? (await phone(values.udid)).udid
+      : (values.udid ?? env.PLATFORM_DEVICE_UDID ?? (via === 'farm' ? (await readFile(heldFile, 'utf8').catch(() => '')).trim() || undefined : undefined));
     if (via === 'farm' && !udid) throw new Error('잡은 폰이 없습니다 — hold 부터 합니다');
-    // PLATFORM_APP 은 팜 · USB 의 APK 다 — PC 는 --app 만 본다.
-    const app = via === 'pc' ? values.app : (values.app ?? env.PLATFORM_APP);
+    const app = local ? values.app : (values.app ?? env.PLATFORM_APP);
     if (via === 'farm' && !app) throw new Error('게임을 깔려면 --app 이나 PLATFORM_APP 이 필요합니다(QA APK 주소)');
     const s: Session = { via, udid, refs: {} };
     if (via === 'pc') {
       if (app) s.pid = launch(app);
+    } else if (via === 'ios') {
+      if (app) s.pid = installAndLaunch(udid!, app).pid;
     } else if (app) s.appium = await openSession(appium, app, udid);
     // 게임이 답하기 전에 실패해도 close 로 Appium 세션 · 띄운 게임을 닫을 수 있게 먼저 적는다.
     await save(file, s);
     const game = gameOf(s, farm, port);
     const info = await untilAnswers(game);
-    const where = via === 'farm' ? `디바이스 팜 ${udid}` : via === 'usb' ? 'USB' : `PC${s.pid ? ` · 프로세스 ${s.pid}` : ''}`;
+    const pid = s.pid ? ` · 프로세스 ${s.pid}` : '';
+    const where = via === 'farm' ? `디바이스 팜 ${udid}` : via === 'usb' ? 'USB' : via === 'pc' ? `PC${pid}` : `iPhone ${udid}${pid}`;
     return `세션 ${sname} 열림 — ${info.app} ${info.version} (${where})\n${await shot(game, s, appium, file, sname, o.dir)}`;
   }
 
@@ -182,7 +193,7 @@ export async function run(argv: string[], o: Options): Promise<string> {
     // Appium 이 세션을 이미 끝냈어도(300초 쉼 · 잡기 시간 끝) 파일은 지운다 — 남으면 open 이 막힌다.
     const closed = s.appium ? await call(appium, 'DELETE', `/session/${s.appium}`).then(() => '', (e: unknown) => ` (Appium 세션은 이미 없음: ${e instanceof Error ? e.message : String(e)})`) : '';
     // 띄운 게임이 이미 꺼졌어도 세션은 닫는다.
-    const killed = s.pid === undefined ? '' : stop(s.pid) ? ` — 게임(프로세스 ${s.pid})을 껐습니다` : ` — 게임(프로세스 ${s.pid})은 이미 꺼져 있었습니다`;
+    const killed = s.pid === undefined ? '' : stop(s) ? ` — 게임(프로세스 ${s.pid})을 껐습니다` : ` — 게임(프로세스 ${s.pid})은 이미 꺼져 있었습니다`;
     await rm(file, { force: true });
     return `세션 ${sname} 닫음${closed}${killed}${s.via === 'farm' ? ' — 폰은 아직 잡혀 있습니다(release)' : ''}`;
   }
@@ -279,8 +290,8 @@ export async function run(argv: string[], o: Options): Promise<string> {
     }
     case 'crawl':
       return crawl(game, {
-        // Appium 이 없으면(PC · USB 로 이미 켠 게임) Escape 키 — Unity 는 폰 뒤로 키를 Escape 로 준다.
-        back: s.appium ? () => back(appium, s.appium!) : () => game.key('Escape'),
+        // Appium 이 없으면(PC · USB 로 이미 켠 게임) Escape 키 — Unity 는 폰 뒤로 키를 Escape 로 준다. iPhone 에는 뒤로 키가 없다.
+        back: s.appium ? () => back(appium, s.appium!) : s.via === 'ios' ? undefined : () => game.key('Escape'),
         out: values.out ?? join(o.dir, 'crawl'),
         maxWindows: values.max === undefined ? undefined : Number(values.max),
         minutes: values.minutes === undefined ? undefined : Number(values.minutes),
@@ -293,7 +304,12 @@ export async function run(argv: string[], o: Options): Promise<string> {
 
 function gameOf(s: Session, farm: Conn, port: number): Game {
   // PC 게임의 SDK 는 이 컴퓨터의 127.0.0.1 에 열려 있다 — adb 없이 바로 붙는다.
-  return new Game(s.via === 'farm' ? farmLink(farm.base, farm.headers, s.udid!) : s.via === 'usb' ? usbLink(s.udid, port) : tcpLink(port));
+  const link =
+    s.via === 'farm' ? farmLink(farm.base, farm.headers, s.udid!)
+    : s.via === 'usb' ? usbLink(s.udid, port)
+    : s.via === 'ios' ? iosLink(s.udid, port)
+    : tcpLink(port);
+  return new Game(link);
 }
 
 // PC 게임을 띄운다 — macOS .app 은 Contents/MacOS 안 실행 파일을 바로 띄워야 프로세스 번호를 잡아 close 가 끌 수 있다.
@@ -314,10 +330,11 @@ function launch(app: string): number {
   return child.pid;
 }
 
-/** 꺼졌으면 false */
-function stop(pid: number): boolean {
+/** 띄운 게임을 끈다 — 이미 꺼졌으면 false */
+function stop(s: Session): boolean {
   try {
-    process.kill(pid);
+    if (s.via === 'ios') terminate(s.udid!, s.pid!);
+    else process.kill(s.pid!);
     return true;
   } catch {
     return false;

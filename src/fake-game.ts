@@ -5,6 +5,7 @@ import { createServer as createNetServer, type AddressInfo, type Server as NetSe
 import type { Node } from './game.js';
 import type { Command, Reply } from './link.js';
 import { flatten } from './snapshot.js';
+import { packet } from './usbmux.js';
 
 export interface FakeNode extends Node {
   children?: FakeNode[];
@@ -95,6 +96,47 @@ export async function fakeTcp(game: FakeGame): Promise<{ port: number; server: N
   });
   await new Promise<void>((ok) => server.listen(0, '127.0.0.1', ok));
   return { port: (server.address() as AddressInfo).port, server };
+}
+
+// 같은 폰이 Wi-Fi(7) · USB(9) 로 두 번 나온다 — USB 쪽을 골라야 한다.
+const DEVICES = ['Network', 'USB']
+  .map((type, i) => {
+    const id = 7 + i * 2;
+    return `<dict><key>DeviceID</key><integer>${id}</integer><key>MessageType</key><string>Attached</string><key>Properties</key><dict><key>ConnectionType</key><string>${type}</string><key>DeviceID</key><integer>${id}</integer><key>SerialNumber</key><string>UDID-1</string></dict></dict>`;
+  })
+  .join('');
+
+/** usbmuxd 흉내 — ListDevices 에 폰 목록을 주고, Connect 뒤에는 그 소켓으로 게임 명령 한 줄씩을 받는다 */
+export async function fakeUsbmux(game: FakeGame, path: string): Promise<{ server: NetServer; connects: { id: number; port: number }[] }> {
+  const connects: { id: number; port: number }[] = [];
+  const server = createNetServer((socket) => {
+    let buf = Buffer.alloc(0);
+    let tunnel = false;
+    let lines = '';
+    socket.on('data', (chunk: Buffer) => {
+      if (tunnel) {
+        lines += chunk.toString('utf8');
+        for (let nl = lines.indexOf('\n'); nl >= 0; nl = lines.indexOf('\n')) {
+          socket.write(JSON.stringify(game.handle(JSON.parse(lines.slice(0, nl)) as Command)) + '\n');
+          lines = lines.slice(nl + 1);
+        }
+        return;
+      }
+      buf = Buffer.concat([buf, chunk]);
+      if (buf.length < 16 || buf.length < buf.readUInt32LE(0)) return;
+      const text = buf.subarray(16, buf.readUInt32LE(0)).toString('utf8');
+      buf = Buffer.alloc(0);
+      if (text.includes('<string>ListDevices</string>')) socket.write(packet(`<dict><key>DeviceList</key><array>${DEVICES}</array></dict>`));
+      else if (text.includes('<string>Connect</string>')) {
+        const port = Number(/<key>PortNumber<\/key><integer>(\d+)/.exec(text)![1]);
+        connects.push({ id: Number(/<key>DeviceID<\/key><integer>(\d+)/.exec(text)![1]), port: ((port & 0xff) << 8) | (port >> 8) });
+        socket.write(packet('<dict><key>MessageType</key><string>Result</string><key>Number</key><integer>0</integer></dict>'));
+        tunnel = true;
+      }
+    });
+  });
+  await new Promise<void>((ok) => server.listen(path, ok));
+  return { server, connects };
 }
 
 /** 디바이스 팜 입구 흉내 — 잡기 · Appium 세션 · 게임 명령 주소 */

@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { after, before, test } from 'node:test';
 
 import { run, TIMING } from './cli.js';
-import { button, fakeFarm, FakeGame, fakeTcp, node } from './fake-game.js';
+import { button, fakeFarm, FakeGame, fakeTcp, fakeUsbmux, node } from './fake-game.js';
 import { SETTLE, WAIT } from './game.js';
 
 Object.assign(SETTLE, { maxMs: 30, stepMs: 5 });
@@ -148,7 +148,8 @@ test('PC — 띄운 게임에 adb 없이 붙고, 스크린샷은 게임이 찍�
   const port = String(pc.port);
   const macos = join(dir, 'Game.app', 'Contents', 'MacOS');
   await mkdir(macos, { recursive: true });
-  await writeFile(join(macos, 'game'), '#!/bin/sh\nsleep 30\n', { mode: 0o755 });
+  // exec 로 sh 를 sleep 으로 바꾼다 — close 가 끈 프로세스가 곧 게임이라 고아가 남지 않는다.
+  await writeFile(join(macos, 'game'), '#!/bin/sh\nexec sleep 30\n', { mode: 0o755 });
   try {
     const opened = await cli('-s=pc', 'open', '--pc', '--app', join(dir, 'Game.app'), '--port', port);
     assert.match(opened, /세션 pc 열림 — com\.fake\.game 1\.0 \(PC · 프로세스 \d+\)/);
@@ -161,8 +162,27 @@ test('PC — 띄운 게임에 adb 없이 붙고, 스크린샷은 게임이 찍�
   }
 });
 
-test('--usb 와 --pc 는 같이 쓰지 않고, PC 는 팜용 PLATFORM_APP 을 띄우지 않는다', async () => {
-  await assert.rejects(cli('-s=both', 'open', '--usb', '--pc'), /--usb 와 --pc 는 같이 쓰지 않습니다/);
+test('iPhone — usbmuxd 로 USB 폰(Wi-Fi 쪽 말고)의 13100 에 붙고, 스크린샷은 게임이 찍는다', async () => {
+  const path = join(dir, 'usbmuxd.sock');
+  const mux = await fakeUsbmux(game, path);
+  process.env.USBMUXD_SOCKET_ADDRESS = `UNIX:${path}`;
+  try {
+    const opened = await cli('-s=ios', 'open', '--ios');
+    assert.match(opened, /세션 ios 열림 — com\.fake\.game 1\.0 \(iPhone UDID-1\)/);
+    assert.match(opened, /- Screenshot: .*\.jpg/);
+    assert.match(await cli('-s=ios', 'click', 'LoginButton'), /Ran: await game\.click\('LoginButton'\)/);
+    assert.ok(mux.connects.length >= 3);
+    assert.deepEqual(new Set(mux.connects.map((c) => `${c.id}:${c.port}`)), new Set(['9:13100']));
+    assert.equal(await cli('-s=ios', 'close'), '세션 ios 닫음');
+    await assert.rejects(cli('-s=ios2', 'open', '--ios', '--udid', 'NOPE'), /USB 로 꽂힌 iPhone 중에 NOPE 가 없습니다/);
+  } finally {
+    delete process.env.USBMUXD_SOCKET_ADDRESS;
+    mux.server.close();
+  }
+});
+
+test('--usb · --pc · --ios 는 하나만 쓰고, PC 는 팜용 PLATFORM_APP 을 띄우지 않는다', async () => {
+  await assert.rejects(cli('-s=both', 'open', '--usb', '--pc'), /--usb · --pc · --ios 는 하나만 씁니다/);
   const pc = await fakeTcp(game);
   try {
     assert.match(await cli('-s=pc2', 'open', '--pc', '--port', String(pc.port)), /\(PC\)/);
