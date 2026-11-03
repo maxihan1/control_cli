@@ -42,6 +42,8 @@ export function capabilities(app: string, udid?: string): Record<string, unknown
     ...(udid ? { 'appium:udid': udid } : {}),
     // 기본 60초면 AI 가 다음 명령을 고르는 사이 세션이 끊긴다
     'appium:newCommandTimeout': 300,
+    // 기본은 깔린 앱과 versionCode 가 같으면 안 깐다 — QA 빌드는 versionCode 를 안 올려 새 빌드가 조용히 무시된다(팜 실측).
+    'appium:enforceAppInstall': true,
   };
 }
 

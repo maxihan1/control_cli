@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, before, test } from 'node:test';
 
+import { capabilities } from './appium.js';
 import { run, TIMING } from './cli.js';
 import { button, fakeFarm, FakeGame, fakeTcp, fakeUsbmux, node } from './fake-game.js';
 import { SETTLE, WAIT } from './game.js';
@@ -35,6 +36,10 @@ before(async () => {
   dir = await mkdtemp(join(tmpdir(), 'control-cli-'));
 });
 after(() => farm.server.close());
+
+test('versionCode 가 같은 새 QA 빌드도 늘 다시 깐다', () => {
+  assert.equal(capabilities('qa.apk')['appium:enforceAppInstall'], true);
+});
 
 test('잡기 전에는 열지 않는다', async () => {
   await assert.rejects(cli('open'), /hold 부터/);
