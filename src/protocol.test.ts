@@ -6,13 +6,13 @@ import test from 'node:test';
 
 import { COMMANDS, PROTOCOL } from './protocol.js';
 
-test('명령 이름은 겹치지 않고 ping 이 있고 칸은 string · number · array 와 required · summary 를 갖는다', () => {
+test('명령 이름은 겹치지 않고 ping 이 있고 칸은 string · number · array · boolean 과 required · summary 를 갖는다', () => {
   assert.equal(new Set(COMMANDS).size, COMMANDS.length, `겹치는 이름: ${COMMANDS.join(' · ')}`);
   assert.ok(COMMANDS.includes('ping'), 'open 이 ping 으로 게임 답을 기다린다');
   for (const c of PROTOCOL.commands) {
     assert.ok(c.summary, `${c.name} 에 summary 가 없습니다`);
     for (const [k, a] of Object.entries(c.args)) {
-      assert.ok(['string', 'number', 'array'].includes(a.type), `${c.name}.${k} 의 type`);
+      assert.ok(['string', 'number', 'array', 'boolean'].includes(a.type), `${c.name}.${k} 의 type`);
       assert.equal(typeof a.required, 'boolean', `${c.name}.${k} 의 required`);
       assert.ok(a.summary, `${c.name}.${k} 의 summary`);
       // 고를 글자는 글자 칸에만 — MCP 도구 꼴의 enum 이 된다.

@@ -123,6 +123,8 @@ export class FakeGame {
         if (c.key === 'Escape') this.onBack?.();
         return { ok: true, key: c.key };
       case 'screenshot':
+        // PNG 는 머리 8바이트만 — 받는 쪽이 꼴을 가르는지 본다.
+        if (c.format === 'png') return { ok: true, png: Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).toString('base64') };
         return { ok: true, jpg: Buffer.from('jpg').toString('base64') };
       case 'call': {
         if (!f.node) return { ok: false, error: `켜진 오브젝트 중에 ${c.target as string} 이 없습니다` };

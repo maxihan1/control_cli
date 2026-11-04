@@ -29,6 +29,7 @@ namespace ControlCli
             "ping", "tree", "find", "click", "drag", "type", "get", "tap", "key", "screenshot", "errors", "layout",
             "call", "set", "static-call", "static-get", "static-set", "pref-get", "pref-set", "pref-delete", "pref-clear",
             "timescale-get", "timescale-set", "scenes", "scene-load", "scene-unload",
+            "find-all", "find-at", "components", "members", "text-set",
         };
         // sdk/unity/package.json 의 version 과 같다(src/protocol.test.ts 가 본다).
         public const string SdkVersion = "0.4.0";
