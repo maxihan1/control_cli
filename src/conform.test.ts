@@ -103,3 +103,41 @@ test('B 줄 — waitForProp 은 값이 될 때까지 get 을 되풀이하고, �
   await game.waitForProp('WorldCube', 'Transform.position', '[0, 0, 5]');
   await assert.rejects(game.waitForProp('WorldCube', 'Probe.count', 11, { timeoutMs: 30 }), /WorldCube 의 Probe\.count 이 0\.03초 안에 11 이 되지 않았습니다 \(마지막: 10\)/);
 });
+
+test('C 줄 — 옛 SDK(caps 에 touch-down 없음)에 횟수 · 시간 · 세기 · 여러 키를 보내면 보내기 전에 거절한다', async () => {
+  const g = standardScreen();
+  g.caps = g.caps.filter((c) => c !== 'touch-down');
+  const game = direct(g);
+  await game.ping();
+  await assert.rejects(game.click('LoginButton', { count: 2 }), /이 게임의 SDK 는 횟수 · 시간 · 세기 · 여러 키 · via 를 못 읽습니다 — SDK 0\.6\.0 이상/);
+  await assert.rejects(game.key('I', { duration: 1 }), /SDK 0\.6\.0 이상/);
+  await assert.rejects(game.key('A+LeftShift'), /SDK 0\.6\.0 이상/);
+  await game.key('I');
+  assert.deepEqual(g.commands.filter((c) => c.cmd === 'key').map((c) => c.key), ['I']);
+});
+
+test('C 줄 — 손가락은 비어 있는 가장 작은 번호(10~19)를 받고, 10개면 거절하고, input-reset 이 다 뗀다', async () => {
+  const g = standardScreen();
+  const game = direct(g);
+  const fingers: number[] = [];
+  for (let i = 0; i < 10; i++) fingers.push(await game.touchDown({ x: i, y: i }));
+  assert.deepEqual(fingers, [10, 11, 12, 13, 14, 15, 16, 17, 18, 19]);
+  await assert.rejects(game.touchDown('StatusText'), /손가락 10개가 다 눌려 있습니다 — touch-up · input-reset 으로 뗍니다/);
+  await game.touchUp(12);
+  assert.equal(await game.touchDown('StatusText'), 12);
+  await assert.rejects(game.touchMove(9, 'Item'), /손가락 9 은 눌려 있지 않습니다 — touch-down 이 준 번호를 씁니다/);
+  await game.keyDown('W+A');
+  assert.equal((await game.find('InputText'))?.text, 'fingers 10 · keys A W · axis -1 · fire 0 · tilt -');
+  await game.resetInput();
+  assert.equal((await game.find('InputText'))?.text, 'fingers 0 · keys - · axis 0 · fire 0 · tilt -');
+  assert.equal(await game.touchDown('Item'), 10);
+});
+
+test('C 줄 — 8초 넘는 입력 · 자리 없는 한 점 명령 · 틀린 점 · UI Toolkit pointer 는 SDK 처럼 거절한다', async () => {
+  const game = direct(standardScreen());
+  await assert.rejects(game.longPress('HoldBox', { duration: 9 }), /long-press 은 8초 안이어야 합니다 — 더 길게는 touch-down · key-down 뒤 touch-up · key-up/);
+  await assert.rejects(game.click('LoginButton', { count: 50, interval: 0.2 }), /click 은 8초 안이어야 합니다/);
+  await assert.rejects(game.call({ cmd: 'touch-down' }), /touch-down 에 target 또는 x · y 가 필요합니다/);
+  await assert.rejects(game.swipe([{ x: 1, y: 1 }]), /swipe 의 points 는 "x,y" 글자 둘 이상입니다/);
+  await assert.rejects(game.pointer('UitkLoginButton', 'down'), /UitkLoginButton 은 UI Toolkit 요소라 pointer 를 못 보냅니다 — mouse-move · touch-down 으로/);
+});

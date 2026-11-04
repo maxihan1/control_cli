@@ -2,7 +2,7 @@
 import { createServer, type Server } from 'node:http';
 import { createServer as createNetServer, type AddressInfo, type Server as NetServer } from 'node:net';
 
-import type { Node } from './game.js';
+import type { Node, PointerAction } from './game.js';
 import type { Command, Reply } from './link.js';
 import { COMMANDS } from './protocol.js';
 import { one, pathOf, select, steps, type View } from './select.js';
@@ -34,6 +34,10 @@ export interface FakeNode extends Node {
   atBy?: Record<string, [number, number]>;
   /** members 답 — 컴포넌트 이름별 */
   members?: Record<string, unknown>;
+  /** touch · long-press · mouse-move · pointer 가 부르는 Pointer 이벤트 — up 은 누른 초 */
+  onPointer?: (event: PointerAction, seconds?: number) => void;
+  /** 바퀴 · swipe — dy 는 바퀴 칸(위가 +, 손가락을 위로 밀면 −) */
+  onScroll?: (dy: number) => void;
 }
 
 let ids = 0;
@@ -41,6 +45,10 @@ export const node = (name: string, extra: Partial<FakeNode> = {}, children?: Fak
 const INPUTS = ['InputField', 'TMP_InputField', 'TextField'];
 const short = (full: string) => full.slice(full.lastIndexOf('.') + 1);
 export const button = (name: string, label: string, onClick?: () => void): FakeNode => node(name, { kind: 'Button', interactable: true, onClick }, [node('Text', { text: label })]);
+// SDK 처럼 입력 명령 하나는 8초 안 — SDK 답 한도 10초 · 팜 15초
+const tooLong = (c: Command) => Math.max(Number(c.duration ?? 0), 0) + Math.max(Number(c.count ?? 1) - 1, 0) * Number(c.interval ?? 0.1) > 8;
+const FINGERS = Array.from({ length: 10 }, (_, i) => 10 + i);
+const keysOf = (c: Command) => String(c.key).split('+');
 
 export class FakeGame {
   clicks: string[] = [];
@@ -56,7 +64,7 @@ export class FakeGame {
   prefs = new Map<string, string | number>();
   timeScale = 1;
   /** 장면 이름 → 그 장면을 열 때 만드는 뿌리(샘플은 장면이 열릴 때마다 코드로 채운다). 없는 이름은 빌드에 없는 장면 */
-  sceneRoots: Record<string, () => FakeNode[]> = {};
+  sceneRoots: Record<string, (add: boolean) => FakeNode[]> = {};
   loaded: { name: string; nodes: FakeNode[] }[];
   loads = 0;
   unloads = 0;
@@ -64,6 +72,16 @@ export class FakeGame {
   loadDelay = 0;
   /** get 을 받을 때마다 — 테스트가 값이 늦게 바뀌는 게임을 흉내 낸다 */
   onGet?: () => void;
+  /** 눌러 둔 손가락 — 번호 → 누른 것 · 지금 위에 있는 것(touch-up 때 끌기 흉내) */
+  fingers = new Map<number, { node?: FakeNode; over?: FakeNode }>();
+  /** 눌러 둔 키 → 세기 */
+  held = new Map<string, number>();
+  /** 가짜 마우스가 올라간 것 */
+  hovered?: FakeNode;
+  /** tilt 의 y — 표준 화면 탐침처럼 절댓값 10 넘는 값만 남긴다 */
+  tilted?: number;
+  /** 입력 명령마다 — 표준 화면이 InputText 를 다시 쓴다 */
+  onInput?: () => void;
   private pending?: { left: number; open: () => void };
 
   constructor(
@@ -131,6 +149,44 @@ export class FakeGame {
     return f.node.components?.some((c) => short(c) === 'Camera') ? undefined : `${camera as string} 에 Camera 가 없습니다`;
   }
 
+  // 좌표의 맨 위 — find-at 과 같은 맞춤(가짜 자리는 점 하나)
+  private hit(x: unknown, y: unknown, camera?: string): FakeNode[] | undefined {
+    return select(steps('//*'), this.view(false)).trails.find((t) => {
+      const n = t[t.length - 1];
+      const at = camera ? n.atBy?.[camera] : n.at;
+      return at?.[0] === x && at?.[1] === y;
+    });
+  }
+
+  // 한 점 명령의 자리 — SDK 처럼 target 이 있으면 그 오브젝트, 없으면 x · y
+  private point(c: Command, f: { node?: FakeNode }): { node?: FakeNode; x: number; y: number } | { error: string } {
+    if (typeof c.target === 'string') {
+      if (!f.node) return { error: `켜진 오브젝트 중에 ${c.target} 이 없습니다` };
+      const [x, y] = f.node.at ?? [1, 1];
+      return { node: f.node, x, y };
+    }
+    if (typeof c.x !== 'number' || typeof c.y !== 'number') return { error: `${c.cmd} 에 target 또는 x · y 가 필요합니다` };
+    const hit = this.hit(c.x, c.y);
+    return { node: hit?.[hit.length - 1], x: c.x, y: c.y };
+  }
+
+  // drag · touch-up — 움직일 수 있으면 놓은 자리의 자식으로(샘플 Bag/Slot 의 Item)
+  private move(node: FakeNode, to: FakeNode): void {
+    if (!node.movable) return;
+    const parent = this.parentOf(node);
+    if (parent) parent.children = parent.children!.filter((x) => x !== node);
+    else this.roots = this.roots.filter((x) => x !== node);
+    (to.children ??= []).push(node);
+  }
+
+  // 가짜 마우스 — 올라간 것이 바뀌면 exit · enter
+  private hover(node?: FakeNode): void {
+    if (node === this.hovered) return;
+    this.hovered?.onPointer?.('exit');
+    node?.onPointer?.('enter');
+    this.hovered = node;
+  }
+
   handle(c: Command): Reply {
     this.commands.push(c);
     // 트리는 켜진 것만 — SDK 의 Tree.Dump 처럼.
@@ -142,6 +198,7 @@ export class FakeGame {
     if (f.error) return { ok: false, error: f.error };
     const camera = this.cameraProblem(c.camera);
     if (camera) return { ok: false, error: camera };
+    if (tooLong(c)) return { ok: false, error: `${c.cmd} 은 8초 안이어야 합니다 — 더 길게는 touch-down · key-down 뒤 touch-up · key-up` };
     switch (c.cmd) {
       case 'ping':
         return { ok: true, app: 'com.fake.game', version: '1.0', engine: 'fake', engineVersion: '0', sdkVersion: '0.3.0', protocol: 2, caps: this.caps };
@@ -157,11 +214,7 @@ export class FakeGame {
           return { ok: false, error: e instanceof Error ? e.message : String(e) };
         }
       case 'find-at': {
-        const hit = select(steps('//*'), this.view(false)).trails.find((t) => {
-          const n = t[t.length - 1];
-          const at = c.camera ? n.atBy?.[c.camera as string] : n.at;
-          return at?.[0] === c.x && at?.[1] === c.y;
-        });
+        const hit = this.hit(c.x, c.y, c.camera as string | undefined);
         return hit ? { ok: true, found: true, ...this.found(hit, false, c.camera as string | undefined) } : { ok: true, found: false };
       }
       case 'components':
@@ -180,17 +233,12 @@ export class FakeGame {
       case 'click':
         if (!f.node) return { ok: false, error: `켜진 오브젝트 중에 ${c.target as string} 이 없습니다` };
         this.clicks.push(f.path!);
-        f.node.onClick?.();
+        for (let i = 0; i < Number(c.count ?? 1); i++) f.node.onClick?.();
         return { ok: true, x: 1, y: 1 };
       case 'drag': {
         const to = this.find(c.to as string);
-        if (!f.node || !to.node) return { ok: false, error: '없음' };
-        if (f.node.movable) {
-          const parent = this.parentOf(f.node);
-          if (parent) parent.children = parent.children!.filter((x) => x !== f.node);
-          else this.roots = this.roots.filter((x) => x !== f.node);
-          (to.node.children ??= []).push(f.node);
-        }
+        if (!f.node || !to.node || ((c.via as string[] | undefined) ?? []).some((v) => !this.find(v).node)) return { ok: false, error: '없음' };
+        this.move(f.node, to.node);
         return { ok: true, x: 1, y: 1 };
       }
       case 'type':
@@ -207,11 +255,98 @@ export class FakeGame {
       case 'tap':
         return { ok: true, x: c.x, y: c.y };
       case 'key':
-        this.keys.push(c.key as string);
-        this.onKey?.(c.key as string);
-        // SDK 처럼 Escape 는 뒤로 키와 같다.
-        if (c.key === 'Escape') this.onBack?.();
+        for (const k of keysOf(c)) {
+          this.keys.push(k);
+          this.onKey?.(k);
+          // SDK 처럼 Escape 는 뒤로 키와 같다.
+          if (k === 'Escape') this.onBack?.();
+        }
         return { ok: true, key: c.key };
+      case 'touch-down': {
+        const p = this.point(c, f);
+        if ('error' in p) return { ok: false, error: p.error };
+        const finger = FINGERS.find((n) => !this.fingers.has(n));
+        if (finger === undefined) return { ok: false, error: '손가락 10개가 다 눌려 있습니다 — touch-up · input-reset 으로 뗍니다' };
+        this.fingers.set(finger, { node: p.node });
+        p.node?.onPointer?.('enter');
+        p.node?.onPointer?.('down');
+        this.onInput?.();
+        return { ok: true, finger, x: p.x, y: p.y };
+      }
+      case 'touch-move':
+      case 'touch-up': {
+        const t = this.fingers.get(c.finger as number);
+        if (!t) return { ok: false, error: `손가락 ${String(c.finger)} 은 눌려 있지 않습니다 — touch-down 이 준 번호를 씁니다` };
+        if (c.cmd === 'touch-move') {
+          const p = this.point(c, f);
+          if ('error' in p) return { ok: false, error: p.error };
+          t.over = p.node;
+          return { ok: true, x: p.x, y: p.y };
+        }
+        if (t.node && t.over) this.move(t.node, t.over);
+        t.node?.onPointer?.('up', 0);
+        t.node?.onPointer?.('exit');
+        this.fingers.delete(c.finger as number);
+        this.onInput?.();
+        return { ok: true };
+      }
+      case 'swipe': {
+        const points = ((c.points as string[] | undefined) ?? []).map((s) => /^(-?[\d.]+),(-?[\d.]+)$/.exec(s));
+        if (points.length < 2 || points.some((m) => !m)) return { ok: false, error: 'swipe 의 points 는 "x,y" 글자 둘 이상입니다 — ["540,400", "540,900"]' };
+        const [a, b] = [points[0]!, points[points.length - 1]!].map((m) => [Number(m[1]), Number(m[2])]);
+        // 가짜 자리는 점 하나라 첫 점과 끝 점의 가운데로 고른다 — 손가락을 위로 밀면 바퀴를 아래로 굴린 것과 같다.
+        const hit = this.hit((a[0] + b[0]) / 2, (a[1] + b[1]) / 2);
+        hit?.[hit.length - 1].onScroll?.(-Math.sign(b[1] - a[1]));
+        return { ok: true, x: b[0], y: b[1] };
+      }
+      case 'long-press': {
+        const p = this.point(c, f);
+        if ('error' in p) return { ok: false, error: p.error };
+        p.node?.onPointer?.('enter');
+        p.node?.onPointer?.('down');
+        p.node?.onPointer?.('up', Number(c.duration ?? 1));
+        p.node?.onPointer?.('exit');
+        return { ok: true, x: p.x, y: p.y };
+      }
+      case 'mouse-move': {
+        const p = this.point(c, f);
+        if ('error' in p) return { ok: false, error: p.error };
+        this.hover(p.node);
+        return { ok: true, x: p.x, y: p.y };
+      }
+      case 'scroll': {
+        if (c.target !== undefined || c.x !== undefined) {
+          const p = this.point(c, f);
+          if ('error' in p) return { ok: false, error: p.error };
+          this.hover(p.node);
+        }
+        this.hovered?.onScroll?.(c.dy as number);
+        return { ok: true };
+      }
+      case 'key-down':
+        for (const k of keysOf(c)) this.held.set(k, Number(c.power ?? 1));
+        this.onInput?.();
+        return { ok: true };
+      case 'key-up':
+        for (const k of keysOf(c)) this.held.delete(k);
+        this.onInput?.();
+        return { ok: true };
+      case 'tilt':
+        if (Math.abs(c.y as number) > 10) this.tilted = Math.round(c.y as number);
+        this.onInput?.();
+        return { ok: true };
+      case 'pointer':
+        if (!f.node) return { ok: false, error: `켜진 오브젝트 중에 ${c.target as string} 이 없습니다` };
+        if (f.node.components?.some((t) => t.startsWith('UnityEngine.UIElements.'))) return { ok: false, error: `${c.target as string} 은 UI Toolkit 요소라 pointer 를 못 보냅니다 — mouse-move · touch-down 으로` };
+        if (!['down', 'up', 'enter', 'exit'].includes(c.event as string)) return { ok: false, error: 'event 는 down · up · enter · exit 중 하나입니다' };
+        f.node.onPointer?.(c.event as PointerAction, c.event === 'up' ? 0 : undefined);
+        return { ok: true };
+      case 'input-reset':
+        this.fingers.clear();
+        this.held.clear();
+        this.hovered = undefined;
+        this.onInput?.();
+        return { ok: true };
       case 'screenshot':
         // PNG 는 머리 8바이트만 — 받는 쪽이 꼴을 가르는지 본다.
         if (c.format === 'png') return { ok: true, png: Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).toString('base64') };
@@ -266,7 +401,7 @@ export class FakeGame {
         if (!make) return { ok: false, error: `장면 ${name} 은 빌드에 없습니다` };
         // SDK 처럼 바로 답하고 장면은 뒤에 열린다 — 답의 loads 는 열기 전 수.
         const open = () => {
-          const nodes = make();
+          const nodes = make(c.mode === 'add');
           if (c.mode === 'add') {
             this.loaded.push({ name, nodes });
             this.roots = [...this.roots, ...nodes];
@@ -299,6 +434,14 @@ export class FakeGame {
 /** 키로 칠 때처럼 영숫자만 남기고 글자 수로 자른다 — 샘플 IdInput(글자 수 8 · 영숫자) 흉내 */
 export const keyFilter = (limit: number) => (text: string) => text.replace(/[^A-Za-z0-9]/g, '').slice(0, limit);
 
+/** 표준 화면 InputText 흉내 — sample InputProbe 와 같은 꼴. 축은 옛 Input 기본 축(Horizontal — right · d 와 left · a)과 Input System 왼 스틱 x(JoystickButton16)를 함께 흉내 낸다 */
+function inputLine(g: FakeGame): string {
+  const has = (...k: string[]) => k.some((x) => g.held.has(x));
+  const axis = has('RightArrow', 'D') ? 1 : has('LeftArrow', 'A') ? -1 : Math.round(g.held.get('JoystickButton16') ?? 0);
+  const keys = ['A', 'LeftShift', 'W'].filter((k) => g.held.has(k)).join(' ') || '-';
+  return `fingers ${g.fingers.size} · keys ${keys} · axis ${axis} · fire ${has('LeftControl', 'JoystickButton0') ? 1 : 0} · tilt ${g.tilted ?? '-'}`;
+}
+
 /** 표준 화면 흉내 — sample/Assets/Sample 과 같은 이름 · 같은 반응(conform 의 기대값). Sample 장면이 열릴 때마다 화면을 새로 만든다 */
 export function standardScreen(idAccept = keyFilter(8)): FakeGame {
   const game = new FakeGame([], 'Sample');
@@ -326,6 +469,31 @@ export function standardScreen(idAccept = keyFilter(8)): FakeGame {
     let cubes = 0;
     const position = [0, 0, 5];
     game.onKey = (key) => (touch.text = `key ${key}`);
+    // C — 입력 탐침 · Pointer 칸 · 세로 목록(sample InputProbe · PointerBox · ScrollList)
+    const input = node('InputText', { text: inputLine(game) });
+    game.onInput = () => (input.text = inputLine(game));
+    const pointerText = node('PointerText', { text: 'last - · held -' });
+    let last = '-';
+    let held = '-';
+    const holdBox = node('HoldBox', {
+      at: [810, 900],
+      components: ['UnityEngine.RectTransform', 'UnityEngine.UI.Image', 'Sample.PointerBox'],
+      onPointer: (e, seconds) => {
+        last = e;
+        if (e === 'up') held = (seconds ?? 0).toFixed(1);
+        pointerText.text = `last ${last} · held ${held}`;
+      },
+    });
+    let scrolled = 1;
+    const scrollList = node('ScrollList', {
+      at: [810, 700],
+      props: {
+        get 'ScrollRect.verticalNormalizedPosition'() {
+          return scrolled;
+        },
+      },
+      onScroll: (dy) => (scrolled = Math.min(1, Math.max(0, scrolled + Math.sign(dy) * 0.3))),
+    });
     return [
       node('WorldCube', {
         tag: 'Player',
@@ -375,6 +543,10 @@ export function standardScreen(idAccept = keyFilter(8)): FakeGame {
           login('TmpLoginButton', 'tmp login', tmpStatus, tmpId, uguiButton([810, 1500])),
           node('Bag', {}, [node('Slot', {}, [node('Item', { movable: true })]), node('Slot'), node('Slot'), node('Slot')]),
           node('HiddenText', { active: false, text: 'hidden', props: { 'Text.text': 'hidden' } }),
+          input,
+          pointerText,
+          holdBox,
+          scrollList,
         ],
       ),
       node('UitkDocument', {}, [
@@ -386,8 +558,40 @@ export function standardScreen(idAccept = keyFilter(8)): FakeGame {
       ]),
     ];
   };
+  // Second 를 한 장면으로 열면 EventSystem 없는 UI Toolkit 칸(sample SampleUitk.BuildSecond) — 더해 열면 Sample 의 EventSystem 이 있어 만들지 않는다.
+  const second = (): FakeNode[] => {
+    const text = node('SecondText', { text: '' });
+    let presses = 0;
+    let offset = 0;
+    return [
+      node('SecondDocument', {}, [
+        node('SecondPanel', {}, [
+          text,
+          node('SecondButton', {
+            kind: 'Button',
+            interactable: true,
+            text: 'Second',
+            components: ['UnityEngine.UIElements.Button'],
+            at: [540, 300],
+            onClick: () => (text.text = `second ${++presses}`),
+            onPointer: (e) => (e === 'enter' ? (text.text = 'enter') : undefined),
+          }),
+          node('SecondScroll', {
+            components: ['UnityEngine.UIElements.ScrollView'],
+            at: [540, 150],
+            props: {
+              get scrollOffset() {
+                return [0, offset];
+              },
+            },
+            onScroll: (dy) => (offset = Math.max(0, offset - dy * 18)),
+          }),
+        ]),
+      ]),
+    ];
+  };
   // SecondSaved 는 장면에 저장된 오브젝트 흉내 — 영구 id 가 다시 열어도 같다. SecondMarker 는 실행 중에 만들어 열 때마다 새 id.
-  game.sceneRoots = { Sample: build, Second: () => [node('SecondMarker'), node('SecondSaved', { id: 'saved-1' })] };
+  game.sceneRoots = { Sample: build, Second: (add) => [node('SecondMarker'), node('SecondSaved', { id: 'saved-1' }), ...(add ? [] : second())] };
   game.roots = build();
   game.loaded = [{ name: 'Sample', nodes: game.roots }];
   game.statics = { 'Sample.TouchProbe.Note': null };

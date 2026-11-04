@@ -98,6 +98,18 @@ export interface Scenes {
 /** 저장 값(PlayerPrefs) 타입 — 넣은 타입으로 읽는다 */
 export type PrefType = 'string' | 'int' | 'float';
 
+/** 누를 자리 — 주소 글자 또는 화면 좌표(왼쪽 아래 0,0 — 살펴볼 때만) */
+export type At = string | { x: number; y: number };
+
+/** pointer 가 보내는 Pointer 이벤트 */
+export type PointerAction = 'down' | 'up' | 'enter' | 'exit';
+
+/** 탭 · 클릭 — 횟수와 사이 초 */
+export interface PressOptions {
+  count?: number;
+  interval?: number;
+}
+
 // 기다리기는 짧은 find 를 되풀이한다 — 명령 하나가 팜 15초 · SDK 10초 한도에 걸리지 않게(게임 명세 「게임 연결」). 장면은 크면 10초를 넘겨 따로 둔다.
 export const WAIT = { timeoutMs: 10_000, intervalMs: 300, sceneMs: 30_000 };
 
@@ -106,6 +118,12 @@ const SELECTOR = /\/\/|\[@|\[contains\(|\[-\d+\]|(^|\/)(\.\.|\*)(\/|\[|$)/;
 const newer = (c: Command) => c.inactive === true || c.camera !== undefined || [c.target, c.to].some((t) => typeof t === 'string' && t.startsWith('/') && SELECTOR.test(t));
 // 옵션은 켜졌을 때만 싣는다 — 옛 명령 꼴이 그대로 남는다.
 const extra = (o: FindOptions) => ({ ...(o.inactive ? { inactive: true } : {}), ...(o.camera ? { camera: o.camera } : {}) });
+// 횟수 · 시간 · 세기 · via · 여러 키(A+LeftShift)는 SDK 0.6.0(touch-down 과 같은 판)부터. 옛 SDK 는 모르는 칸을 버리고 한 번만 눌러 통과한 척한다.
+const INPUT = ['count', 'interval', 'via', 'duration', 'power'];
+const timed = (c: Command) => INPUT.some((k) => c[k] !== undefined) || (typeof c.key === 'string' && c.key.includes('+'));
+const at = (a: At) => (typeof a === 'string' ? { target: a } : { x: a.x, y: a.y });
+// 준 칸만 싣는다 — 옛 명령 꼴이 그대로 남는다.
+const given = (o: Record<string, unknown>) => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined));
 const found = (r: Record<string, unknown>): Found => ({
   path: r.path as string,
   text: r.text as string | undefined,
@@ -143,6 +161,7 @@ export class Game {
     if (this.caps && !this.caps.includes(command.cmd))
       throw new Error(`이 게임의 SDK 는 ${command.cmd} 를 못 합니다(할 수 있는 것: ${this.caps.join(' · ')}) — SDK 를 올립니다`);
     if (this.caps && !this.caps.includes('find-all') && newer(command)) throw new Error('이 게임의 SDK 는 선택자 · inactive · camera 를 못 읽습니다 — SDK 0.5.0 이상으로 올립니다');
+    if (this.caps && !this.caps.includes('touch-down') && timed(command)) throw new Error('이 게임의 SDK 는 횟수 · 시간 · 세기 · 여러 키 · via 를 못 읽습니다 — SDK 0.6.0 이상으로 올립니다');
     const reply = await this.link(command);
     if (reply.ok !== true) throw new Error(reply.error ?? `게임이 실패로 답했습니다: ${JSON.stringify(reply)}`);
     return reply;
@@ -184,12 +203,13 @@ export class Game {
     return this.find(`${f.path}/..`, o);
   }
 
-  async click(target: string, o: { camera?: string } = {}): Promise<void> {
-    await this.call({ cmd: 'click', target, ...extra(o) });
+  async click(target: string, o: { camera?: string } & PressOptions = {}): Promise<void> {
+    await this.call({ cmd: 'click', target, ...extra(o), ...given({ count: o.count, interval: o.interval }) });
   }
 
-  async drag(target: string, to: string, o: { camera?: string } = {}): Promise<void> {
-    await this.call({ cmd: 'drag', target, to, ...extra(o) });
+  /** via 는 사이에 지날 자리 주소들, duration 은 처음부터 끝까지의 초 */
+  async drag(target: string, to: string, o: { camera?: string; via?: string[]; duration?: number } = {}): Promise<void> {
+    await this.call({ cmd: 'drag', target, to, ...extra(o), ...given({ via: o.via?.length ? o.via : undefined, duration: o.duration }) });
   }
 
   /** 넣은 뒤 칸의 글자를 돌려준다 — 글자 수 제한 · 거르기가 자른 결과(비밀번호 칸은 ***) */
@@ -265,13 +285,71 @@ export class Game {
   }
 
   /** 좌표 누르기(왼쪽 아래가 0,0) — 살펴볼 때만. 케이스는 좌표를 쓰지 않는다 */
-  async tap(x: number, y: number): Promise<void> {
-    await this.call({ cmd: 'tap', x, y });
+  async tap(x: number, y: number, o: PressOptions = {}): Promise<void> {
+    await this.call({ cmd: 'tap', x, y, ...given({ count: o.count, interval: o.interval }) });
   }
 
-  /** 키 한 번 누르기 — KeyCode 이름(Escape · Space · Return · I · Alpha1 · F1). Escape 는 폰 뒤로 키와 같다 */
-  async key(name: string): Promise<void> {
-    await this.call({ cmd: 'key', key: name });
+  /** 키 누르기 — KeyCode 이름(Escape · Space · Return · I · Alpha1 · F1 · Mouse0), A+LeftShift 는 함께. duration 동안(기본 한 프레임). Escape 는 폰 뒤로 키와 같다 */
+  async key(name: string, o: { duration?: number; power?: number } = {}): Promise<void> {
+    await this.call({ cmd: 'key', key: name, ...given({ duration: o.duration, power: o.power }) });
+  }
+
+  /** 손가락을 눌러 둔다 — 돌려준 번호(10~19)로 touchMove · touchUp */
+  async touchDown(a: At, o: { camera?: string } = {}): Promise<number> {
+    return (await this.call({ cmd: 'touch-down', ...at(a), ...extra(o) })).finger as number;
+  }
+
+  async touchMove(finger: number, a: At, o: { camera?: string } = {}): Promise<void> {
+    await this.call({ cmd: 'touch-move', finger, ...at(a), ...extra(o) });
+  }
+
+  async touchUp(finger: number): Promise<void> {
+    await this.call({ cmd: 'touch-up', finger });
+  }
+
+  /** 좌표로 끌기 — 한 손가락이 점을 차례로 지난다(살펴볼 때만 — 케이스는 drag) */
+  async swipe(points: { x: number; y: number }[], o: { duration?: number } = {}): Promise<void> {
+    await this.call({ cmd: 'swipe', points: points.map((p) => `${p.x},${p.y}`), ...given({ duration: o.duration }) });
+  }
+
+  /** 길게 누르기 — duration 초(기본 1) */
+  async longPress(a: At, o: { duration?: number; camera?: string } = {}): Promise<void> {
+    await this.call({ cmd: 'long-press', ...at(a), ...extra(o), ...given({ duration: o.duration }) });
+  }
+
+  /** 가짜 마우스를 옮긴다 — hover. 끄기는 resetInput */
+  async mouseMove(a: At, o: { duration?: number; camera?: string } = {}): Promise<void> {
+    await this.call({ cmd: 'mouse-move', ...at(a), ...extra(o), ...given({ duration: o.duration }) });
+  }
+
+  /** 마우스 바퀴 — dy 는 바퀴 칸(위가 +). at 을 주면 먼저 그리로 옮긴다(폰은 준다) */
+  async scroll(dy: number, o: { dx?: number; at?: At; duration?: number; camera?: string } = {}): Promise<void> {
+    await this.call({ cmd: 'scroll', dy, ...(o.at === undefined ? {} : at(o.at)), ...extra(o), ...given({ dx: o.dx, duration: o.duration }) });
+  }
+
+  /** 키를 눌러 둔다 — A+LeftShift 는 함께. power 는 GetAxis 값 · JoystickButton16~19 의 스틱 값 */
+  async keyDown(keys: string, o: { power?: number } = {}): Promise<void> {
+    await this.call({ cmd: 'key-down', key: keys, ...given({ power: o.power }) });
+  }
+
+  async keyUp(keys: string): Promise<void> {
+    await this.call({ cmd: 'key-up', key: keys });
+  }
+
+  /** 기울이기 — 가속도(g)를 duration 동안(기본 한 프레임) 대신한다 */
+  async tilt(acceleration: [number, number, number], o: { duration?: number } = {}): Promise<void> {
+    const [x, y, z] = acceleration;
+    await this.call({ cmd: 'tilt', x, y, z, ...given({ duration: o.duration }) });
+  }
+
+  /** GameObject 하나에 Pointer 이벤트를 바로 보낸다 */
+  async pointer(target: string, event: PointerAction): Promise<void> {
+    await this.call({ cmd: 'pointer', target, event });
+  }
+
+  /** 가짜 입력을 다 거둔다 — 눌러 둔 손가락 · 키 · 가짜 마우스 · 기울기 */
+  async resetInput(): Promise<void> {
+    await this.call({ cmd: 'input-reset' });
   }
 
   /** 컴포넌트 메서드를 부른다 — method 는 「컴포넌트.메서드」. 인자는 글자로 보내고 SDK 가 그 메서드 칸 타입으로 바꾼다 */
