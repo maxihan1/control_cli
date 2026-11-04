@@ -2,7 +2,9 @@
 
 ## ▶ 다음 세션은 여기부터 (2026-11-04)
 
-- P2-C Unity 입력 — 설계 · 구현 계획(writing-plans, [p2b-plan.md](p2b-plan.md) 꼴)부터. 첫 결정은 `FakeTouches` 를 손가락 여럿으로 넓히는 꼴(지금 한 손가락 · 탭 · 끌기)과 세 입력 길(옛 Input · Input System · UI Toolkit 직접) 나누기. 브랜치 `p2c` — PR #18(`p2b`)이 `roadmap` 에 합쳐졌으면 `origin/roadmap` 에서, 아직이면 `origin/p2b` 위에 쌓고 PR base 를 `p2b` 로. 끝 기준은 `conform` C 줄 초록(Android · macOS)
+- P2-C Unity 입력 — 구현부터. [p2c-plan.md](p2c-plan.md) Task 1(명령 정의)부터 차례로(superpowers:subagent-driven-development 또는 executing-plans). 설계는 사용자가 승인(2026-11-04 — 새 한 점 명령은 주소 또는 좌표 · 옛 Input 축 표를 빌드 때 굽기 · sample 에 macOS Input System 빌드). 브랜치 `p2c`(`origin/roadmap` 위 — PR #18 이 합쳐짐, PR 은 `roadmap` 으로). 끝 기준은 `conform` 「통과 48 · 실패 0 · 건너뜀 0」(Android 넷 · macOS 둘)
+- **팜 폰 RF9R408GKRR 은 쓰지 않는다** — 사용자 「RF9R408GKRR 폰 잠깐 쓰지마 써도 될때 얘기해줄게」(2026-11-04). 써도 된다는 말이 있거나 다른 폰을 정해 줄 때까지 실기기는 이 맥 macOS 앱만
+- C# 컴파일 검사 — `.cache` 는 p2b worktree 에 받아 둔 것을 쓴다: `UNITY_REF_DIR=/Users/maxi.moff/Projects/control_cli/.claude/worktrees/p2b/tools/unity-compile-check/.cache python3 tools/unity-compile-check/check.py 6000.0`(없으면 `check.py fetch 6000.0`)
 - P2-B 끝 — draft PR #18(`p2b` → `roadmap`) · sdk-compile run 41759126717 초록(meta · 2021.3 · 2022.3 · 6000.0). 팜 RF9R408GKRR 에서 sample run 41759126839 의 6000.0 옛 Input APK · 6000.0 Input System APK · 2021.3 옛 Input APK 모두, 이 맥 macOS 앱(같은 run 의 StandaloneOSX · Mono)도 conform 「통과 33 · 실패 0 · 건너뜀 0」(B 줄 10개 포함). sample run 8개 잡 모두 초록. 영구 id 빌드 훅은 sample 로그에 「Assets/Second.unity 오브젝트 1/1개에 영구 id」 — `GlobalObjectId` 가 장면을 굽는 중에도 번호를 준다. 이 맥에서도 Docker 로 C# 컴파일 검사가 된다(`tools/unity-compile-check/check.py fetch 6000.0` 뒤 `check.py 6000.0`)
 - 팜 연결 — 팜은 이 맥에서 돈다(`http://127.0.0.1:4723/wd/hub`, 밖에서는 `https://farm.maxihan.com/wd/hub`). **토큰은 묻지 않는다** — control-cli 가 `--token` · `PLATFORM_APPIUM_TOKEN` 이 없으면 macOS Keychain `control-cli-farm`(사용자 maxi 의 PAT, 2026-11-04 넣음)을 읽는다. 401 이면 사용자가 새 PAT 를 복사해 두고 세션이 pbpaste → whoami 200 → Keychain 에 넣는다(context-notes 「P2-B 구현」)
 - macOS 시험은 `caffeinate -d -u -t 900` — 잠금 화면은 `-d` 만으로는 13초 만에 화면을 꺼 Unity 가 멈춘다(context-notes 「P1 실기기」)
@@ -49,13 +51,15 @@
 - [x] `conform` B 줄 초록(팜 · 33줄) — RF9R408GKRR · 6000.0 옛 Input · 6000.0 Input System · 2021.3 옛 Input(IL2CPP) · 이 맥 macOS 앱(Mono) 모두 「통과 33 · 실패 0 · 건너뜀 0」
 
 ## P2-C. Unity 입력
-- [ ] 설계 · 구현 계획(손가락 여럿 · 세 입력 길)
-- [ ] `FakeTouches` 손가락 여럿 · 터치 누름/움직임/뗌 따로 · 여러 점 끌기 · 끌기 시간
-- [ ] 스크롤 · 길게 누르기 · 마우스 옮기기 · Pointer Down/Up/Enter/Exit
-- [ ] 키 누름 · 뗌 따로 · 여러 키 함께 · 누른 채 두기
-- [ ] 기울이기(가속도) · 조이스틱
-- [ ] 입력 거두기(ResetInput)
-- [ ] 옛 Input · Input System · UI Toolkit 직접 길 모두 · `conform` C 줄 초록(Android · macOS)
+- [x] 설계 · 구현 계획 — [p2c-plan.md](p2c-plan.md)(태스크 10개). 입력 상태 한 벌(손가락 10 · 키 세기 · 가짜 마우스 · 기울기) + 프레임 일(iterator), 새 명령 12개 · 바뀐 칸(count · interval · via · duration · power · `A+B`), 옛 Input 축 표 빌드 훅, conform C 15줄 → 48줄, 0.6.0
+- [ ] 명령 정의 · Game · 가짜 SDK · conform C 줄 · CLI(Task 1~4)
+- [ ] `FakeTouches` 손가락 여럿 · 터치 누름/움직임/뗌 따로 · 여러 점 끌기 · 끌기 시간(Task 5)
+- [ ] 스크롤 · 길게 누르기 · 마우스 옮기기 · Pointer Down/Up/Enter/Exit(Task 5 · 7)
+- [ ] 키 누름 · 뗌 따로 · 여러 키 함께 · 누른 채 두기 · 옛 Input 축(Task 5 · 6 · 7)
+- [ ] 기울이기(가속도) · 조이스틱(Task 5 · 7)
+- [ ] 입력 거두기(ResetInput)(Task 5 · 7)
+- [ ] 표준 화면 C 칸 · macOS Input System 빌드(Task 8) · README · AltTester 표(Task 9)
+- [ ] 옛 Input · Input System · UI Toolkit 직접 길 모두 · `conform` C 줄 초록(Android · macOS)(Task 10)
 
 ## P2-D. Unity 알림
 - [ ] 설계 · 구현 계획

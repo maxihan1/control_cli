@@ -130,3 +130,20 @@
 - IL2CPP 에서 확인된 것 — 선택자 해석(Regex 포함) · `find-at` 의 uGUI RaycastAll · UI Toolkit `panel.Pick` · 물리 raycast(꺼진 SideCamera 로도 `ScreenPointToRay`) · `inactive` 로 꺼진 HiddenText · `members` 의 reflection 목록(TouchProbe `Say(String, Int32)` · `Output`) · UI Toolkit 요소 `get`(`text` · `layout.height`) · TMP · UI Toolkit `text-set` · `EncodeToPNG`
 - 가장 옛 판 · macOS — run 이 다 끝난 뒤(8개 잡 모두 초록) 2021.3.45f1 옛 Input APK 를 같은 폰에 다시 잡아 「통과 33 · 실패 0 · 건너뜀 0」 → `release`. 이 맥 macOS 앱(StandaloneOSX · Mono)도 `caffeinate -d -u -t 900` 을 건 채 `open --pc --app` → 「통과 33 · 실패 0 · 건너뜀 0」 → `close` 가 게임을 껐고, 건 caffeinate 만 껐다. `--url` 없이 기본 `http://127.0.0.1:4723` 으로도 팜이 받았다
 - CI 에서 새로 안 것 — 문서 · TS 만 바꾼 push 에도 sample 워크플로가 떠(같은 Unity 내용) 두 run(41760691153 · 41762170550)을 취소했다. sample 의 `paths` 를 `sdk/**` · `sample/**` 로 좁히면 러너 시간을 아낀다(이번 PR 에서는 안 고침)
+
+## 2026-11-04 — P2-C 설계 ([p2c-plan.md](p2c-plan.md))
+
+- 브랜치 — PR #18(`p2b`)이 `roadmap` 에 합쳐져(d14f892) `p2c` 는 `origin/roadmap` 에서, PR 은 `roadmap` 으로
+- AltTester 입력 명령에서 확인한 것(문서 + `AltTester-Unity-SDK` development 소스) — 시간은 모두 초이고 `Time.unscaledDeltaTime` 으로 센다. `PressKeys` 는 함께 누름, `KeysDown` · `KeysUp` 도 있다. `HoldButton` 은 같은 자리 `Swipe`, `MultipointSwipe` 는 한 손가락이 점 사이마다 같은 시간. `BeginTouch` 가 손가락 번호를 준다. `Tilt` 는 z 를 버린다. 옛 Input 조이스틱은 빌드 때 `InputManager.asset` 축을 `Resources` JSON 으로 굽고 `GetAxis` 가 가짜 키를 따른다(조이스틱 축 자체는 흉내 안 냄). Input System 은 가짜 Gamepad — `JoystickButton0~15` 단추, `16~19` 스틱(값 = power). `PointerDown/Up/Enter/Exit` 은 그 GameObject 하나에 `ExecuteEvents` 만. 가짜 입력 동안 진짜 장치를 끈다. `wait: false` 는 바로 답한다
+- 사용자가 고른 셋 — ① 새 한 점 명령(`touch-down` · `touch-move` · `hold` · `mouse-move` · `scroll`)은 주소 또는 좌표(Ran 줄은 주소일 때만 — 「케이스는 좌표를 쓰지 않는다」를 지킨다) ② 옛 Input `GetAxis` · `GetButton` 이 가짜 키를 따르게 축 표를 굽는다 ③ sample 에 macOS Input System 빌드(StandaloneOSX · input 1)를 더한다 — PC Input System Mouse 길을 이 맥에서 실측
+- 상태 한 벌 + 프레임 일 — 지금 큐(한 프레임에 한 터치)는 손가락 여럿 · 시간 · 명령 사이 눌림을 못 담는다. 명령이 iterator 하나를 걸고 드라이버가 프레임마다 `MoveNext`. Unity 코루틴이 아니라 안의 IEnumerator 를 `yield return` 하면 돌지 않는다 — 기다림 고리는 일 안에 바로 쓴다. 바쁨은 「도는 일 있음 · Input System 이 아직 안 받음」뿐이라 눌러 둔 손가락 · 키는 다음 명령을 막지 않는다
+- 명령 하나 8초 — SDK 답 한도 10초 · 팜 15초. AltTester `wait: false` 대신 오래 누르기는 down/up 두 명령으로
+- 손가락 10~19 — 진짜 0~9 와 안 겹치고 UI Toolkit 한도(0~19) 안. PC Input System 은 「마우스 손가락」(아무것도 Mouse 에 안 실렸을 때 처음 누른 것)만 Mouse, 나머지는 Touchscreen — 같은 손가락을 둘에 넣으면 UI 입력 모듈이 두 번 누른다(지금 PC 가 Mouse 만 쓰는 까닭)
+- `key` 에 `A+LeftShift` — 명령을 따로 두지 않는다. KeyCode 이름에 `+` 가 없다(`KeyCode.Plus` 는 `Plus`)
+- 축 표는 영구 id 처럼 장면에 굽는다(`[ControlCliAxes]` → `Awake` 에서 static 표로 옮기고 지움). AltTester 처럼 `Resources` 에 쓰면 게임 저장소에 파일이 생긴다. 장면마다 굽고 처음 것만 읽어 `IProcessSceneWithReport` 안의 `buildIndex` 에 기대지 않는다
+- UI Toolkit 직접 길은 샘플에 한 번도 없었다(늘 EventSystem 이 있다 — docs/unity context-notes). `set EventSystem EventSystem.enabled false` 로 끄는 안은 UI Toolkit 이 실행 중에 기본 이벤트 시스템으로 바꿔 타는지 확실하지 않아, `Second` 를 한 장면으로 열 때만 EventSystem 없는 UI Toolkit 칸을 만든다(더해 열면 Sample 의 EventSystem 이 있다)
+- 기울기 탐침은 절댓값 10 넘는 값만 남긴다 — 진짜 폰 가속도는 늘 흔들려 InputText 를 덮는다. conform 은 판마다 20~49 를 보낸다(다시 돌려도 이번 값을 본다)
+- 진짜 입력은 지금처럼 섞는다 — 팜 폰은 아무도 안 만지고, 이 맥 PC 시험 중에는 마우스 · 키보드를 안 건드린다(Input System 은 진짜 장치에 상태를 넣는다)
+- CLI 음수 — Node 22 `parseArgs` 가 `scroll ScrollList -10` · `tilt 0 -5 0` · `--power -1` 을 모두 거절한다(`-1` 을 짧은 옵션으로 읽음, job tmp 에서 확인). 음수 인자를 잠깐 다른 글자로 감쌌다 푼다
+- 팜 폰 — 사용자 「RF9R408GKRR 폰 잠깐 쓰지마 써도 될때 얘기해줄게」(설계 중). 써도 된다는 말이 있을 때까지 그 폰을 잡지 않는다
+- 크기 — 축 표 · macOS 빌드를 더해 로드맵의 3~4일이 4일쯤
