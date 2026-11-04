@@ -19,8 +19,8 @@
 | 손가락 | 칸 10개, 번호 10~19(진짜 0~9 와 안 겹치고 UI Toolkit 한도 0~19 안). 누른 동안은 매 프레임 `Stationary` 로 남는다. 프레임마다 칸의 phase 를 셈한다 — 이번에 누름 `Began` · 움직임 `Moved` · 그대로 `Stationary` · 뗌 `Ended` · 거둠 `Canceled`, 뗀 다음 프레임에 칸을 비운다 | `touch-down` 과 `touch-up` 이 다른 명령이라 손가락이 명령 사이에도 눌려 있어야 한다. 진짜 Unity 터치와 같은 phase 차례 |
 | 답하는 때 | 일이 끝나고 Input System 이 받은 뒤(지금 `Idle` 그대로). `duration` · 횟수 × 간격은 8초 안 — 넘으면 「더 길게는 touch-down · key-down 뒤 touch-up · key-up」으로 거절 | SDK 답 한도 10초 · 팜 15초. AltTester 의 `wait: false`(바로 답)는 뺀다 — 오래 누르기는 down/up 둘로 |
 | 바쁨 · 거둠 | 바쁨 = 도는 일이 있거나 Input System 이 아직 안 받음. 눌린 채 둔 손가락 · 키는 바쁨이 아니다. 시간 초과로 거둘 때 · `input-reset` 은 일을 멈추고 손가락 `Canceled` · 키 뗌 · 마우스 단추 뗌 · 가짜 마우스 끔 · 기울기 끔 | AltTester ResetInput 과 같은 범위. 지금 `Cancel` 이 하던 「눌림에 갇히지 않게」를 전부로 넓힌다 |
-| 누를 자리(사용자) | 새 한 점 명령(`touch-down` · `touch-move` · `hold` · `mouse-move` · `scroll`)은 `target`(주소 — 그 오브젝트 화면 가운데) 또는 `x` · `y`. 둘 다 없으면 꼴 오류. Ran 줄은 주소일 때만, 좌표면 「케이스에는 주소로 씁니다」. 여러 점 끌기는 `drag` 의 `via`(주소 목록), 좌표로 끌기는 `swipe {points: ["x,y", …]}` | 「케이스는 좌표를 쓰지 않는다」를 지키면서 살펴볼 때는 좌표도 된다. `tap`(좌표) ↔ `click`(주소)과 같은 짝으로 `swipe` ↔ `drag` |
-| 새 명령 | `touch-down {target \| x,y, camera?}` → `{finger, x, y}` · `touch-move {finger, target \| x,y, camera?}` · `touch-up {finger}` · `swipe {points, duration?}` · `hold {target \| x,y, duration?, camera?}`(기본 1초) · `mouse-move {target \| x,y, duration?, camera?}` · `scroll {dy, dx?, target? \| x,y?, duration?, camera?}` · `key-down {key, power?}` · `key-up {key}` · `tilt {x, y, z, duration?}` · `pointer {target, event: down\|up\|enter\|exit}` · `input-reset` | 명령마다 칸이 정해진다(P2-A 까닭 — MCP 도구 꼴이 고정). 손가락 번호는 비어 있는 가장 작은 칸 — 10개가 다 눌렸으면 「touch-up · input-reset」으로 거절 |
+| 누를 자리(사용자) | 새 한 점 명령(`touch-down` · `touch-move` · `long-press` · `mouse-move` · `scroll`)은 `target`(주소 — 그 오브젝트 화면 가운데) 또는 `x` · `y`. 둘 다 없으면 꼴 오류. Ran 줄은 주소일 때만, 좌표면 「케이스에는 주소로 씁니다」. 여러 점 끌기는 `drag` 의 `via`(주소 목록), 좌표로 끌기는 `swipe {points: ["x,y", …]}` | 「케이스는 좌표를 쓰지 않는다」를 지키면서 살펴볼 때는 좌표도 된다. `tap`(좌표) ↔ `click`(주소)과 같은 짝으로 `swipe` ↔ `drag` |
+| 새 명령 | `touch-down {target \| x,y, camera?}` → `{finger, x, y}` · `touch-move {finger, target \| x,y, camera?}` · `touch-up {finger}` · `swipe {points, duration?}` · `long-press {target \| x,y, duration?, camera?}`(기본 1초) · `mouse-move {target \| x,y, duration?, camera?}` · `scroll {dy, dx?, target? \| x,y?, duration?, camera?}` · `key-down {key, power?}` · `key-up {key}` · `tilt {x, y, z, duration?}` · `pointer {target, event: down\|up\|enter\|exit}` · `input-reset` | 명령마다 칸이 정해진다(P2-A 까닭 — MCP 도구 꼴이 고정). 손가락 번호는 비어 있는 가장 작은 칸 — 10개가 다 눌렸으면 「touch-up · input-reset」으로 거절 |
 | 바뀐 칸 | `tap` · `click` 에 `count?`(기본 1) · `interval?`(초, 기본 0.1) · `drag` 에 `via?` · `duration?` · `key` 에 `duration?`(기본 0 = 한 프레임, 지금 그대로) · `power?`. `key` · `key-down` · `key-up` 의 `key` 는 `A+LeftShift` 처럼 `+` 로 여럿을 함께 | AltTester Tap/Click 횟수 · PressKeys. KeyCode 이름에 `+` 가 없어 겹치지 않는다(`KeyCode.Plus` 는 `Plus`). 명령을 따로 두지 않아 CLI 도 `key A+LeftShift` |
 | 끌기 시간 | 점 사이마다 같은 시간(AltTester), 한 마디에 적어도 10프레임 — 프레임 k 의 진행 = `min(1, 걸린 시간/마디 시간, k/10)` | 지금 끌기(10프레임)가 `duration` 없는 값으로 그대로 남는다. EventSystem 끌기 문턱을 넘고 끌기 처리기가 중간 자리를 받는다 |
 | 마우스 | 가짜 마우스 자리(없으면 끔) · 단추는 키 `Mouse0`~`Mouse4`(AltTester) · 바퀴는 이번 프레임 값. `mouse-move` 가 켜고 `input-reset` 이 끈다. `scroll` 의 `dy` · `dx` 는 옛 Input `mouseScrollDelta` 꼴(바퀴 칸, 위가 +)이고 `duration` 동안 나눠 넣는다. `scroll` 에 자리를 주면 먼저 그리로 옮긴다 | 폰에서도 hover · 바퀴가 uGUI 에 닿게 `FakeBaseInput.mousePresent` 를 켠다. AltTester 는 Scroll 이 지금 마우스 자리만 — 자리 칸은 MoveMouse 한 번을 줄인다 |
@@ -33,8 +33,8 @@
 | 옛 SDK | caps 에 `touch-down` 이 없는 SDK 에 바뀐 칸(`count` · `interval` · `via` · `duration` · `power` · `key` 의 `+`)을 보내면 `Game` 이 보내기 전에 「SDK 0.6.0 이상」으로 거절 | 옛 SDK 는 모르는 칸을 버리고 한 번만 눌러 통과한 척한다 |
 | 표준 화면 | SampleCanvas 에 `InputText`(입력 탐침 — 「fingers N · keys … · axis x · fire 0/1 · tilt y」, 바뀔 때만 씀) · `HoldBox`(uGUI 칸 — Pointer Down/Up/Enter/Exit 을 `PointerText` 에 「last enter · held 1.0」 꼴로 — 마지막 이벤트와 누른 초) · `ScrollList`(세로 ScrollRect, `scrollSensitivity` 30). `Second` 장면을 한 장면으로 열면 EventSystem 없는 UI Toolkit 칸 `SecondPanel`(`SecondButton` → `SecondText` 「second N」 · 마우스가 들어오면 「enter」 · `SecondScroll` ScrollView) | 탐침 하나가 옛 Input · Input System 을 같은 글자로 보인다. 기울기는 진짜 값이 늘 흔들려 절댓값 10 넘는 값만 「tilt 37」로 남긴다(conform 은 판마다 다른 값). UI Toolkit 직접 길은 EventSystem 이 없어야 돌아 `Second` 를 한 장면으로 열 때만 만든다(더해 열면 Sample 의 EventSystem 이 있다) |
 | conform C 줄 | 15줄(`C ` 로 시작) — B 줄 뒤 · A 장면 줄 앞, UI Toolkit 직접 줄만 A 장면 줄 뒤(Second 를 한 장면으로 연 뒤 Sample 로 돌아온다). 48줄 | 아래 「conform C 줄」 |
-| Game 메서드(kit 이름) | `touchDown(at)` → 번호 · `touchMove(finger, at)` · `touchUp(finger)` · `swipe(points, {duration})` · `hold(at, {duration})` · `mouseMove(at, {duration})` · `scroll(dy, {dx, at, duration})` · `keyDown(keys, {power})` · `keyUp(keys)` · `tilt([x, y, z], {duration})` · `pointer(target, event)` · `resetInput()` + `click` · `tap` · `drag` · `key` 의 옵션(`count` · `interval` · `via` · `duration` · `power`). `at` 은 주소 글자 또는 `{x, y}`, 시간은 초 | kit 에 같은 이름 · 같은 인자 꼴. 시간은 AltTester · commands.json 과 같은 초(기다림 한도 `timeoutMs` 와는 다른 뜻) |
-| CLI | `touch-down <ref\|주소> \| <x> <y>` · `touch-move <번호> <ref\|주소> \| <x> <y>` · `touch-up <번호>` · `swipe <x,y> <x,y>…` · `hold` · `mouse-move` · `scroll [ref\|주소] <dy>` · `key-down` · `key-up` · `tilt <x> <y> <z>` · `pointer <ref\|주소> <down\|up\|enter\|exit>` · `input-reset`, 칸 `--duration <초>` · `--count` · `--interval <초>` · `--via <주소>`(여럿) · `--power` · `--dx`. 인자 둘이 다 수면 좌표 | 지금 `tap <x> <y>` 와 같은 읽기 |
+| Game 메서드(kit 이름) | `touchDown(at)` → 번호 · `touchMove(finger, at)` · `touchUp(finger)` · `swipe(points, {duration})` · `longPress(at, {duration})` · `mouseMove(at, {duration})` · `scroll(dy, {dx, at, duration})` · `keyDown(keys, {power})` · `keyUp(keys)` · `tilt([x, y, z], {duration})` · `pointer(target, event)` · `resetInput()` + `click` · `tap` · `drag` · `key` 의 옵션(`count` · `interval` · `via` · `duration` · `power`). `at` 은 주소 글자 또는 `{x, y}`, 시간은 초 | kit 에 같은 이름 · 같은 인자 꼴. 시간은 AltTester · commands.json 과 같은 초(기다림 한도 `timeoutMs` 와는 다른 뜻) |
+| CLI | `touch-down <ref\|주소> \| <x> <y>` · `touch-move <번호> <ref\|주소> \| <x> <y>` · `touch-up <번호>` · `swipe <x,y> <x,y>…` · `long-press` · `mouse-move` · `scroll [ref\|주소] <dy>` · `key-down` · `key-up` · `tilt <x> <y> <z>` · `pointer <ref\|주소> <down\|up\|enter\|exit>` · `input-reset`, 칸 `--duration <초>` · `--count` · `--interval <초>` · `--via <주소>`(여럿) · `--power` · `--dx`. 인자 둘이 다 수면 좌표 | 지금 `tap <x> <y>` 와 같은 읽기 |
 | 판 | SDK · CLI 0.6.0 · protocol 2 그대로 | 명령 · 칸을 더했을 뿐 |
 | sample CI(사용자) | 매트릭스에 6000.0 StandaloneOSX · input 1(Input System 1.11.2)을 더한다 | PC 의 Input System Mouse 길(손가락 비춤 · `mouse-move` · `scroll` · Mouse 단추)을 이 맥에서 `open --pc` 로 실측한다 |
 | 뺀 것 | `wait: false` · 키를 UI Toolkit 요소에(글자는 `type`) · 옛 Input 조이스틱 축(type 2 — AltTester 도 안 함) · 진짜 입력 끄기 · 자이로 · UI Toolkit 요소에 `pointer` · `touch-move` 의 시간(AltTester 도 한 번에) | 쓸 일이 생기면 더한다 |
@@ -49,7 +49,7 @@
 | C drag via · duration | `drag('Item', Slot[k+2], {via: [Slot[k+1]], duration: 0.5})` → Item 이 Slot[k+2] · 0.5초 넘게 걸림 |
 | C swipe | ScrollList 가운데 위아래 150 픽셀을 잇는 `swipe`(0.3초) → `ScrollRect.verticalNormalizedPosition` 이 바뀜 — 0.5 보다 크면 위로 밀어 줄고, 아니면 아래로 밀어 는다(다시 돌려도 움직일 쪽이 있다) |
 | C pointer | `pointer HoldBox enter · down · up · exit` → PointerText 의 last 가 차례로 enter · down · up · exit |
-| C hold | `hold HoldBox {duration: 1}` → PointerText 의 held 가 0.95 이상(바로 앞 pointer 줄이 held 를 0 근처로 새로 둔다) |
+| C long-press | `long-press HoldBox {duration: 1}` → PointerText 의 held 가 0.95 이상(바로 앞 pointer 줄이 held 를 0 근처로 새로 둔다) |
 | C mouse-move hover | `mouseMove('HoldBox')` → last enter → `mouseMove('StatusText')` → last exit |
 | C scroll | `scroll(∓10, {at: 'ScrollList'})` → `verticalNormalizedPosition` 이 바뀜 — 0.5 보다 크면 −10(아래로 — 준다), 아니면 +10 |
 | C key-down 여럿 | `keyDown('A+LeftShift')` → InputText keys 「A LeftShift」 → `keyUp('A+LeftShift')` → keys 「-」 |
@@ -184,7 +184,7 @@ InputText 꼴은 `fingers N · keys A LeftShift W(누른 것만, 없으면 -) ·
   }
 },
 {
-  "name": "hold",
+  "name": "long-press",
   "summary": "길게 누르기 — duration 초 눌렀다 뗀다",
   "args": {
     "target": { "type": "string", "required": false, "summary": "누를 오브젝트 주소 — 없으면 x · y" },
@@ -252,10 +252,10 @@ InputText 꼴은 `fingers N · keys A LeftShift W(누른 것만, 없으면 -) ·
 { "name": "input-reset", "summary": "가짜 입력을 다 거둔다 — 눌러 둔 손가락 · 키 · 가짜 마우스 · 기울기", "args": {} }
 ```
 
-  - `ControlServer.cs` 의 `Caps` 끝에 `"touch-down", "touch-move", "touch-up", "swipe", "hold", "mouse-move", "scroll", "key-down", "key-up", "tilt", "pointer", "input-reset"`(SDK 구현은 Task 7 — protocol.test 가 차례를 본다)
+  - `ControlServer.cs` 의 `Caps` 끝에 `"touch-down", "touch-move", "touch-up", "swipe", "long-press", "mouse-move", "scroll", "key-down", "key-up", "tilt", "pointer", "input-reset"`(SDK 구현은 Task 7 — protocol.test 가 차례를 본다)
 
 - [ ] **Step 4: 통과 확인** — 같은 명령, 통과
-- [ ] **Step 5: 커밋** — `git commit -m "명령 정의 — P2-C 손가락 · swipe · hold · 마우스 · 바퀴 · 키 누름/뗌 · 기울기 · pointer · input-reset, 횟수 · 시간 · 세기 칸"`
+- [ ] **Step 5: 커밋** — `git commit -m "명령 정의 — P2-C 손가락 · swipe · long-press · 마우스 · 바퀴 · 키 누름/뗌 · 기울기 · pointer · input-reset, 횟수 · 시간 · 세기 칸"`
 
 ### Task 2: Game 메서드 · 가짜 SDK
 
@@ -295,7 +295,7 @@ test('C 줄 — 손가락은 비어 있는 가장 작은 번호(10~19)를 받고
 
 test('C 줄 — 8초 넘는 입력 · 자리 없는 한 점 명령 · 틀린 점 · UI Toolkit pointer 는 SDK 처럼 거절한다', async () => {
   const game = direct(standardScreen());
-  await assert.rejects(game.hold('HoldBox', { duration: 9 }), /hold 은 8초 안이어야 합니다 — 더 길게는 touch-down · key-down 뒤 touch-up · key-up/);
+  await assert.rejects(game.longPress('HoldBox', { duration: 9 }), /long-press 은 8초 안이어야 합니다 — 더 길게는 touch-down · key-down 뒤 touch-up · key-up/);
   await assert.rejects(game.click('LoginButton', { count: 50, interval: 0.2 }), /click 은 8초 안이어야 합니다/);
   await assert.rejects(game.call({ cmd: 'touch-down' }), /touch-down 에 target 또는 x · y 가 필요합니다/);
   await assert.rejects(game.swipe([{ x: 1, y: 1 }]), /swipe 의 points 는 "x,y" 글자 둘 이상입니다/);
@@ -383,8 +383,8 @@ const given = (o: Record<string, unknown>) => Object.fromEntries(Object.entries(
   }
 
   /** 길게 누르기 — duration 초(기본 1) */
-  async hold(a: At, o: { duration?: number; camera?: string } = {}): Promise<void> {
-    await this.call({ cmd: 'hold', ...at(a), ...extra(o), ...given({ duration: o.duration }) });
+  async longPress(a: At, o: { duration?: number; camera?: string } = {}): Promise<void> {
+    await this.call({ cmd: 'long-press', ...at(a), ...extra(o), ...given({ duration: o.duration }) });
   }
 
   /** 가짜 마우스를 옮긴다 — hover. 끄기는 resetInput */
@@ -428,7 +428,7 @@ const given = (o: Record<string, unknown>) => Object.fromEntries(Object.entries(
   - `FakeNode` 끝에
 
 ```ts
-  /** touch · hold · mouse-move · pointer 가 부르는 Pointer 이벤트 — up 은 누른 초 */
+  /** touch · long-press · mouse-move · pointer 가 부르는 Pointer 이벤트 — up 은 누른 초 */
   onPointer?: (event: PointerAction, seconds?: number) => void;
   /** 바퀴 · swipe — dy 는 바퀴 칸(위가 +, 손가락을 위로 밀면 −) */
   onScroll?: (dy: number) => void;
@@ -569,7 +569,7 @@ const keysOf = (c: Command) => String(c.key).split('+');
         hit?.[hit.length - 1].onScroll?.(-Math.sign(b[1] - a[1]));
         return { ok: true, x: b[0], y: b[1] };
       }
-      case 'hold': {
+      case 'long-press': {
         const p = this.point(c, f);
         if ('error' in p) return { ok: false, error: p.error };
         p.node?.onPointer?.('enter');
@@ -701,7 +701,7 @@ function inputLine(g: FakeGame): string {
 ```
 
 - [ ] **Step 5: 통과 확인** — `npm run -s build && node --test dist/conform.test.js` → 새 테스트 셋 통과(「33줄」 테스트들도 그대로 — C 줄은 Task 3)
-- [ ] **Step 6: 커밋** — `git commit -m "Game 입력 메서드 — touchDown/Move/Up · swipe · hold · mouseMove · scroll · keyDown/Up · tilt · pointer · resetInput · 횟수 · 시간 칸, 가짜 SDK 와 표준 화면 C 칸"`
+- [ ] **Step 6: 커밋** — `git commit -m "Game 입력 메서드 — touchDown/Move/Up · swipe · longPress · mouseMove · scroll · keyDown/Up · tilt · pointer · resetInput · 횟수 · 시간 칸, 가짜 SDK 와 표준 화면 C 칸"`
 
 ### Task 3: conform C 줄
 
@@ -714,7 +714,7 @@ function inputLine(g: FakeGame): string {
   - 새 테스트
 
 ```ts
-const P2C = ['touch-down', 'touch-move', 'touch-up', 'swipe', 'hold', 'mouse-move', 'scroll', 'key-down', 'key-up', 'tilt', 'pointer', 'input-reset'];
+const P2C = ['touch-down', 'touch-move', 'touch-up', 'swipe', 'long-press', 'mouse-move', 'scroll', 'key-down', 'key-up', 'tilt', 'pointer', 'input-reset'];
 
 test('C 줄 — 옛 SDK(caps 에 P2-C 명령 없음)면 C 줄 15개를 건너뛴다', async () => {
   const g = standardScreen();
@@ -844,10 +844,10 @@ const released = (run: (g: Game) => Promise<void>) => async (g: Game) => {
     },
   },
   {
-    cmds: ['hold', 'find', 'touch-down'],
-    label: 'C hold HoldBox → PointerText held 가 duration 이상',
+    cmds: ['long-press', 'find', 'touch-down'],
+    label: 'C long-press HoldBox → PointerText held 가 duration 이상',
     run: async (g) => {
-      await g.hold('HoldBox', { duration: CONFORM.holdS });
+      await g.longPress('HoldBox', { duration: CONFORM.holdS });
       await poll(`PointerText 의 held — 기대 ${CONFORM.holdS} 이상`, textOf(g, 'PointerText'), (t) => Number(part(t, 'held')) >= CONFORM.holdS - 0.05);
     },
   },
@@ -955,7 +955,7 @@ const released = (run: (g: Game) => Promise<void>) => async (g: Game) => {
 ```
 
 - [ ] **Step 4: 통과 확인** — `npm run -s build && node --test dist/conform.test.js dist/cli.test.js` → 통과
-- [ ] **Step 5: 커밋** — `git commit -m "conform C 줄 15개 — 횟수 · 손가락 둘 · down/move/up · via · swipe · pointer · hold · hover · 바퀴 · 여러 키 · 키 시간 · 축 · 기울기 · input-reset · UI Toolkit 직접"`
+- [ ] **Step 5: 커밋** — `git commit -m "conform C 줄 15개 — 횟수 · 손가락 둘 · down/move/up · via · swipe · pointer · long-press · hover · 바퀴 · 여러 키 · 키 시간 · 축 · 기울기 · input-reset · UI Toolkit 직접"`
 
 ### Task 4: CLI 명령 · Ran 줄
 
@@ -976,7 +976,7 @@ test('입력 명령 — Ran 줄이 kit 의 game.* 이름 · 인자 꼴로 찍히
     assert.match(await io('touch-down', '100', '200'), /^- 좌표 \(100, 200\) 누름 — 케이스에는 주소로 씁니다\n- 손가락 10\n/);
     assert.match(await io('drag', 'Item', '/SampleCanvas/Bag/Slot[3]', '--via', '/SampleCanvas/Bag/Slot[2]', '--duration', '0.5'), /^Ran: await game\.drag\('Item', '\/SampleCanvas\/Bag\/Slot\[3\]', \{ via: \['\/SampleCanvas\/Bag\/Slot\[2\]'\], duration: 0\.5 \}\)/);
     assert.match(await io('swipe', '810,550', '810,850', '--duration', '0.3'), /^- 좌표 810,550 → 810,850 끎 — 케이스에는 drag 로 씁니다/);
-    assert.match(await io('hold', 'HoldBox', '--duration', '1'), /^Ran: await game\.hold\('HoldBox', \{ duration: 1 \}\)/);
+    assert.match(await io('long-press', 'HoldBox', '--duration', '1'), /^Ran: await game\.longPress\('HoldBox', \{ duration: 1 \}\)/);
     assert.match(await io('mouse-move', 'HoldBox'), /^Ran: await game\.mouseMove\('HoldBox'\)/);
     assert.match(await io('scroll', 'ScrollList', '-10'), /^Ran: await game\.scroll\(-10, \{ at: 'ScrollList' \}\)/);
     assert.match(await io('scroll', '3', '--dx', '1'), /^Ran: await game\.scroll\(3, \{ dx: 1 \}\)/);
@@ -987,7 +987,7 @@ test('입력 명령 — Ran 줄이 kit 의 game.* 이름 · 인자 꼴로 찍히
     assert.match(await io('pointer', 'HoldBox', 'enter'), /^Ran: await game\.pointer\('HoldBox', 'enter'\)/);
     assert.match(await io('input-reset'), /^Ran: await game\.resetInput\(\)/);
     await assert.rejects(io('pointer', 'HoldBox', 'press'), /pointer <ref\|주소> <down\|up\|enter\|exit> 꼴이어야 합니다/);
-    await assert.rejects(io('hold', 'HoldBox', '--duration', '9'), /hold 은 8초 안이어야 합니다/);
+    await assert.rejects(io('long-press', 'HoldBox', '--duration', '9'), /long-press 은 8초 안이어야 합니다/);
     await assert.rejects(io('touch-up', 'x'), /touch-up <손가락 번호> 꼴이어야 합니다/);
     await assert.rejects(io('swipe', '1,1'), /swipe <x,y> <x,y> \[x,y…\] \[--duration <초>\] 꼴이어야 합니다/);
     await assert.rejects(io('click', 'LoginButton', '--count', 'two'), /--count 은 수입니다/);
@@ -1113,13 +1113,13 @@ test('입력 명령 — Ran 줄이 kit 의 game.* 이름 · 인자 꼴로 찍히
       await game.swipe(points, flags('duration').o);
       return after(`- 좌표 ${args.join(' → ')} 끎 — 케이스에는 drag 로 씁니다`);
     }
-    case 'hold':
+    case 'long-press':
     case 'mouse-move': {
       const p = point(args, `${name} <ref|주소> 또는 ${name} <x> <y> [--duration <초>]`);
       const f = flags('camera', 'duration');
-      if (name === 'hold') await game.hold(p.at, f.o);
+      if (name === 'long-press') await game.longPress(p.at, f.o);
       else await game.mouseMove(p.at, f.o);
-      return after(p.shown ? ran(name === 'hold' ? 'hold' : 'mouseMove', p.shown, ...f.shown) : `- ${p.where} ${name === 'hold' ? '길게 누름' : '로 마우스'} — 케이스에는 주소로 씁니다`);
+      return after(p.shown ? ran(name === 'long-press' ? 'longPress' : 'mouseMove', p.shown, ...f.shown) : `- ${p.where} ${name === 'long-press' ? '길게 누름' : '로 마우스'} — 케이스에는 주소로 씁니다`);
     }
     case 'scroll': {
       const usage = 'scroll [<ref|주소> | <x> <y>] <dy> [--dx <칸>] [--duration <초>]';
@@ -1166,7 +1166,7 @@ test('입력 명령 — Ran 줄이 kit 의 game.* 이름 · 인자 꼴로 찍히
 ```
   touch-down <ref|주소>|<x> <y> · touch-move <번호> <ref|주소>|<x> <y> · touch-up <번호>   손가락 눌러 두기 · 옮기기 · 떼기(번호 10~19)
   swipe <x,y> <x,y>… [--duration <초>]             좌표로 끌기(살펴볼 때만 — 케이스는 drag)
-  hold <ref|주소>|<x> <y> [--duration <초>]        길게 누르기(기본 1초)
+  long-press <ref|주소>|<x> <y> [--duration <초>]        길게 누르기(기본 1초)
   mouse-move <ref|주소>|<x> <y> [--duration <초>]   가짜 마우스 — hover. 단추는 key Mouse0
   scroll [<ref|주소>|<x> <y>] <dy> [--dx <칸>] [--duration <초>]   마우스 바퀴(위가 +)
   key-down <키[+키…]> [--power <-1~1>] · key-up <키[+키…]>   키 눌러 두기 · 떼기(JoystickButton16~19 는 스틱 — power 가 값)
@@ -1177,7 +1177,7 @@ test('입력 명령 — Ran 줄이 kit 의 game.* 이름 · 인자 꼴로 찍히
 
   주소 절 둘째 줄 끝에 「입력 시간은 초 — 명령 하나는 8초 안(더 길게는 touch-down · key-down 뒤 touch-up · key-up).」
 - [ ] **Step 4: 통과 확인** — `npm run -s build && node --test dist/cli.test.js` → 통과
-- [ ] **Step 5: 커밋** — `git commit -m "CLI 입력 명령 — touch-down/move/up · swipe · hold · mouse-move · scroll · key-down/up · tilt · pointer · input-reset · --count · --duration · --via · 음수 인자"`
+- [ ] **Step 5: 커밋** — `git commit -m "CLI 입력 명령 — touch-down/move/up · swipe · long-press · mouse-move · scroll · key-down/up · tilt · pointer · input-reset · --count · --duration · --via · 음수 인자"`
 
 ### Task 5: Unity SDK — 입력 상태 · 일 · 세 길
 
@@ -2292,7 +2292,7 @@ namespace ControlCli.Editor
                     if (points.Count < 2) return Error(PointsForm);
                     return WithFinger(f => FakeInput.Path(f, points.ToArray(), Mathf.Max(c.duration, 0)), Touched(points[points.Count - 1]));
                 }
-                case "hold":
+                case "long-press":
                 {
                     if (!At(c, out var p, out var problem)) return Error(problem);
                     var seconds = c.duration < 0 ? 1 : c.duration;
@@ -2340,7 +2340,7 @@ namespace ControlCli.Editor
   `FakeKeys.Press` · `Release` · `FakeTouches.Press` · `Move` · `Release` 는 `internal` 이다 — 같은 `ControlCli.Runtime` 어셈블리라 그대로 부른다. `Limits` 를 `switch` 앞에 두면 `find` · `get` 같은 명령도 지나가지만 그 칸은 기본값(count 1 · power 1 · duration -1)이라 걸리지 않는다
 - [ ] **Step 4: 판** — `SdkVersion = "0.6.0"` · `sdk/unity/package.json` · `package.json` 의 version `0.6.0`
 - [ ] **Step 5: 확인** — 컴파일(Task 5 Step 9 의 명령) · `npm run -s build && node --test dist/protocol.test.js dist/sdk-meta.test.js` → Caps · 판 대조 통과
-- [ ] **Step 6: 커밋** — `git commit -m "SDK 0.6.0 — touch-down/move/up · swipe · hold · mouse-move · scroll · key-down/up · tilt · pointer · input-reset · 횟수 · via · 시간 · 세기 · 여러 키"`
+- [ ] **Step 6: 커밋** — `git commit -m "SDK 0.6.0 — touch-down/move/up · swipe · long-press · mouse-move · scroll · key-down/up · tilt · pointer · input-reset · 횟수 · via · 시간 · 세기 · 여러 키"`
 
 ### Task 8: 표준 화면 · sample CI
 
@@ -2413,7 +2413,7 @@ namespace Sample
 - [ ] **Step 2: `PointerBox.cs`(새)**
 
 ```cs
-// 누르면 PointerText 에 마지막 Pointer 이벤트(down · up · enter · exit)와 누른 초를 적는 uGUI 칸 — hold · mouse-move · pointer 명령 확인용
+// 누르면 PointerText 에 마지막 Pointer 이벤트(down · up · enter · exit)와 누른 초를 적는 uGUI 칸 — long-press · mouse-move · pointer 명령 확인용
 using System.Globalization;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -2563,7 +2563,7 @@ namespace Sample
 **Files:** Modify `README.md` · `docs/roadmap/plan.md`
 
 - [ ] README — SDK 명령 표에 12줄(`touch-down` … `input-reset`) + 바뀐 칸(`tap` · `click` 의 `count` · `interval`, `drag` 의 `via` · `duration`, `key` 의 `duration` · `power` · `A+LeftShift`), CLI 명령 표(새 명령 · `--count` · `--interval` · `--via` · `--duration` · `--power` · `--dx`), MCP 도구 표 줄. 「가짜 입력」 절 하나 — 세 길(옛 Input 감싸기 · Input System 장치 · UI Toolkit 직접)과 손가락 번호 10~19 · 명령 하나 8초 · 진짜 입력은 섞는다 · PC Input System 은 마우스 손가락 + 나머지 Touchscreen · 옛 Input 축은 QA 빌드 훅이 InputManager 축을 굽는다(조이스틱 축은 안 함) · JoystickButton0~19 짝(설계 표 「키 · 세기」 줄)
-- [ ] plan.md 1절 — 「입력」 P2-C 줄 ✓(`key-down` · `key-up` · `hold` · `key A+B` · `mouse-move` · `scroll` · `swipe` · `drag --via` · `touch-down/move/up` · `tilt` · `input-reset` · 조이스틱 `JoystickButton` · `pointer`), 머리말 셈에 「P2-C 뒤」 값 — 그 줄의 AltTester 명령(KeyDown · KeyUp · HoldButton · PressKeys · MoveMouse · Scroll · MultipointSwipe · BeginTouch · MoveTouch · EndTouch · Tilt · ResetInput · Pointer 넷)을 22.5/68 셈과 같은 규칙으로 더한다(context-notes 「범위」)
+- [ ] plan.md 1절 — 「입력」 P2-C 줄 ✓(`key-down` · `key-up` · `long-press` · `key A+B` · `mouse-move` · `scroll` · `swipe` · `drag --via` · `touch-down/move/up` · `tilt` · `input-reset` · 조이스틱 `JoystickButton` · `pointer`), 머리말 셈에 「P2-C 뒤」 값 — 그 줄의 AltTester 명령(KeyDown · KeyUp · HoldButton · PressKeys · MoveMouse · Scroll · MultipointSwipe · BeginTouch · MoveTouch · EndTouch · Tilt · ResetInput · Pointer 넷)을 22.5/68 셈과 같은 규칙으로 더한다(context-notes 「범위」)
 - [ ] 커밋 — `git commit -m "README — 입력 명령 표 · 가짜 입력 세 길 · AltTester 표 P2-C"`
 
 ### Task 10: PR · 실기기 · 다음 세션
@@ -2573,4 +2573,4 @@ namespace Sample
 - [ ] 팜 — **폰은 사용자가 정한 serial 만**(2026-11-04 사용자 「RF9R408GKRR 폰 잠깐 쓰지마 써도 될때 얘기해줄게」 — 그 말이 있기 전에는 쓰지 않는다. 다른 폰도 정해 주지 않았으면 묻는다). sample run 의 APK 로 `hold --udid <serial>` → `open --app` → `conform` → 「통과 48 · 실패 0 · 건너뜀 0」 → `close` — 6000.0 옛 Input · 6000.0 Input System · 2021.3 옛 Input · 2022.3 둘 다(Input System 과 옛 Input 이 함께 — 탐침은 Input System 쪽), 다 돌면 `release`
 - [ ] 이 맥 — `caffeinate -d -u -t 900` 을 건 채 macOS 앱 둘(input0 · input1)을 `open --pc --app` → `conform` 48/0/0 → `close`. 그동안 마우스 · 키보드를 만지지 않는다(Input System 은 진짜 장치에 상태를 넣는다)
 - [ ] 줄이 실패하면 superpowers:systematic-debugging — 먼저 의심할 곳: ① C UI Toolkit 직접 줄 — `GetPooled(Event)` 의 panel 좌표 · `PointerEnterEvent` 가 마우스 pointerId 로 오는지 ② scroll 줄 — Input System 의 바퀴 값 크기(`InputSystemUIInputModule.scrollDeltaPerTick`) ③ tilt 줄 — 더한 `Accelerometer` 가 `Accelerometer.current` 인지 ④ 축 줄 — `NameOf` 가 InputManager 이름과 맞는지(`[ControlCliAxes]` 표를 `static-get ControlCli.ControlCliAxes.Table` 로 본다)
-- [ ] checklist P2-C 체크 · context-notes 「P2-C 구현」 · 「P2-C 실기기」(계획과 다르게 한 것 · run 번호 · 폰 serial) · 맨 위 「다음 세션은 여기부터」를 P2-D 로 · test_platform kit 다음 줄 — `touchDown` · `touchMove` · `touchUp` · `swipe` · `hold` · `mouseMove` · `scroll` · `keyDown` · `keyUp` · `tilt` · `pointer` · `resetInput`, `click` · `tap` · `drag` · `key` 의 옵션 `{ count?, interval?, via?, duration?, power? }`(꼴은 control_cli `src/game.ts`)
+- [ ] checklist P2-C 체크 · context-notes 「P2-C 구현」 · 「P2-C 실기기」(계획과 다르게 한 것 · run 번호 · 폰 serial) · 맨 위 「다음 세션은 여기부터」를 P2-D 로 · test_platform kit 다음 줄 — `touchDown` · `touchMove` · `touchUp` · `swipe` · `longPress` · `mouseMove` · `scroll` · `keyDown` · `keyUp` · `tilt` · `pointer` · `resetInput`, `click` · `tap` · `drag` · `key` 의 옵션 `{ count?, interval?, via?, duration?, power? }`(꼴은 control_cli `src/game.ts`)

@@ -147,3 +147,7 @@
 - CLI 음수 — Node 22 `parseArgs` 가 `scroll ScrollList -10` · `tilt 0 -5 0` · `--power -1` 을 모두 거절한다(`-1` 을 짧은 옵션으로 읽음, job tmp 에서 확인). 음수 인자를 잠깐 다른 글자로 감쌌다 푼다
 - 팜 폰 — 사용자 「RF9R408GKRR 폰 잠깐 쓰지마 써도 될때 얘기해줄게」(설계 중). 써도 된다는 말이 있을 때까지 그 폰을 잡지 않는다
 - 크기 — 축 표 · macOS 빌드를 더해 로드맵의 3~4일이 4일쯤
+
+## 2026-11-04 — P2-C 구현
+
+- 길게 누르기 명령 이름은 `hold` 가 아니라 `long-press`(Game · kit `longPress`) — `hold` 는 이미 팜 폰을 잡는 세션 명령이다(`src/cli.ts` · MCP 세션 도구 · test_platform GAME-F2-15). MCP 도구 이름은 겹칠 수 없고 배포된 세션 `hold` 를 바꾸면 깨진다. 계획서도 같이 고쳤다(세션 `hold --udid` 줄만 그대로). 표준 화면 오브젝트 `HoldBox` · `CONFORM.holdS` 는 그대로
