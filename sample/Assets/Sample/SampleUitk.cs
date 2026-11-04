@@ -36,6 +36,8 @@ namespace Sample
                 if (e.pointerId == PointerId.mousePointerId) text.text = "enter";
             });
             var scroll = new ScrollView { name = "SecondScroll" };
+            // 테마가 주던 내용 칸의 flex-shrink 0 — 없으면 줄이 10 높이로 줄어 내용이 보이는 높이와 같아지고 굴릴 거리가 0 이다(이 맥 실측).
+            scroll.contentContainer.style.flexShrink = 0;
             for (var i = 0; i < 20; i++) scroll.Add(new Label("row " + i) { style = { height = 60 } });
             text.style.height = button.style.height = 80;
             scroll.style.height = 200;
