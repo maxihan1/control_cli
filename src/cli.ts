@@ -10,7 +10,7 @@ import { back, call, connect, farmOf, openSession, screenshot, type Conn } from 
 import { conform, report } from './conform.js';
 import { crawl, CRAWL } from './crawl.js';
 import { installAndLaunch, terminate } from './devicectl.js';
-import { Game, settled, type PingReply, type WaitOptions } from './game.js';
+import { Game, settled, type PingReply, type PrefType, type WaitOptions } from './game.js';
 import { instrument } from './instrument.js';
 import { farmLink, GAME_PORT, iosLink, tcpLink, usbLink, type Command, type Reply } from './link.js';
 import { serve } from './mcp.js';
@@ -55,6 +55,12 @@ export const HELP = `control-cli [-s=<세션>] <명령>
   text <ref|주소>                                  글자 읽기
   get <ref|주소> <컴포넌트.칸>                     속성 읽기 (PlayerController.moveSpeed)
   find <ref|주소>
+  call <ref|주소> <컴포넌트.메서드> [인자…]        메서드 부르기 — 인자는 글자로, 게임이 칸 타입으로 바꾼다
+  set <ref|주소> <컴포넌트.칸> <값>                칸 쓰기 — 값은 get 꼴(2.5 · true · [0,1,0] · 열거 이름)
+  static-call <타입.메서드> [인자…] · static-get <타입.칸> · static-set <타입.칸> <값>
+  pref-get <키> · pref-set <키> <값> · pref-delete <키> · pref-clear   저장 값(PlayerPrefs) — --type string|int|float(기본 string)
+  timescale-get · timescale-set <배율>              시간 배율(1 보통 · 0 멈춤)
+  scenes · scene-load <장면> [--add] · scene-unload <장면> · scene-wait <장면> [--timeout <초>]   장면 — 다 열리고 닫힐 때까지 기다린다(기본 30초)
   wait <ref|주소> [--text <글자>] [--gone] [--timeout <초>]
   layout [ref|주소]                                안전 영역 밖 · 겹침
   errors [번호]                                    게임 예외 · 에러 로그(이 번호 뒤만)
@@ -74,6 +80,9 @@ export const HELP = `control-cli [-s=<세션>] <명령>
 
 const quote = (s: string) => `'${s.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n')}'`;
 const ran = (method: string, ...args: string[]) => `Ran: await game.${method}(${args.join(', ')})`;
+// 메서드 인자 — 없으면 칸을 싣지 않는다.
+const list = (xs: string[]) => (xs.length ? [`[${xs.map(quote).join(', ')}]`] : []);
+const opts = (shown: string[]) => (shown.length ? [`{ ${shown.join(', ')} }`] : []);
 const sleep = (ms: number) => new Promise((ok) => setTimeout(ok, ms));
 
 /**
@@ -115,6 +124,8 @@ export async function run(argv: string[], o: Options): Promise<string> {
       exclude: { type: 'string', multiple: true },
       out: { type: 'string' },
       ref: { type: 'string' },
+      type: { type: 'string' },
+      add: { type: 'boolean' },
     },
   });
   const [name, ...args] = positionals;
@@ -236,6 +247,20 @@ export async function run(argv: string[], o: Options): Promise<string> {
     return address;
   };
   const after = async (line: string) => `${line}\n${await shot(game, s, appium, file, sname, o.dir, true)}`;
+  const value = (v: unknown) => `- 값: ${JSON.stringify(v)}`;
+  const prefType = (): PrefType | undefined => {
+    if (values.type === undefined) return undefined;
+    if (!['string', 'int', 'float'].includes(values.type)) throw new Error('--type 은 string · int · float 중 하나입니다');
+    return values.type as PrefType;
+  };
+  const typed = () => (values.type === undefined ? [] : [quote(values.type)]);
+  // 장면 기다리기 한도 — Ran 줄에도 같은 칸을 싣는다.
+  const timeout = (): { timeoutMs?: number; shown: string[] } => {
+    if (values.timeout === undefined) return { shown: [] };
+    const sec = Number(values.timeout);
+    if (!(sec > 0)) throw new Error('--timeout 은 0 보다 큰 초입니다');
+    return { timeoutMs: sec * 1000, shown: [`timeoutMs: ${sec * 1000}`] };
+  };
 
   switch (name) {
     case 'ping': {
@@ -321,6 +346,70 @@ export async function run(argv: string[], o: Options): Promise<string> {
       if (args.length !== 2 || !Number.isFinite(x) || !Number.isFinite(y)) throw new Error('tap <x> <y> 꼴이어야 합니다');
       await game.tap(x, y);
       return after(`- 좌표 (${x}, ${y}) 누름 — 케이스에는 주소로 씁니다`);
+    }
+    case 'call': {
+      const a = target(args[0]);
+      const [method, ...rest] = args.slice(1);
+      if (method === undefined) throw new Error('call <ref|주소> <컴포넌트.메서드> [인자…] 꼴이어야 합니다');
+      const v = await game.callMethod(a, method, rest);
+      return after(`${ran('callMethod', quote(a), quote(method), ...list(rest))}\n${value(v)}`);
+    }
+    case 'set': {
+      const a = target(args[0]);
+      if (args[1] === undefined || args[2] === undefined) throw new Error('set <ref|주소> <컴포넌트.칸> <값> 꼴이어야 합니다');
+      const v = await game.set(a, args[1], args[2]);
+      return after(`${ran('set', quote(a), quote(args[1]), quote(args[2]))}\n${value(v)}`);
+    }
+    case 'static-call': {
+      const [method, ...rest] = args;
+      if (method === undefined) throw new Error('static-call <타입.메서드> [인자…] 꼴이어야 합니다');
+      const v = await game.callStatic(method, rest);
+      return after(`${ran('callStatic', quote(method), ...list(rest))}\n${value(v)}`);
+    }
+    case 'static-get':
+      if (args[0] === undefined) throw new Error('static-get <타입.칸> 꼴이어야 합니다');
+      return `${ran('getStatic', quote(args[0]))}\n${value(await game.getStatic(args[0]))}`;
+    case 'static-set': {
+      if (args[0] === undefined || args[1] === undefined) throw new Error('static-set <타입.칸> <값> 꼴이어야 합니다');
+      const v = await game.setStatic(args[0], args[1]);
+      return after(`${ran('setStatic', quote(args[0]), quote(args[1]))}\n${value(v)}`);
+    }
+    case 'pref-get':
+      if (args[0] === undefined) throw new Error('pref-get <키> [--type string|int|float] 꼴이어야 합니다');
+      return `${ran('pref', quote(args[0]), ...typed())}\n${value(await game.pref(args[0], prefType()))}`;
+    case 'pref-set':
+      if (args[0] === undefined || args[1] === undefined) throw new Error('pref-set <키> <값> [--type string|int|float] 꼴이어야 합니다');
+      await game.setPref(args[0], args[1], prefType());
+      return ran('setPref', quote(args[0]), quote(args[1]), ...typed());
+    case 'pref-delete':
+      if (args[0] === undefined) throw new Error('pref-delete <키> 꼴이어야 합니다');
+      await game.deletePref(args[0]);
+      return ran('deletePref', quote(args[0]));
+    case 'pref-clear':
+      await game.clearPrefs();
+      return ran('clearPrefs');
+    case 'timescale-get':
+      return `${ran('timeScale')}\n${value(await game.timeScale())}`;
+    case 'timescale-set': {
+      const scale = Number(args[0]);
+      if (args[0] === undefined || !Number.isFinite(scale)) throw new Error('timescale-set <배율> 꼴이어야 합니다 — 1 보통 · 0 멈춤 · 2 두 배');
+      await game.setTimeScale(scale);
+      return ran('setTimeScale', String(scale));
+    }
+    case 'scenes':
+      return `${ran('scenes')}\n${value(await game.scenes())}`;
+    case 'scene-load':
+    case 'scene-unload':
+    case 'scene-wait': {
+      if (args[0] === undefined) throw new Error(`${name} <장면>${name === 'scene-load' ? ' [--add]' : ''} [--timeout <초>] 꼴이어야 합니다`);
+      const t = timeout();
+      if (name === 'scene-load') {
+        await game.loadScene(args[0], { add: values.add === true, timeoutMs: t.timeoutMs });
+        return after(ran('loadScene', quote(args[0]), ...opts([...(values.add ? ['add: true'] : []), ...t.shown])));
+      }
+      if (name === 'scene-unload') await game.unloadScene(args[0], { timeoutMs: t.timeoutMs });
+      else await game.waitForScene(args[0], { timeoutMs: t.timeoutMs });
+      return after(ran(name === 'scene-unload' ? 'unloadScene' : 'waitForScene', quote(args[0]), ...opts(t.shown)));
     }
     case 'conform': {
       const r = await conform(game);

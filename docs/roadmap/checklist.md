@@ -2,8 +2,9 @@
 
 ## ▶ 다음 세션은 여기부터 (2026-11-04)
 
-- P2-A Unity 게임 상태 — 설계 · 구현 계획(writing-plans, [p0-plan.md](p0-plan.md) · [p1-plan.md](p1-plan.md) 꼴)부터. 브랜치 `p2a` — PR #16(`p1`)이 `roadmap` 에 합쳐졌으면 `origin/roadmap` 에서, 아직이면 `origin/p1` 위에 쌓고 PR base 를 `p1` 로(합친 뒤 `roadmap` 으로 바꾼다). 새 명령은 `protocol/commands.json` · Unity `Caps` 에 더하면 MCP 도구로도 저절로 들어온다(`src/mcp.test.ts` 가 목록을 대조). 끝 기준은 `conform` A 줄 초록(팜)
-- P1 끝 — draft PR #16(`p1` → `roadmap`) · sdk-compile run 41717527358 초록(meta 가 mcp.test 4개 포함 7 통과 · 컴파일 2021.3 · 2022.3 · 6000.0). 테스트 · 이 맥 macOS 앱 · 팜 RF9R408GKRR 모두 MCP 도구로 conform 16/16, Claude Code headless · Claude Desktop(대화 화면) 모두 진짜 MCP 클라이언트로 붙어 말로 시킨 차례를 돌렸다
+- P2-B Unity 찾기 · 설정 — 설계 · 구현 계획(writing-plans, [p2a-plan.md](p2a-plan.md) 꼴)부터. 첫 결정은 선택자 꼴(이름 일부 · 태그 · 레이어 · 컴포넌트 · 글자 · id 를 `target` 한 칸에 어떻게 싣나 — 지금 주소 규칙 `이름` · `/경로[n]` 과 겹치지 않게). 브랜치 `p2b` — PR #17(`p2a`)이 `roadmap` 에 합쳐졌으면 `origin/roadmap` 에서, 아직이면 `origin/p2a` 위에 쌓고 PR base 를 `p2a` 로. 끝 기준은 `conform` B 줄 초록(팜)
+- P2-A 끝 — draft PR #17(`p2a` → `roadmap`) · sdk-compile run 41742741341 초록(meta · 2021.3 · 2022.3 · 6000.0). 팜 RF9R408GKRR 에서 sample run 41742741513 의 6000.0 옛 Input APK · 2021.3 옛 Input APK 모두, 이 맥 macOS 앱(같은 run 의 StandaloneOSX · Mono)도 conform 「통과 23 · 실패 0 · 건너뜀 0」(A 줄 7개 포함). sample run 7개 잡 모두 초록. 새 명령 14개는 commands.json 에 더해 MCP 도구 · CLI · `Ran:` 줄이 같이 따라왔다
+- 팜 연결 — 팜은 이 맥에서 돈다(`http://127.0.0.1:4723/wd/hub`, 밖에서는 `https://farm.maxihan.com/wd/hub`). 토큰은 사용자의 QA Hub 통합계정 PAT(`https://auth.maxihan.com/account` 「개인 접근 토큰 (PAT)」)를 job tmp 의 `farm.env` 로 받는다 — 저장소 · 대화에 적지 않는다
 - macOS 시험은 `caffeinate -d -u -t 900` — 잠금 화면은 `-d` 만으로는 13초 만에 화면을 꺼 Unity 가 멈춘다(context-notes 「P1 실기기」)
 - main 에 합치기 전에 정할 것 — `instrument` 의 기본 ref `main` 과 UPM 경로 `?path=/sdk/unity` 가 엇갈린다(main 에 `sdk/unity/` 가 생기기 전엔 새 CLI 가, 생긴 뒤엔 옛 CLI 의 `?path=/sdk#main` 이 깨진다). 기본 ref 를 CLI 판 tag(`v0.3.0`)로 두는 안 — context-notes 「P0 코드 리뷰」. README MCP 절의 `npm i -g …#<태그>` 도 그때 정한 tag 로
 - 차례 — P0 바탕 → P1 MCP → P2 Unity 를 AltTester 와 똑같이 → P3 relay · WebGL · Linux → P4 드라이버 → P5 인스펙터 · Recorder → P6~P10 엔진(맨 뒤 — 사용자 결정)
@@ -28,12 +29,12 @@
 - [x] Unity 샘플 `conform` 차례를 MCP 도구로 돌려 초록 — 테스트(가짜 표준 화면 · `dist/main.js mcp` 를 띄워) 16/16, 이 맥 macOS 앱 · 팜 RF9R408GKRR(6000.0 Input System) 모두 「통과 16 · 실패 0 · 건너뜀 0」(run 41642343858 결과물). Claude Code headless · Claude Desktop(대화) 이 진짜 MCP 클라이언트로 붙어 open → … → close
 
 ## P2-A. Unity 게임 상태
-- [ ] 설계 · 구현 계획
-- [ ] 컴포넌트 메서드 호출 · 속성 쓰기 · static 메서드 · static 속성 읽기/쓰기
-- [ ] PlayerPrefs 읽기 · 쓰기 · 키 지우기 · 다 지우기
-- [ ] timeScale 읽기 · 쓰기
-- [ ] 장면 열기(하나 · 더하기) · 닫기 · 열린 목록 · 이 장면이 될 때까지 기다리기
-- [ ] 표준 화면 · `conform` A 줄 · 팜 초록
+- [x] 설계 · 구현 계획 — [p2a-plan.md](p2a-plan.md)(태스크 6개) · 명령 14개(b2ab0d5 · 7e114b6)
+- [x] 컴포넌트 메서드 호출 · 속성 쓰기 · static 메서드 · static 속성 읽기/쓰기 — `call` · `set` · `static-call` · `static-get` · `static-set`(Props.cs · 8f022b5). 값 타입 칸(`Transform.position.y`)은 사본을 거꾸로 다시 써 넣는다
+- [x] PlayerPrefs 읽기 · 쓰기 · 키 지우기 · 다 지우기 — `pref-get` · `pref-set` · `pref-delete` · `pref-clear`(`type` string · int · float, GameState.cs)
+- [x] timeScale 읽기 · 쓰기 — `timescale-get` · `timescale-set`(0~100)
+- [x] 장면 열기(하나 · 더하기) · 닫기 · 열린 목록 · 이 장면이 될 때까지 기다리기 — `scene-load [--add]` · `scene-unload` · `scenes` · CLI `scene-wait`(Game 이 `loads` · `unloads` 수로 기다림). CLI · MCP · Ran 줄 63522c1, sdk-compile run 41742741341 초록(meta · 2021.3 · 2022.3 · 6000.0)
+- [x] 표준 화면 · `conform` A 줄 · 팜 초록 — 표준 화면에 `Second` 장면 · `SecondMarker` · `TouchProbe.Say` · `Add` · `Note`(94ea620), A 줄 7개 → 23줄. 팜 RF9R408GKRR(sample run 41742741513 · 6000.0 옛 Input · 2021.3 옛 Input · 둘 다 IL2CPP) · 이 맥 macOS 앱(Mono) 모두 「통과 23 · 실패 0 · 건너뜀 0」
 
 ## P2-B. Unity 찾기 · 설정
 - [ ] 설계 · 구현 계획(선택자 꼴 확정)
@@ -107,3 +108,4 @@
 
 ### test_platform 다음 줄 (이 저장소에서는 고치지 않는다)
 - 단계마다 새 명령의 `game.*` 함수를 kit(`packages/kit/src/runtime/game.ts`)에 같은 이름으로 더한다 — 안 그러면 `Ran:` 줄이 케이스에서 안 돈다
+- P2-A — `callMethod` · `set` · `callStatic` · `getStatic` · `setStatic` · `pref` · `setPref` · `deletePref` · `clearPrefs` · `timeScale` · `setTimeScale` · `scenes` · `loadScene` · `unloadScene` · `waitForScene`(꼴은 control_cli `src/game.ts`). `loadScene` · `unloadScene` · `waitForScene` 은 `scenes` 를 되풀이하는 바깥 기다리기라 kit 에도 같은 되풀이가 든다

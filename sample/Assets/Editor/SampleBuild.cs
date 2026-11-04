@@ -12,6 +12,8 @@ using UnityEditor.SceneManagement;
 public static class SampleBuild
 {
     private const string Scene = "Assets/Sample.unity";
+    // conform A 장면 줄이 여는 두 번째 장면 — 빈 장면이고 샘플 코드가 열릴 때 SecondMarker 를 둔다.
+    private const string SecondScene = "Assets/Second.unity";
 
     // buildMethod: SampleBuild.Build — 대상은 game-ci 가 켠 빌드 대상, 출력 자리는 -customBuildPath.
     public static void Build()
@@ -21,6 +23,7 @@ public static class SampleBuild
         var named = NamedBuildTarget.FromBuildTargetGroup(group);
         ImportTmpResources();
         SetInputHandler(Arg("activeInputHandler"));
+        EditorSceneManager.SaveScene(EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single), SecondScene);
         EditorSceneManager.SaveScene(EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single), Scene);
         PlayerSettings.productName = "control_cli sample";
         PlayerSettings.SetApplicationIdentifier(named, "com.maxihan1.controlcli.sample");
@@ -43,7 +46,7 @@ public static class SampleBuild
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(output)) ?? ".");
         var report = BuildPipeline.BuildPlayer(new BuildPlayerOptions
         {
-            scenes = new[] { Scene },
+            scenes = new[] { Scene, SecondScene },
             target = target,
             targetGroup = group,
             locationPathName = output,

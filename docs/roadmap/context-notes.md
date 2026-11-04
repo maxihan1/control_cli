@@ -77,3 +77,26 @@
 - 계획과 다르게 한 것 — ① 인자 꼴 실패 글 「target 가 필요합니다」가 영어 칸 이름 뒤 조사를 못 고른다 → 「target 칸이 필요합니다」 ② 실기기 스크립트는 hold 가 성공한 폰만 release 한다(남이 잡은 폰을 놓지 않게)
 - Claude Desktop(대화 화면) — 사용자 허락으로 `claude_desktop_config.json` 의 `mcpServers` 에 `"control-cli": {"command": "/usr/local/bin/node", "args": ["<worktree>/dist/main.js", "mcp"]}` 을 넣고(원본은 `.bak-p1`) 사용자가 앱을 다시 켜 말로 시켰다(07:26~07:27). Desktop 로그 — 「negotiated protocol version: 2025-11-25」 · 「Connected to control-cli (16 tools)」. 앱 답 — `type` 에 `qauser01`, StatusText 「login qauser01 1」, 스크린샷의 「touch 135,815」를 읽고 close 로 게임을 껐다. 세션 파일은 `~/.control-cli/` 에 생겼다 지워졌다(홈 폴더 결정이 Desktop 에서 맞다)
 - Desktop 에서 새로 안 것 — 도구 호출 하나하나는 Desktop 로그(`mcp-server-control-cli.log`)에 안 남는다(initialize · tools/list 만). Desktop 은 서버를 띄울 때 셸 PATH(`/usr/local/bin` · `/opt/homebrew/bin` …)를 넘긴다고 로그에 찍었다 — README 의 짧은 꼴(`"command": "control-cli"`)도 될 듯하나 돌려 보지는 않았다. 설정은 대화 화면 몫이다(사용자가 대화 화면에서 썼다)
+
+## 2026-11-04 — P2-A 설계 ([p2a-plan.md](p2a-plan.md))
+
+- 브랜치 — PR #16(`p1`)이 `roadmap` 에 합쳐져(ed256c5) `p2a` 는 `origin/roadmap` 에서, PR 은 `roadmap` 으로
+- 명령 14개를 칸이 정해진 명령으로 나눴다 — `call` · `set` · `static-call` · `static-get` · `static-set` · `pref-get` · `pref-set` · `pref-delete` · `pref-clear` · `timescale-get` · `timescale-set` · `scenes` · `scene-load` · `scene-unload`. static 을 `get` 의 빈 target 으로 합치는 안은 뺐다 — 옛 SDK(0.3.0)가 caps 로 못 걸러 엉뚱한 실패 글이 나오고, CLI 의 `call <주소> <메서드> [인자…]` 와 `call <타입.메서드> [인자…]` 가 갈리지 않는다
+- 저장 값 · 시간 배율 · 장면은 reflection 위가 아니라 따로 명령 — plan.md 엔진 표의 공통 낱말이라 다른 엔진 SDK 가 같은 명령을 낸다
+- 칸 꼴에 `array`(메서드 인자) · `enum`(`pref-*` 의 `type` · `scene-load` 의 `mode`)을 더했다. MCP 는 배열 칸에 숫자 · 참거짓도 받아 글자로 바꾼다 — AI 가 `args: [2, 3]` 으로 보낸다
+- `timescale-get` · `timescale-set` 을 나눈 까닭 — 칸 하나(`value` 가 없으면 읽기)면 JsonUtility 는 「칸 없음」과 0(멈춤)을 가르지 못한다. `set` 의 `value`(글자)와 이름이 겹치지 않게 칸은 `scale`
+- 장면 열기 · 닫기는 바로 답하고 CLI 가 `scenes` 를 되풀이한다 — 큰 장면은 SDK 10초 · 팜 15초를 넘는다. 「다 열림」은 `sceneLoaded` 수(`loads`)로 잰다 — 같은 장면을 한 장면으로 다시 열면 이름만으로는 열기 전 · 뒤가 같다
+- `Game.call` 은 P1 부터 날 명령 보내기(MCP 길)라 메서드 부르기는 `Game.callMethod` — kit 에도 같은 이름
+- 표준 화면은 `Second` 장면을 더하고, 샘플이 `Sample` 이 열릴 때마다 화면을 다시 만든다(`BeforeSceneLoad` 에서 `sceneLoaded` 를 건다). 한 장면 열기로 `Second` 에 갔다 돌아와도 다음 판 conform 이 돈다
+- 공용 함수에서 고친 것 — `Tree.RootObjects` 가 열리는 중인(isLoaded 아닌) 장면을 건너뛴다. 장면을 비동기로 열면 그동안 `GetRootGameObjects` 가 던져 `tree` · `find` 가 실패한다
+- 뺀 것 — 선택적 인자 채우기 · 제네릭 메서드 · `params` · 객체 참조 값 넣기 · 저장 값 타입 알아내기(`GetInt` 기본값 둘로 견주는 수는 Windows 레지스트리처럼 float 를 DWORD 로 두는 플랫폼에서 틀릴 수 있다)
+
+## 2026-11-04 — P2-A 실기기 (팜 RF9R408GKRR · sample run 41742741513 · 커밋 94ea620)
+
+- CI — sdk-compile run 41742741341 초록(meta 잡이 protocol · mcp · sdk-meta 테스트, 컴파일 2021.3 · 2022.3 · 6000.0). C# 은 이 맥에서 못 굽고 CI 가 처음 본 판이 그대로 통과했다
+- 팜 — sample run 의 첫 잡(6000.0 · 옛 Input · Android IL2CPP ARM64) APK 로 `hold --udid RF9R408GKRR` → `open --app <APK>` → `conform` 「통과 23 · 실패 0 · 건너뜀 0」 → `close` → `release`. `open` 줄에 「· unity 6000.0.84f1 · SDK 0.4.0」. A 줄 7개(메서드 · 칸 쓰기 · static · 시간 배율 · 저장 값 · 장면 둘)가 다 초록이고 마지막 `errors` 줄도 비었다 — 장면을 바꾸고 돌아와도 Unity 에러 로그가 없다
+- 가장 옛 판 — 같은 run 의 2021.3.45f1 옛 Input APK(IL2CPP)도 「통과 23 · 실패 0 · 건너뜀 0」(10:33). 2022.3 · 6000.0 Input System APK 는 게임 상태 명령이 입력 길과 무관해 돌리지 않았다
+- 이 맥 macOS 앱 — 같은 run 의 StandaloneOSX(Mono · 세로 창 540×1200)도 `open --pc --app` → 「통과 23 · 실패 0 · 건너뜀 0」 → `close` 가 게임을 껐다(10:45). 화면은 깨어 있었고(「Display Asleep」 없음) memory 대로 `caffeinate -d -u -t 900` 을 건 채 돌리고 그 PID 만 껐다. sample run 41742741513 은 7개 잡(Android 넷 · macOS · Windows · iOS) 모두 초록
+- IL2CPP 에서 확인된 것 — reflection 칸 쓰기(`Text.text` · 값 타입 `Transform.position.y` 의 거꾸로 써 넣기) · `[Preserve]` 를 붙인 샘플 메서드 · static 속성, `Application.CanStreamedLevelBeLoaded` · `LoadSceneAsync` · `UnloadSceneAsync`, 샘플의 `BeforeSceneLoad` 에서 건 `sceneLoaded` 가 첫 장면에도 와서 표준 화면이 한 번만 선다(겹치면 이름 겹침으로 `find` 가 실패했을 것)
+- 팜 연결 — 팜은 이 맥(launchd)에서 돈다. `http://127.0.0.1:4723/wd/hub` 도 인증 켬이라 토큰을 묻는다. 토큰은 사용자의 QA Hub 통합계정(`https://auth.maxihan.com/account`) PAT 다(Devicefarm `docs/guides/test-platform.md` 4절 — 토큰 주인이 폰을 잡은 사람이어야 한다). docs/unity/checklist.md 의 `vision.maxihan.com` 도 401 로 살아 있었다
+- 계획과 다르게 한 것 — ① cli.test 의 conform 줄 수(16)를 Task 2 커밋 뒤에 알아채 Task 3 커밋에 같이 고쳤다 ② conform.test 의 「다시 돌리기」 두 테스트는 caps 에서 `scene-load` 를 빼 앞 판 상태를 남긴다 — A 장면 줄이 표준 화면을 새로 세워 그 테스트의 뜻이 사라져서. 두 판 돌리기 자체는 새 A 테스트가 본다 ③ `protocol.test` 의 Caps 정규식이 한 줄 배열만 읽어 `\s*` 로 넓혔다(Caps 를 세 줄로 나눔) ④ `.gitignore` 에 `Second.unity*`

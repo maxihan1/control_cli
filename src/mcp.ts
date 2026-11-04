@@ -15,9 +15,11 @@ export interface Handlers {
 }
 
 interface Prop {
-  type: 'string' | 'number';
+  type: 'string' | 'number' | 'array';
   description: string;
   enum?: (string | number)[];
+  /** array 칸은 글자 배열 */
+  items?: { type: 'string' };
 }
 
 type Content = { type: 'text'; text: string } | { type: 'image'; data: string; mimeType: string };
@@ -48,7 +50,12 @@ export function tools(h: Handlers): Tool[] {
     name: c.name,
     description: c.summary,
     inputSchema: schema(
-      Object.fromEntries(Object.entries(c.args).map(([k, a]) => [k, { type: a.type, description: a.summary }])),
+      Object.fromEntries(
+        Object.entries(c.args).map(([k, a]): [string, Prop] => [
+          k,
+          { type: a.type, description: a.summary, ...(a.enum ? { enum: a.enum } : {}), ...(a.type === 'array' ? { items: { type: 'string' } } : {}) },
+        ]),
+      ),
       Object.entries(c.args)
         .filter(([, a]) => a.required)
         .map(([k]) => k),
@@ -93,6 +100,13 @@ function pick(tool: Tool, args: unknown): Record<string, unknown> {
     const v = given[k];
     if (v === undefined) {
       if (tool.inputSchema.required.includes(k)) throw new Error(`${tool.name} 에 ${k} 칸이 필요합니다 — ${p.description}`);
+      continue;
+    }
+    // 메서드 인자 — AI 는 [2, 3] 처럼 숫자 · 참거짓으로도 보낸다. SDK 는 글자를 받아 칸 타입으로 바꾼다.
+    if (p.type === 'array') {
+      if (!Array.isArray(v) || !v.every((x) => ['string', 'number', 'boolean'].includes(typeof x)))
+        throw new Error(`${tool.name} 의 ${k} 는 글자 배열이어야 합니다 (받은 값 ${JSON.stringify(v)})`);
+      out[k] = v.map(String);
       continue;
     }
     if (typeof v !== p.type || (p.enum !== undefined && !p.enum.includes(v as string | number)))

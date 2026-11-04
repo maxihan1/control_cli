@@ -24,9 +24,14 @@ namespace ControlCli
         public const int Port = 13100;
         private const int ReplyTimeoutMs = 10000;
         // protocol/commands.json 의 명령 이름과 같은 차례(src/protocol.test.ts 가 본다) — ping 의 caps 로 CLI 에 알린다.
-        private static readonly string[] Caps = { "ping", "tree", "find", "click", "drag", "type", "get", "tap", "key", "screenshot", "errors", "layout" };
+        private static readonly string[] Caps =
+        {
+            "ping", "tree", "find", "click", "drag", "type", "get", "tap", "key", "screenshot", "errors", "layout",
+            "call", "set", "static-call", "static-get", "static-set", "pref-get", "pref-set", "pref-delete", "pref-clear",
+            "timescale-get", "timescale-set", "scenes", "scene-load", "scene-unload",
+        };
         // sdk/unity/package.json 의 version 과 같다(src/protocol.test.ts 가 본다).
-        public const string SdkVersion = "0.3.0";
+        public const string SdkVersion = "0.4.0";
 
         private sealed class Request
         {
@@ -50,6 +55,14 @@ namespace ControlCli
             public long since;
             public float x;
             public float y;
+            public string method;
+            public string[] args;
+            public string value;
+            public string type;
+            public string name;
+            public string mode;
+            // 0 은 멈춤이라 「칸 없음」과 갈라 둔다.
+            public float scale = -1;
         }
 
         private readonly ConcurrentQueue<Request> _requests = new ConcurrentQueue<Request>();
@@ -74,6 +87,7 @@ namespace ControlCli
             UnityEngine.InputSystem.InputSystem.settings.backgroundBehavior = UnityEngine.InputSystem.InputSettings.BackgroundBehavior.IgnoreFocus;
 #endif
             go.AddComponent<FakeTouches>();
+            GameState.Watch();
             _self = go.AddComponent<ControlServer>();
         }
 
@@ -215,11 +229,43 @@ namespace ControlCli
                     return TypeText(c.target, c.text ?? "");
                 case "get":
                 {
-                    var item = Tree.Find(c.target, out var problem);
-                    if (!item.Exists) return Error(problem);
-                    // 컴포넌트 칸을 읽는다 — UI Toolkit 요소는 게임 오브젝트가 아니다.
-                    return item.Go == null ? Error(c.target + " 은 UI Toolkit 요소라 컴포넌트 칸이 없습니다 — text · find 로 읽습니다") : Props.Get(item.Go, c.prop);
+                    var go = GameObjectOf(c.target, out var problem);
+                    return go == null ? Error(problem) : Props.Get(go, c.prop);
                 }
+                case "set":
+                {
+                    var go = GameObjectOf(c.target, out var problem);
+                    return go == null ? Error(problem) : Props.Set(go, c.prop, c.value);
+                }
+                case "call":
+                {
+                    var go = GameObjectOf(c.target, out var problem);
+                    return go == null ? Error(problem) : Props.Call(go, c.method, c.args);
+                }
+                case "static-call":
+                    return Props.CallStatic(c.method, c.args);
+                case "static-get":
+                    return Props.GetStatic(c.prop);
+                case "static-set":
+                    return Props.SetStatic(c.prop, c.value);
+                case "pref-get":
+                    return GameState.PrefGet(c.key, c.type);
+                case "pref-set":
+                    return GameState.PrefSet(c.key, c.value, c.type);
+                case "pref-delete":
+                    return GameState.PrefDelete(c.key);
+                case "pref-clear":
+                    return GameState.PrefClear();
+                case "timescale-get":
+                    return GameState.TimeScale();
+                case "timescale-set":
+                    return GameState.SetTimeScale(c.scale);
+                case "scenes":
+                    return GameState.Scenes();
+                case "scene-load":
+                    return GameState.Load(c.name, c.mode);
+                case "scene-unload":
+                    return GameState.Unload(c.name);
                 case "errors":
                     return c.since < 0 ? Error("since 는 0 이상이어야 합니다") : GameErrors.Since(c.since);
                 case "layout":
@@ -239,6 +285,15 @@ namespace ControlCli
             if (text != null) sb.Append(",\"text\":").Append(Json.Str(text));
             if (Tree.KindOf(item) != null) sb.Append(",\"interactable\":").Append(Tree.Interactable(item) ? "true" : "false");
             return sb.Append('}').ToString();
+        }
+
+        // 컴포넌트를 가진 게임 오브젝트 — UI Toolkit 요소는 게임 오브젝트가 아니다.
+        private static GameObject GameObjectOf(string target, out string problem)
+        {
+            var item = Tree.Find(target, out problem);
+            if (!item.Exists) return null;
+            if (item.Go == null) problem = target + " 은 UI Toolkit 요소라 컴포넌트 칸이 없습니다 — text · find 로 읽습니다";
+            return item.Go;
         }
 
         private static bool Point(string target, out Vector2 point, out string problem)

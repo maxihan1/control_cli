@@ -193,12 +193,12 @@ test('게임 SDK 의 caps 에 없는 명령은 보내지 않고 미리 거절한
   }
 });
 
-test('conform — 표준 화면이면 16줄 통과, 다르면 종료 코드로 알린다', async () => {
+test('conform — 표준 화면이면 23줄 통과, 다르면 종료 코드로 알린다', async () => {
   const ok = await fakeTcp(standardScreen());
   const bad = await fakeTcp(new FakeGame([node('Boot')]));
   try {
     await cli('-s=cf', 'open', '--pc', '--port', String(ok.port));
-    assert.match(await cli('-s=cf', 'conform', '--port', String(ok.port)), /통과 16 · 실패 0 · 건너뜀 0/);
+    assert.match(await cli('-s=cf', 'conform', '--port', String(ok.port)), /통과 23 · 실패 0 · 건너뜀 0/);
     await cli('-s=cf', 'close');
     await cli('-s=cf2', 'open', '--pc', '--port', String(bad.port));
     await assert.rejects(cli('-s=cf2', 'conform', '--port', String(bad.port)), /통과 \d+ · 실패 [1-9]/);
@@ -206,6 +206,36 @@ test('conform — 표준 화면이면 16줄 통과, 다르면 종료 코드로 �
   } finally {
     ok.server.close();
     bad.server.close();
+  }
+});
+
+test('게임 상태 명령 — Ran 줄이 kit 의 game.* 이름 · 인자 꼴로 찍힌다', async () => {
+  const pc = await fakeTcp(standardScreen());
+  const gs = (...argv: string[]) => cli('-s=gs', ...argv, '--port', String(pc.port));
+  try {
+    await gs('open', '--pc');
+    assert.match(await gs('call', 'SampleCanvas', 'TouchProbe.Say', 'hi', '3'), /^Ran: await game\.callMethod\('SampleCanvas', 'TouchProbe\.Say', \['hi', '3'\]\)\n- 값: "hi 3"\n- Snapshot:/);
+    assert.match(await gs('set', 'StatusText', 'Text.text', 'x'), /^Ran: await game\.set\('StatusText', 'Text\.text', 'x'\)\n- 값: "x"/);
+    assert.match(await gs('static-call', 'Sample.TouchProbe.Add', '2', '3'), /^Ran: await game\.callStatic\('Sample\.TouchProbe\.Add', \['2', '3'\]\)\n- 값: 5/);
+    assert.match(await gs('static-set', 'Sample.TouchProbe.Note', 'n'), /^Ran: await game\.setStatic\('Sample\.TouchProbe\.Note', 'n'\)\n- 값: "n"/);
+    assert.equal(await gs('static-get', 'Sample.TouchProbe.Note'), "Ran: await game.getStatic('Sample.TouchProbe.Note')\n- 값: \"n\"");
+    assert.equal(await gs('pref-set', 'lv', '3', '--type', 'int'), "Ran: await game.setPref('lv', '3', 'int')");
+    assert.equal(await gs('pref-get', 'lv', '--type', 'int'), "Ran: await game.pref('lv', 'int')\n- 값: 3");
+    assert.equal(await gs('pref-get', 'nope'), "Ran: await game.pref('nope')\n- 값: null");
+    assert.equal(await gs('pref-delete', 'lv'), "Ran: await game.deletePref('lv')");
+    assert.equal(await gs('pref-clear'), 'Ran: await game.clearPrefs()');
+    assert.equal(await gs('timescale-set', '0.5'), 'Ran: await game.setTimeScale(0.5)');
+    assert.equal(await gs('timescale-get'), 'Ran: await game.timeScale()\n- 값: 0.5');
+    assert.match(await gs('scene-load', 'Second', '--add'), /^Ran: await game\.loadScene\('Second', \{ add: true \}\)\n- Snapshot:/);
+    assert.match(await gs('scenes'), /^Ran: await game\.scenes\(\)\n- 값: \{"active":"Sample","loaded":\["Sample","Second"\]/);
+    assert.match(await gs('scene-unload', 'Second'), /^Ran: await game\.unloadScene\('Second'\)\n- Snapshot:/);
+    assert.match(await gs('scene-wait', 'Sample', '--timeout', '5'), /^Ran: await game\.waitForScene\('Sample', \{ timeoutMs: 5000 \}\)/);
+    await assert.rejects(gs('timescale-set', 'fast'), /timescale-set <배율> 꼴이어야 합니다/);
+    await assert.rejects(gs('call', 'SampleCanvas'), /call <ref\|주소> <컴포넌트\.메서드> \[인자…\] 꼴이어야 합니다/);
+    await assert.rejects(gs('pref-get', 'lv', '--type', 'bool'), /--type 은 string · int · float 중 하나입니다/);
+    await gs('close');
+  } finally {
+    pc.server.close();
   }
 });
 
