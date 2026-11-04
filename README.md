@@ -117,9 +117,16 @@ macOS 의 usbmuxd 로 폰의 `127.0.0.1:13100` 에 명령마다 바로 잇는다
 | `drag <ref\|주소> <ref\|주소>` | 앞 자리에서 뒤 자리로 10프레임에 걸쳐 끈다 | `game.drag('/Hud/Bag/Slot[0]', '/Hud/Bag/Slot[3]')` |
 | `type <ref\|주소> <글자>` | InputField · TMP_InputField · UI Toolkit TextField 에 바로 넣는다(화면 키보드 없이). 글자 수 제한 · 거르기는 그 칸 규칙대로, 키로 칠 때의 차례(글자마다 거르고 거른 결과로 자름)다 — 글자 수 8 · 영숫자 칸에 `qa_user01!` 면 `qauser01`. uGUI · TMP 는 SDK 가 그 칸의 거르개를 글자마다 부른다. 비밀번호 칸이면 Ran 줄에 글자 대신 `'***'` | `game.type('IdInput', 'qa_user01')` |
 | `text <ref\|주소>` | 글자 읽기 | `game.text('StatusText')` |
-| `get <ref\|주소> <컴포넌트.칸>` | 속성 읽기 — 게임이 폰에서 셈하는 값. `material` · `materials` · `mesh` 는 읽기만 해도 사본을 만들어 거절한다(`shared…` 를 읽는다). UI Toolkit 요소는 컴포넌트가 없어 거절한다 | `game.get('Player', 'PlayerController.moveSpeed')` |
-| `find <ref\|주소>` | 있으면 `{path, text, interactable}`, 없으면 `null` | `game.find('ShopPanel')` |
-| `wait <ref\|주소> [--text 글자] [--gone] [--timeout 초]` | 뜰 때까지 · 글자가 들 때까지 · 사라질 때까지(기본 10초) | `game.waitFor('ShopPanel', { gone: true })` |
+| `get <ref\|주소> <컴포넌트.칸> [--inactive]` | 속성 읽기 — 게임이 폰에서 셈하는 값. `material` · `materials` · `mesh` 는 읽기만 해도 사본을 만들어 거절한다(`shared…` 를 읽는다). UI Toolkit 요소는 요소 칸을 바로(`value` · `text` · `layout.height`) | `game.get('Player', 'PlayerController.moveSpeed')` |
+| `find <ref\|주소> [--inactive] [--camera 주소]` | 있으면 `{path, text?, interactable?, id?, x?, y?, active?}`(`x` · `y` 는 화면 가운데 · 왼쪽 아래 0,0), 없으면 `null` | `game.find('//*[@tag=Boss]')` |
+| `find-all <주소> [--inactive] [--camera 주소]` | 맞는 것 전부 — 없으면 빈 목록 | `game.findAll('//Inventory/Slot')` |
+| `find-at <x> <y> [--camera 주소]` | 좌표의 맨 위(UI Toolkit → uGUI → 3D · 2D 물리) — 살펴볼 때만. 버튼 속 글자가 맞을 수 있다 | 없음 |
+| `parent <ref\|주소>` | 부모(`<경로>/..`) — 뿌리면 `null` | `game.parent('Item')` |
+| `components <ref\|주소>` · `members <ref\|주소> <컴포넌트>` | 붙은 컴포넌트 `{name, type}` · 그 스크립트가 선언한 필드 · 속성(타입 · 값) · 메서드(인자 타입). Unity 부모(MonoBehaviour …) 칸은 뺀다 | `game.components('Player')` · `game.members('Player', 'PlayerController')` |
+| `text-set <ref\|주소> <글자>` | 글자 컴포넌트(Text · TMP_Text · UI Toolkit Label/Button)의 글자를 바꾼다. 입력칸은 거절(`type`) | `game.setText('Title', '테스트')` |
+| `wait <ref\|주소> [--text 글자] [--gone] [--timeout 초]` | 뜰 때까지 · 글자가 들 때까지 · 사라질 때까지(기본 10초 — `config --wait`) | `game.waitFor('ShopPanel', { gone: true })` |
+| `wait-prop <ref\|주소> <칸> <값> [--timeout 초] [--inactive]` | 칸 값이 될 때까지 `get` 을 되풀이(UI Toolkit 요소도). `'10'` · `10` · `'[0, 1, 0]'` 을 같게 본다 | `game.waitForProp('Score', 'Text.text', '10')` |
+| `config [--wait 초]` | 이 세션의 `wait` · `wait-prop` 기본 한도(장면 기다림 30초는 그대로) | 없음 |
 | `layout [ref\|주소]` | 누를 수 있는 UI 가 안전 영역 밖이거나 서로 겹치는지(팝업에 가린 것은 뺀다) | `game.layout('LoginView')` |
 | `call <ref\|주소> <컴포넌트.메서드> [인자…]` | 컴포넌트 메서드를 부르고 돌려준 값을 찍는다. 인자는 글자로 보내고 SDK 가 메서드 칸 타입(숫자 · 참거짓 · 열거 이름 · `[x,y,z]` 벡터 · 색)으로 바꾼다 — 같은 이름 꼴이 여럿이면 인자 수가 맞고 다 바꿀 수 있는 첫 꼴 | `game.callMethod('Player', 'PlayerController.Jump', ['2'])` |
 | `set <ref\|주소> <컴포넌트.칸> <값>` | 칸 쓰기 — 값은 `get` 이 주는 꼴. `Transform.position.y` 처럼 값 타입 칸도 바꾼 사본을 다시 써 넣는다. 다시 읽은 값을 찍는다 | `game.set('Player', 'PlayerController.moveSpeed', '9')` |
@@ -131,9 +138,22 @@ macOS 의 usbmuxd 로 폰의 `127.0.0.1:13100` 에 명령마다 바로 잇는다
 | `key <키>` | 키 한 번(한 프레임 누르고 다음 프레임 뗀다). KeyCode 이름 — `Escape` · `Space` · `Return` · `I` · `Alpha1` · `F1`. 옛 Input `GetKey*(KeyCode)` · Input System 키보드가 본다. `Escape` 는 Unity 에서 폰 뒤로 키와 같다 | `game.key('Escape')` |
 | `tap <x> <y>` | 좌표 누르기(왼쪽 아래가 0,0) — 살펴볼 때만. 케이스는 좌표를 쓰지 않는다 | 없음 |
 | `ping` · `tree` | 게임 답 · 켜진 오브젝트 트리 JSON | 없음 |
+| `snapshot [--png]` | 줄인 목록 + 스크린샷 파일 — `--png` 은 Appium 이 없는 길(PC · iOS · USB)에서 게임이 PNG 로 찍는다(SDK 0.5.0) | 없음 |
 | `conform` | 표준 화면(샘플)에 명령을 차례로 보내 기대값과 견준다 — `open` 바로 뒤에. 게임 SDK 의 `caps` 에 없는 명령 줄은 건너뛰고, 실패가 있으면 종료 코드 1 | 없음 |
 
-**주소**는 오브젝트 이름(켜진 것 중 하나뿐일 때) 또는 `/` 로 시작하는 경로다. 같은 이름 형제는 경로 칸에 `[순번]`(0부터)을 붙인다 — `/HudCanvas/Inventory/Grid/Slot[2]`. 이름이 겹치면 고르지 않고 실패한다. UI Toolkit 요소는 UIDocument 오브젝트 아래 자식으로 이어진다(이름이 없으면 타입 이름) — `/UitkDocument/UitkPanel/UitkLoginButton`.
+**주소**는 오브젝트 이름(켜진 것 중 하나뿐일 때) · `/` 로 시작하는 경로 · 선택자(AltTester PATH 꼴의 일부 — SDK 0.5.0)다. 같은 이름 형제는 경로 칸에 `[순번]`(0부터)을 붙인다 — `/HudCanvas/Inventory/Grid/Slot[2]`. 여럿이 맞으면 고르지 않고 실패한다(`find-all` 로 경로를 본다). UI Toolkit 요소는 UIDocument 오브젝트 아래 자식으로 이어진다(이름이 없으면 타입 이름) — `/UitkDocument/UitkPanel/UitkLoginButton`.
+
+| 선택자 | 뜻 | 예 |
+|---|---|---|
+| `/` · `//` | 바로 아래 · 아래 어디서나 | `//Bag/Slot` |
+| `*` | 아무 이름 | `/Canvas/*` |
+| `..` | 부모 | `//*[@text=확인]/..` — 글자의 버튼 |
+| `[@칸=값]` | 칸이 값과 같다 — `name` · `tag` · `layer`(이름 · 번호) · `component`(붙은 컴포넌트 · UI Toolkit 요소 타입) · `text` · `id` | `//*[@tag=Player]` · `//*[@component=Button]` |
+| `[contains(@칸,값)]` | 값이 들어 있다 | `//*[contains(@name,Slot)]` |
+| `[…][…]` | 조건을 모두 | `//*[@tag=Enemy][@layer=Water]` |
+| `[n]` · `[-1]` | 그 단계에 맞은 형제 중 n번째(0부터) · 마지막 | `//Bag/Slot[-1]` |
+
+값 양끝 공백은 떼고 `'…'` · `"…"` 는 벗긴다. `id` 는 QA 빌드가 장면 오브젝트에 붙인 **영구 id**(장면 파일 속 번호 — 빌드마다 같다) 또는 instance id(실행 중 만든 오브젝트 — 켤 때마다 바뀐다)다. 읽기 · 쓰기 명령(`find` · `get` · `set` · `call` · `components` · `members` · `text-set`)은 `--inactive` 로 꺼진 오브젝트도 찾는다 — 그때 경로 순번은 꺼진 형제까지 센다. 월드 오브젝트의 화면 자리는 `--camera <카메라 오브젝트 주소>` 로 고른 카메라로 셈한다(기본 주 카메라).
 액션 뒤에는 트리가 두 번 같을 때까지(3초 상한) 기다렸다 화면을 찍는다. **기다리기**는 0.3초마다 짧은 `find` 를 되풀이한다 — 명령 하나가 팜 15초 · SDK 10초 한도에 안 걸린다.
 
 ### 창 훑기
@@ -173,7 +193,7 @@ Desktop 은 셸의 PATH 를 안 볼 수 있다 — `control-cli` · `node` 를 �
 | 도구 | 하는 일 |
 |---|---|
 | `hold` · `open` · `close` · `release` | 세션 — CLI 의 같은 명령. `open` 의 `via` 는 `farm`(기본 · `hold` 먼저) · `usb` · `pc` · `ios` |
-| `ping` · `tree` · `find` · `click` · `drag` · `type` · `get` · `tap` · `key` · `screenshot` · `errors` · `layout` · `call` · `set` · `static-call` · `static-get` · `static-set` · `pref-get` · `pref-set` · `pref-delete` · `pref-clear` · `timescale-get` · `timescale-set` · `scenes` · `scene-load` · `scene-unload` | `protocol/commands.json` 의 명령 그대로 — 인자는 그 칸, 답은 SDK 답 JSON(`ok` 뺌). `screenshot` 은 그림으로 준다. `scene-load` 는 열기 시작만 하니 `scenes` 로 다 열렸는지 본다 |
+| `ping` · `tree` · `find` · `click` · `drag` · `type` · `get` · `tap` · `key` · `screenshot` · `errors` · `layout` · `call` · `set` · `static-call` · `static-get` · `static-set` · `pref-get` · `pref-set` · `pref-delete` · `pref-clear` · `timescale-get` · `timescale-set` · `scenes` · `scene-load` · `scene-unload` · `find-all` · `find-at` · `components` · `members` · `text-set` | `protocol/commands.json` 의 명령 그대로 — 인자는 그 칸, 답은 SDK 답 JSON(`ok` 뺌). `screenshot` 은 그림으로 준다(`format: png` 면 PNG). `scene-load` 는 열기 시작만 하니 `scenes` 로 다 열렸는지 본다. 부모는 `find` 에 `<경로>/..` |
 
 - 명령을 `protocol/commands.json` 에 더하면 도구도 따라 는다(`src/mcp.test.ts` 가 잡는다)
 - 세션 파일은 `~/.control-cli/` — Claude Desktop 은 MCP 서버를 쓸 수 없는 `/` 에서 띄운다. 셸 CLI 의 `./.control-cli/` 와 따로다. `-s <세션>` · `--port` · `--url` · `--token` 은 `control-cli … mcp` 로 띄울 때 준다
@@ -200,14 +220,16 @@ Desktop 은 셸의 PATH 를 안 볼 수 있다 — `control-cli` · `node` 를 �
 |---|---|---|
 | `ping` | | `{ok, app, version, engine, engineVersion, sdkVersion, protocol, caps}` — `engine` 부터는 protocol 2(SDK 0.3.0)부터. CLI 는 `open` 때 받은 `caps` 밖 명령을 보내지 않고 거절한다. 명령 정의는 `protocol/commands.json` |
 | `tree` | | `{ok, scene, screen:[w,h], tree:[{name, text?, kind?, interactable?, children?}]}` — 켜진 오브젝트만. `kind` 는 Selectable 종류(Button · Toggle · InputField · TMP_InputField …) 또는 UI Toolkit 컨트롤(Button · Toggle · RadioButton · TextField · DropdownField · Slider). `text` 는 Text · InputField · TextMeshPro(TMP_Text · TMP_InputField) · UI Toolkit(TextElement · TextField). UI Toolkit 은 숨은 요소(display none · 안 보임)를 빼고 컨트롤 속은 내보내지 않는다. 비밀번호 칸 글자는 `***` |
-| `find` | `target` | `{ok, found:false}` 또는 `{ok, found:true, path, text?, interactable?}` — 이름이 겹치면 실패 |
-| `click` | `target` | `{ok, x, y}` — 가짜 터치가 다 나가고 게임이 처리한 뒤 답한다 |
-| `drag` | `target` · `to` | `{ok, x, y}` — 위와 같다 |
+| `find` | `target` · `inactive`? · `camera`? | `{ok, found:false}` 또는 `{ok, found:true, path, text?, interactable?, id?, x?, y?, active?}` — 여럿이 맞거나 꼴이 틀리면 실패. `id` 는 게임 오브젝트만, `x` · `y` 는 켜지고 화면에 비친 것만, `active:false` 는 `inactive` 로 찾은 꺼진 것. 선택자 · `inactive` · `camera` 는 SDK 0.5.0 부터 |
+| `find-all` | `target` · `inactive`? · `camera`? | `{ok, found:[…]}` — `find` 의 칸 목록, 없으면 빈 목록 |
+| `find-at` | `x` · `y` · `camera`? | `find` 와 같은 답 — UI Toolkit(맨 앞 panel) → uGUI(EventSystem raycast) → 3D · 2D 물리 차례, 트리에 없는 속 칸은 트리에 있는 조상으로 |
+| `click` | `target` · `camera`? | `{ok, x, y}` — 가짜 터치가 다 나가고 게임이 처리한 뒤 답한다. 켜진 것만 |
+| `drag` | `target` · `to` · `camera`? | `{ok, x, y}` — 위와 같다 |
 | `type` | `target` · `text` | `{ok, text}` — 넣은 뒤 칸 글자. 잠긴 칸은 실패 |
-| `get` | `target` · `prop`(`컴포넌트.칸[.칸…]`) | `{ok, value}` — 숫자 · 글자 · 참거짓 · 열거(이름) · 벡터 · 색은 배열, 그 밖은 글자 |
+| `get` | `target` · `prop`(`컴포넌트.칸[.칸…]`, UI Toolkit 요소는 `칸[.칸…]`) · `inactive`? | `{ok, value}` — 숫자 · 글자 · 참거짓 · 열거(이름) · 벡터 · 색은 배열, 그 밖은 글자 |
 | `tap` | `x` · `y` | `{ok, x, y}` |
 | `key` | `key`(KeyCode 이름, 대소문자 무시) | `{ok, key}` — 누르고 뗀 것을 게임이 처리한 뒤 답한다. 모르는 이름은 실패 |
-| `screenshot` | | `{ok, jpg}` — 프레임 끝에서 찍은 화면(JPEG base64). 수 MB 라 팜은 Appium 스크린샷을 쓴다. ImageConversion 모듈을 뺀 게임은 실패 |
+| `screenshot` | `format`?(`jpg` · `png`) | `{ok, jpg}` 또는 `{ok, png}` — 프레임 끝에서 찍은 화면(base64). 수 MB 라 팜은 Appium 스크린샷을 쓴다. ImageConversion 모듈을 뺀 게임은 실패. `png` 는 SDK 0.5.0 부터 |
 | `errors` | `since` | `{ok, last, errors:[{seq, time, type, message, stack}], dropped?, restarted?}` |
 | `layout` | `target`? | `{ok, screen, safeArea, checked, problems:[{kind:'outside'\|'overlap', name, path, rect?, other?, otherPath?}]}` |
 | `call` | `target` · `method`(`컴포넌트.메서드`) · `args`?(글자 배열) | `{ok, value}` — void 는 `null`. 맞는 꼴이 없으면 있는 꼴을 실패 글에. 게임이 던지면 그 까닭 |
@@ -220,6 +242,9 @@ Desktop 은 셸의 PATH 를 안 볼 수 있다 — `control-cli` · `node` 를 �
 | `scenes` | | `{ok, active, loaded:[이름], loads, unloads}` — 다 열린 장면만. `loads` · `unloads` 는 게임이 켜진 뒤 열리고 닫힌 수 |
 | `scene-load` | `name`(이름 · 경로) · `mode`?(`single` · `add`) | `{ok, loads}` — 열기 전 수를 주고 바로 답한다. `scenes` 의 `loads` 가 이보다 커지면 다 열렸다. 빌드에 없는 장면은 실패 |
 | `scene-unload` | `name` | `{ok, unloads}` — 위와 같다. 마지막 장면은 실패 |
+| `components` | `target` · `inactive`? | `{ok, components:[{name, type}]}` — SDK 0.5.0 부터(아래도) |
+| `members` | `target` · `component` · `inactive`? | `{ok, fields:[{name, type, value?, readOnly?, static?}], properties:[…], methods:[{name, args, returns, static?}]}` — 그 타입에서 Unity 부모 앞까지 선언한 것. 값은 읽다 던지거나 사본 속성이면 없다 |
+| `text-set` | `target` · `text` · `inactive`? | `{ok, text}` — 다시 읽은 글자. 입력칸 · 글자 컴포넌트가 없는 것은 실패 |
 
 ## 개발
 

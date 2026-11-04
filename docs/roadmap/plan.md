@@ -5,23 +5,23 @@
 
 ## 1. 기준 — AltTester 기능 목록
 
-기준은 AltTester 문서 [명령 목록](https://alttester.com/docs/sdk/latest/pages/commands.html)(설정 명령 5개를 뺀 68개)과 [Desktop 개요](https://alttester.com/docs/desktop/latest/pages/overview.html)다. 2026-11-03 지금 control_cli 는 명령 기준 22.5/68(약 33%), P2-A 뒤 37.5/68(약 55%).
+기준은 AltTester 문서 [명령 목록](https://alttester.com/docs/sdk/latest/pages/commands.html)(설정 명령 5개를 뺀 68개)과 [Desktop 개요](https://alttester.com/docs/desktop/latest/pages/overview.html)다. 2026-11-03 지금 control_cli 는 명령 기준 22.5/68(약 33%), P2-A 뒤 37.5/68(약 55%), P2-B 뒤 약 52.5/68(약 77% — 찾기 5 · 오브젝트 9.5 · PNG 0.5).
 ✓ 는 지금 있음, 단계는 넣을 곳.
 
 | AltTester 갈래 | 명령 · 기능 | 지금 | 단계 |
 |---|---|---|---|
 | 찾기 | FindObject · GetAllElements · WaitForObject · WaitForObjectNotBePresent | ✓ `find` · `tree` · `wait` · `wait --gone` | — |
-| 찾기 | FindObjects · FindObjectWhichContains · FindObjectsWhichContain · WaitForObjectWhichContains · FindObjectAtCoordinates · 선택자(By NAME · PATH · TAG · LAYER · COMPONENT · TEXT · ID) | | P2-B |
-| 설정 | SetCommandResponseTimeout · Get/SetDelayAfterCommand · Get/SetImplicitTimeout | 고정값 | P2-B |
+| 찾기 | FindObjects · FindObjectWhichContains · FindObjectsWhichContain · WaitForObjectWhichContains · FindObjectAtCoordinates · 선택자(By NAME · PATH · TAG · LAYER · COMPONENT · TEXT · ID) · 꺼진 오브젝트(`enabled: false`) · 카메라(`cameraBy`) | ✓ `find-all` · `//*[contains(@name,…)]` · `wait` 에 선택자 · `find-at` · AltTester PATH 꼴 선택자(`@tag` · `@layer` · `@component` · `@text` · `@id` 영구 id) · `inactive` · `camera` | P2-B |
+| 설정 | SetCommandResponseTimeout · Get/SetDelayAfterCommand · Get/SetImplicitTimeout | ✓ `config --wait`(ImplicitTimeout). 명령 시간 초과 · 명령 뒤 쉼은 필요 없음 — 기다리기를 CLI 가 짧은 명령 되풀이로 해 명령 하나가 1초 안팎(사용자) | P2-B |
 | 입력 | PressKey · Click · Tap(좌표) · Swipe | ✓ `key` · `tap` · `drag` | — |
 | 입력 | KeyDown · KeyUp · HoldButton · PressKeys · MoveMouse · Scroll · MultipointSwipe · BeginTouch · MoveTouch · EndTouch · Tilt · ResetInput · 조이스틱 · Pointer Down/Up/Enter/Exit | | P2-C |
-| 스크린샷 | GetPNGScreenshot | ✓ JPEG | P2-B(PNG 고르기) |
+| 스크린샷 | GetPNGScreenshot | ✓ JPEG · PNG(`screenshot {format: png}` · `snapshot --png`) | P2-B |
 | 게임 상태 | GetCurrentScene · GetApplicationScreenSize | ✓ `tree` 의 `scene` · `screen` | — |
 | 게임 상태 | LoadScene · UnloadScene · GetAllLoadedScenes · WaitForCurrentSceneToBe · Get/SetTimeScale · PlayerPrefs(읽기 · 쓰기 · 키 지우기 · 다 지우기) · CallStaticMethod · Get/SetStaticProperty | ✓ `scene-load` · `scene-unload` · `scenes` · `scene-wait`(CLI) · `timescale-get/set` · `pref-get/set/delete/clear` · `static-call/get/set` | P2-A |
 | 오브젝트 | FindObjectFromObject · GetComponentProperty · GetText · SetText(입력칸) · Tap · Click · UpdateObject · GetWorldPosition | ✓ 경로 주소 · `get` · `text` · `type` · `click` | — |
 | 오브젝트 | CallComponentMethod · SetComponentProperty | ✓ `call` · `set` | P2-A |
-| 오브젝트 | WaitForComponentProperty · GetParent · GetScreenPosition · SetText(글자 컴포넌트) · 컴포넌트 · 필드 · 메서드 목록 | | P2-B |
-| 오브젝트 | GetVisualElementProperty · WaitForVisualElementProperty(UI Toolkit) | | P2-B |
+| 오브젝트 | WaitForComponentProperty · GetParent · GetScreenPosition · SetText(글자 컴포넌트) · 컴포넌트 · 필드 · 메서드 목록 | ✓ `wait-prop` · `parent`(`/..`) · `find` 답 `x,y` · `text-set` · `components` · `members` | P2-B |
+| 오브젝트 | GetVisualElementProperty · WaitForVisualElementProperty(UI Toolkit) | ✓ 요소에 `get` · `wait-prop`(`value` · `text` · `layout.height`) | P2-B |
 | 알림 | 장면 열림 · 닫힘 · 로그 · 앱 일시정지 · SetServerLogging | `errors`(오류만) | P2-D |
 | 연결 | Android 역방향 포트 연결 · iOS 역방향 · AltTester Server(로컬 · 원격 중계) | ✓ adb forward · 팜 · usbmuxd | P3 |
 | 플랫폼 | Android · iOS · Windows · macOS | ✓ | — |
@@ -70,7 +70,7 @@
 | **P0** 바탕 | 통신 꼴 v2(`ping` caps) · `protocol/commands.json` · `conform` · `sdk/` → `sdk/unity/` · instrument 경로 | Unity 샘플에서 `conform` 초록(지금 명령만) | 1~2일 |
 | **P1** MCP | `control-cli mcp` — stdio MCP 서버가 CLI 의 `Game` 위에서 `protocol/commands.json` 의 명령을 도구로 내준다(따로 띄우는 프로그램 아님 — AI 앱이 이 명령을 실행) | Claude Desktop 에서 Unity 샘플 `conform` 차례를 MCP 도구로 돌림 | 1일 |
 | **P2-A** Unity 게임 상태 | 메서드 호출(컴포넌트 · static) · 속성 쓰기 · static 속성 · PlayerPrefs · timeScale · 장면 열기 · 닫기 · 목록 · 기다리기 | `conform` A 줄 초록 · 팜 | 1~2일 |
-| **P2-B** Unity 찾기 · 설정 | 선택자(이름 일부 · 태그 · 레이어 · 컴포넌트 · 글자 · id) · 여러 개 · 좌표로 찾기 · 부모 · 화면 좌표 · 속성 값 기다리기 · 컴포넌트/필드/메서드 목록 · UI Toolkit 속성 · 시간 초과 · 명령 뒤 쉼 설정 · PNG | `conform` B 줄 초록 | 1~2일 |
+| **P2-B** Unity 찾기 · 설정 | 선택자(AltTester PATH 꼴 — 이름 일부 · 태그 · 레이어 · 컴포넌트 · 글자 · id) · 여러 개 · 좌표로 찾기 · 꺼진 오브젝트 · 카메라 · 영구 id · 부모 · 화면 좌표 · 속성 값 기다리기 · 컴포넌트/필드/메서드 목록 · UI Toolkit 속성 · 기본 기다림 설정 · PNG | `conform` B 줄 초록 | 2~3일 |
 | **P2-C** Unity 입력 | 여러 손가락(`FakeTouches` 를 손가락 여럿으로) · 누름/움직임/뗌 따로 · 여러 점 끌기 · 스크롤 · 길게 누르기 · 키 누름/뗌 · 여러 키 · 마우스 옮기기 · 기울이기 · 조이스틱 · Pointer 이벤트 · 입력 거두기 — 옛 Input · Input System · UI Toolkit 세 길 | `conform` C 줄 초록(Android · macOS) | 3~4일 |
 | **P2-D** Unity 알림 | 장면 · 로그 · 일시정지 알림(가져가기 방식 — `errors` 처럼 번호 뒤만) · SDK 로그 켜고 끄기 | `conform` D 줄 초록 | 반나절~1일 |
 | **P3** 연결 · 플랫폼 | `control-cli relay`(WebSocket · 원격) · Unity WebGL · Linux 빌드 · iOS 역방향 | WebGL · Linux 샘플 `conform` 초록 | 3~5일 |
