@@ -10,7 +10,7 @@ import { back, call, connect, farmOf, openSession, screenshot, type Conn } from 
 import { conform, report } from './conform.js';
 import { crawl, CRAWL } from './crawl.js';
 import { installAndLaunch, terminate } from './devicectl.js';
-import { Game, settled, type PingReply, type PrefType, type WaitOptions } from './game.js';
+import { Game, settled, WAIT, type FindOptions, type PingReply, type PrefType, type WaitOptions } from './game.js';
 import { instrument } from './instrument.js';
 import { farmLink, GAME_PORT, iosLink, tcpLink, usbLink, type Command, type Reply } from './link.js';
 import { serve } from './mcp.js';
@@ -28,6 +28,8 @@ interface Session {
   pid?: number;
   /** open 때 ping 으로 받은 게임 SDK 의 명령 목록 — 밖의 명령은 보내기 전에 거절한다 */
   caps?: string[];
+  /** config --wait — wait · wait-prop 의 기본 한도 */
+  waitMs?: number;
   refs: Record<string, string>;
 }
 
@@ -48,13 +50,19 @@ export const HELP = `control-cli [-s=<세션>] <명령>
   open --usb [--app <APK>] [--udid <serial>]      USB 폰 — app 이 있으면 내 컴퓨터 Appium 이 깔고 켠다
   open --pc [--app <실행 파일 · .app>]            내 컴퓨터의 PC 게임 — app 이 있으면 띄우고 close 가 끈다
   open --ios [--app <서명된 .app>] [--udid <UDID>]  USB iPhone(usbmuxd) — app 이 있으면 devicectl 로 깔고 켠다(Xcode 15+ · iOS 17+)
-  snapshot                                         줄인 오브젝트 목록 + 스크린샷 파일
+  snapshot [--png]                                 줄인 오브젝트 목록 + 스크린샷 파일(--png 은 게임이 PNG 로)
   click <ref|주소>                                 Ran: await game.click('LoginButton')
   drag <ref|주소> <ref|주소>
   type <ref|주소> <글자>
   text <ref|주소>                                  글자 읽기
   get <ref|주소> <컴포넌트.칸>                     속성 읽기 (PlayerController.moveSpeed)
-  find <ref|주소>
+  find <ref|주소> [--inactive] [--camera <주소>]     답의 x · y 는 화면 가운데 · inactive 는 꺼진 것도
+  find-all <주소> [--inactive] [--camera <주소>]    맞는 것 전부
+  find-at <x> <y> [--camera <주소>]                 좌표의 맨 위(살펴볼 때만 — Ran 줄 없음)
+  parent <ref|주소> · components <ref|주소> · members <ref|주소> <컴포넌트>   부모 · 컴포넌트 목록 · 칸 · 메서드 목록
+  text-set <ref|주소> <글자>                        글자 컴포넌트(Text · TMP · UI Toolkit Label/Button)에 글자 — 입력칸은 type
+  wait-prop <ref|주소> <컴포넌트.칸> <값> [--timeout <초>]   칸 값이 될 때까지
+  config [--wait <초>]                              wait · wait-prop 의 기본 한도(세션에 적는다)
   call <ref|주소> <컴포넌트.메서드> [인자…]        메서드 부르기 — 인자는 글자로, 게임이 칸 타입으로 바꾼다
   set <ref|주소> <컴포넌트.칸> <값>                칸 쓰기 — 값은 get 꼴(2.5 · true · [0,1,0] · 열거 이름)
   static-call <타입.메서드> [인자…] · static-get <타입.칸> · static-set <타입.칸> <값>
@@ -74,7 +82,8 @@ export const HELP = `control-cli [-s=<세션>] <명령>
   release [--udid <serial>]                        폰을 놓는다 — 팜이 깐 게임 · 데이터를 지운다
   instrument <Unity 프로젝트 폴더> [--ref <커밋>]  QA 빌드에 SDK 를 넣는다
 
-주소는 오브젝트 이름(하나뿐일 때) 또는 /Canvas/Panel/Slot[2] 경로. ref(e3)는 마지막 화면에서만 쓴다.
+주소는 오브젝트 이름(하나뿐일 때) · /Canvas/Panel/Slot[2] 경로 · //*[@tag=Player] · //*[contains(@name,Slot)] · //*[@text=OK]/.. 선택자(AltTester PATH 꼴).
+읽기 · 쓰기 명령(get · set · call · text-set …)은 --inactive 로 꺼진 것도, 누르기 · 끌기는 --camera 로 카메라를 고른다. ref(e3)는 마지막 화면에서만 쓴다.
 연결: --url 또는 PLATFORM_APPIUM_URL (없으면 http://127.0.0.1:4723) · 토큰: --token 또는 PLATFORM_APPIUM_TOKEN
 앱: --app 또는 PLATFORM_APP · 폰: --udid 또는 PLATFORM_DEVICE_UDID · USB 게임 포트: --port (기본 ${GAME_PORT})`;
 
@@ -126,6 +135,10 @@ export async function run(argv: string[], o: Options): Promise<string> {
       ref: { type: 'string' },
       type: { type: 'string' },
       add: { type: 'boolean' },
+      inactive: { type: 'boolean' },
+      camera: { type: 'string' },
+      png: { type: 'boolean' },
+      wait: { type: 'string' },
     },
   });
   const [name, ...args] = positionals;
@@ -254,6 +267,21 @@ export async function run(argv: string[], o: Options): Promise<string> {
     return values.type as PrefType;
   };
   const typed = () => (values.type === undefined ? [] : [quote(values.type)]);
+  // --inactive · --camera — Game 옵션과 Ran 줄의 { … } 칸을 같이 만든다. 그 명령이 받는 것만.
+  const flags = (...which: ('inactive' | 'camera')[]) => {
+    const o: FindOptions = {};
+    const shown: string[] = [];
+    if (which.includes('inactive') && values.inactive) {
+      o.inactive = true;
+      shown.push('inactive: true');
+    }
+    if (which.includes('camera') && values.camera !== undefined) {
+      o.camera = target(values.camera, '카메라 주소');
+      shown.push(`camera: ${quote(o.camera)}`);
+    }
+    return { o, shown: opts(shown) };
+  };
+  const waitLine = () => `- 기본 기다림 ${(s.waitMs ?? WAIT.timeoutMs) / 1000}초 — wait · wait-prop (장면 기다림은 ${WAIT.sceneMs / 1000}초)`;
   // 장면 기다리기 한도 — Ran 줄에도 같은 칸을 싣는다.
   const timeout = (): { timeoutMs?: number; shown: string[] } => {
     if (values.timeout === undefined) return { shown: [] };
@@ -273,16 +301,18 @@ export async function run(argv: string[], o: Options): Promise<string> {
     case 'tree':
       return JSON.stringify(await game.tree());
     case 'snapshot':
-      return shot(game, s, appium, file, sname, o.dir);
+      return shot(game, s, appium, file, sname, o.dir, false, values.png === true);
     case 'click': {
       const a = target(args[0]);
-      await game.click(a);
-      return after(ran('click', quote(a)));
+      const f = flags('camera');
+      await game.click(a, f.o);
+      return after(ran('click', quote(a), ...f.shown));
     }
     case 'drag': {
       const [a, b] = [target(args[0]), target(args[1], '놓을 자리')];
-      await game.drag(a, b);
-      return after(ran('drag', quote(a), quote(b)));
+      const f = flags('camera');
+      await game.drag(a, b, f.o);
+      return after(ran('drag', quote(a), quote(b), ...f.shown));
     }
     case 'type': {
       const a = target(args[0]);
@@ -299,11 +329,62 @@ export async function run(argv: string[], o: Options): Promise<string> {
     case 'get': {
       const a = target(args[0]);
       if (args[1] === undefined) throw new Error('get <ref|주소> <컴포넌트.칸> 꼴이어야 합니다');
-      return `${ran('get', quote(a), quote(args[1]))}\n- 값: ${JSON.stringify(await game.get(a, args[1]))}`;
+      const f = flags('inactive');
+      return `${ran('get', quote(a), quote(args[1]), ...f.shown)}\n- 값: ${JSON.stringify(await game.get(a, args[1], f.o))}`;
     }
-    case 'find': {
+    case 'find':
+    case 'find-all': {
       const a = target(args[0]);
-      return `${ran('find', quote(a))}\n- 값: ${JSON.stringify(await game.find(a))}`;
+      const f = flags('inactive', 'camera');
+      const v = name === 'find' ? await game.find(a, f.o) : await game.findAll(a, f.o);
+      return `${ran(name === 'find' ? 'find' : 'findAll', quote(a), ...f.shown)}\n- 값: ${JSON.stringify(v)}`;
+    }
+    case 'find-at': {
+      const [x, y] = args.map(Number);
+      if (args.length !== 2 || !Number.isFinite(x) || !Number.isFinite(y)) throw new Error('find-at <x> <y> [--camera <주소>] 꼴이어야 합니다');
+      // 좌표는 살펴볼 때만 — tap 처럼 Ran 줄 없이 맞은 것의 주소를 준다.
+      const hit = await game.findAt(x, y, flags('camera').o);
+      return hit ? `- 좌표 (${x}, ${y}) 의 맨 위: ${hit.path} — 케이스에는 주소로 씁니다` : `- 좌표 (${x}, ${y}) 에 맞는 것이 없습니다`;
+    }
+    case 'parent': {
+      const a = target(args[0]);
+      const f = flags('inactive');
+      return `${ran('parent', quote(a), ...f.shown)}\n- 값: ${JSON.stringify(await game.parent(a, f.o))}`;
+    }
+    case 'wait-prop': {
+      const a = target(args[0]);
+      if (args[1] === undefined || args[2] === undefined) throw new Error('wait-prop <ref|주소> <컴포넌트.칸> <값> [--timeout <초>] [--inactive] 꼴이어야 합니다');
+      const t = timeout();
+      const f = flags('inactive');
+      await game.waitForProp(a, args[1], args[2], { ...f.o, timeoutMs: t.timeoutMs });
+      return ran('waitForProp', quote(a), quote(args[1]), quote(args[2]), ...opts([...t.shown, ...(f.o.inactive ? ['inactive: true'] : [])]));
+    }
+    case 'components': {
+      const a = target(args[0]);
+      const f = flags('inactive');
+      return `${ran('components', quote(a), ...f.shown)}\n- 값: ${JSON.stringify(await game.components(a, f.o))}`;
+    }
+    case 'members': {
+      const a = target(args[0]);
+      if (args[1] === undefined) throw new Error('members <ref|주소> <컴포넌트> 꼴이어야 합니다');
+      const f = flags('inactive');
+      return `${ran('members', quote(a), quote(args[1]), ...f.shown)}\n- 값: ${JSON.stringify(await game.members(a, args[1], f.o))}`;
+    }
+    case 'text-set': {
+      const a = target(args[0]);
+      if (args[1] === undefined) throw new Error('text-set <ref|주소> <글자> 꼴이어야 합니다');
+      const f = flags('inactive');
+      const now = await game.setText(a, args[1], f.o);
+      return after(`${ran('setText', quote(a), quote(args[1]), ...f.shown)}\n- 칸 글자: ${JSON.stringify(now)}`);
+    }
+    case 'config': {
+      if (values.wait !== undefined) {
+        const sec = Number(values.wait);
+        if (!(sec > 0)) throw new Error('--wait 은 0 보다 큰 초입니다');
+        s.waitMs = sec * 1000;
+        await save(file, s);
+      }
+      return waitLine();
     }
     case 'wait': {
       const a = target(args[0]);
@@ -351,14 +432,17 @@ export async function run(argv: string[], o: Options): Promise<string> {
       const a = target(args[0]);
       const [method, ...rest] = args.slice(1);
       if (method === undefined) throw new Error('call <ref|주소> <컴포넌트.메서드> [인자…] 꼴이어야 합니다');
-      const v = await game.callMethod(a, method, rest);
-      return after(`${ran('callMethod', quote(a), quote(method), ...list(rest))}\n${value(v)}`);
+      const f = flags('inactive');
+      const v = await game.callMethod(a, method, rest, f.o);
+      // 인자가 없어도 옵션이 있으면 빈 배열 자리를 채운다 — kit 의 callMethod(target, method, args, options) 차례.
+      return after(`${ran('callMethod', quote(a), quote(method), ...(f.shown.length && !rest.length ? ['[]'] : list(rest)), ...f.shown)}\n${value(v)}`);
     }
     case 'set': {
       const a = target(args[0]);
       if (args[1] === undefined || args[2] === undefined) throw new Error('set <ref|주소> <컴포넌트.칸> <값> 꼴이어야 합니다');
-      const v = await game.set(a, args[1], args[2]);
-      return after(`${ran('set', quote(a), quote(args[1]), quote(args[2]))}\n${value(v)}`);
+      const f = flags('inactive');
+      const v = await game.set(a, args[1], args[2], f.o);
+      return after(`${ran('set', quote(a), quote(args[1]), quote(args[2]), ...f.shown)}\n${value(v)}`);
     }
     case 'static-call': {
       const [method, ...rest] = args;
@@ -441,7 +525,9 @@ function gameOf(s: Session, farm: Conn, port: number): Game {
     : s.via === 'usb' ? usbLink(s.udid, port)
     : s.via === 'ios' ? iosLink(s.udid, port)
     : tcpLink(port);
-  return new Game(link, s.caps);
+  const game = new Game(link, s.caps);
+  if (s.waitMs !== undefined) game.waitMs = s.waitMs;
+  return game;
 }
 
 // PC 게임을 띄운다 — macOS .app 은 Contents/MacOS 안 실행 파일을 바로 띄워야 프로세스 번호를 잡아 close 가 끌 수 있다.
@@ -498,7 +584,7 @@ async function untilAnswers(game: Game): Promise<PingReply> {
 }
 
 // 화면은 파일로 떨군다 — 트리 글이 대화에 실리지 않게 경로만 돌려준다.
-async function shot(game: Game, s: Session, appium: Conn, file: string, sname: string, dir: string, settle = false): Promise<string> {
+async function shot(game: Game, s: Session, appium: Conn, file: string, sname: string, dir: string, settle = false, png = false): Promise<string> {
   const t = settle ? await settled(game) : await game.tree();
   const { text, refs } = snapshot(t);
   const base = join(dir, `${sname}-${Date.now()}`);
@@ -507,8 +593,9 @@ async function shot(game: Game, s: Session, appium: Conn, file: string, sname: s
   await save(file, s);
   const lines = [`- Snapshot: ${base}.yml`];
   // Appium 이 없으면(PC · USB 로 이미 켠 게임) 게임이 프레임 끝에서 찍는다 — 팜은 수 MB 답을 HTTP 로 나르지 않게 Appium 으로.
-  const ext = s.appium ? 'png' : 'jpg';
-  const take = s.appium ? () => screenshot(appium, s.appium!) : () => game.screenshot();
+  // --png 은 게임이 PNG 로 찍는다(SDK 0.5.0) — Appium 은 원래 PNG.
+  const ext = s.appium || png ? 'png' : 'jpg';
+  const take = s.appium ? () => screenshot(appium, s.appium!) : () => game.screenshot(png ? 'png' : 'jpg');
   try {
     await writeFile(`${base}.${ext}`, await take());
     lines.push(`- Screenshot: ${base}.${ext}`);
