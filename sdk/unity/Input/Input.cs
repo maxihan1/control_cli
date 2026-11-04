@@ -50,11 +50,13 @@ public static class Input
     public static bool GetKeyUp(KeyCode key) => UnityEngine.Input.GetKeyUp(key) || FakeKeys.Up(key);
     public static bool GetKeyUp(string name) => UnityEngine.Input.GetKeyUp(name);
 
-    public static float GetAxis(string axisName) => UnityEngine.Input.GetAxis(axisName);
-    public static float GetAxisRaw(string axisName) => UnityEngine.Input.GetAxisRaw(axisName);
-    public static bool GetButton(string buttonName) => UnityEngine.Input.GetButton(buttonName);
-    public static bool GetButtonDown(string buttonName) => UnityEngine.Input.GetButtonDown(buttonName);
-    public static bool GetButtonUp(string buttonName) => UnityEngine.Input.GetButtonUp(buttonName);
+    // 축 · 가상 단추 — QA 빌드가 구운 InputManager 축 표로 가짜 키 · 마우스를 따른다. 가짜 값과 진짜 값 중 절댓값이 큰 쪽.
+    private static float Larger(float fake, float real) => Mathf.Abs(fake) > Mathf.Abs(real) ? fake : real;
+    public static float GetAxis(string axisName) => Larger(FakeKeys.Axis(axisName), UnityEngine.Input.GetAxis(axisName));
+    public static float GetAxisRaw(string axisName) => Larger(FakeKeys.Axis(axisName), UnityEngine.Input.GetAxisRaw(axisName));
+    public static bool GetButton(string buttonName) => UnityEngine.Input.GetButton(buttonName) || FakeKeys.ButtonHeld(buttonName);
+    public static bool GetButtonDown(string buttonName) => UnityEngine.Input.GetButtonDown(buttonName) || FakeKeys.ButtonDown(buttonName);
+    public static bool GetButtonUp(string buttonName) => UnityEngine.Input.GetButtonUp(buttonName) || FakeKeys.ButtonUp(buttonName);
     public static void ResetInputAxes() => UnityEngine.Input.ResetInputAxes();
     public static string[] GetJoystickNames() => UnityEngine.Input.GetJoystickNames();
 
