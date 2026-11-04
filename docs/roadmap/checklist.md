@@ -3,7 +3,7 @@
 ## ▶ 다음 세션은 여기부터 (2026-11-04)
 
 - P2-C Unity 입력 — 설계 · 구현 계획(writing-plans, [p2b-plan.md](p2b-plan.md) 꼴)부터. 첫 결정은 `FakeTouches` 를 손가락 여럿으로 넓히는 꼴(지금 한 손가락 · 탭 · 끌기)과 세 입력 길(옛 Input · Input System · UI Toolkit 직접) 나누기. 브랜치 `p2c` — PR #18(`p2b`)이 `roadmap` 에 합쳐졌으면 `origin/roadmap` 에서, 아직이면 `origin/p2b` 위에 쌓고 PR base 를 `p2b` 로. 끝 기준은 `conform` C 줄 초록(Android · macOS)
-- P2-B 끝 — draft PR #18(`p2b` → `roadmap`) · sdk-compile run 41759126717 초록(meta · 2021.3 · 2022.3 · 6000.0). 팜 RF9R408GKRR 에서 sample run 41759126839 의 6000.0 옛 Input APK · 6000.0 Input System APK 모두 conform 「통과 33 · 실패 0 · 건너뜀 0」(B 줄 10개 포함). 영구 id 빌드 훅은 sample 로그에 「Assets/Second.unity 오브젝트 1/1개에 영구 id」 — `GlobalObjectId` 가 장면을 굽는 중에도 번호를 준다. 이 맥에서도 Docker 로 C# 컴파일 검사가 된다(`tools/unity-compile-check/check.py fetch 6000.0` 뒤 `check.py 6000.0`)
+- P2-B 끝 — draft PR #18(`p2b` → `roadmap`) · sdk-compile run 41759126717 초록(meta · 2021.3 · 2022.3 · 6000.0). 팜 RF9R408GKRR 에서 sample run 41759126839 의 6000.0 옛 Input APK · 6000.0 Input System APK · 2021.3 옛 Input APK 모두, 이 맥 macOS 앱(같은 run 의 StandaloneOSX · Mono)도 conform 「통과 33 · 실패 0 · 건너뜀 0」(B 줄 10개 포함). sample run 8개 잡 모두 초록. 영구 id 빌드 훅은 sample 로그에 「Assets/Second.unity 오브젝트 1/1개에 영구 id」 — `GlobalObjectId` 가 장면을 굽는 중에도 번호를 준다. 이 맥에서도 Docker 로 C# 컴파일 검사가 된다(`tools/unity-compile-check/check.py fetch 6000.0` 뒤 `check.py 6000.0`)
 - 팜 연결 — 팜은 이 맥에서 돈다(`http://127.0.0.1:4723/wd/hub`, 밖에서는 `https://farm.maxihan.com/wd/hub`). **토큰은 묻지 않는다** — control-cli 가 `--token` · `PLATFORM_APPIUM_TOKEN` 이 없으면 macOS Keychain `control-cli-farm`(사용자 maxi 의 PAT, 2026-11-04 넣음)을 읽는다. 401 이면 사용자가 새 PAT 를 복사해 두고 세션이 pbpaste → whoami 200 → Keychain 에 넣는다(context-notes 「P2-B 구현」)
 - macOS 시험은 `caffeinate -d -u -t 900` — 잠금 화면은 `-d` 만으로는 13초 만에 화면을 꺼 Unity 가 멈춘다(context-notes 「P1 실기기」)
 - main 에 합치기 전에 정할 것 — `instrument` 의 기본 ref `main` 과 UPM 경로 `?path=/sdk/unity` 가 엇갈린다(main 에 `sdk/unity/` 가 생기기 전엔 새 CLI 가, 생긴 뒤엔 옛 CLI 의 `?path=/sdk#main` 이 깨진다). 기본 ref 를 CLI 판 tag(`v0.3.0`)로 두는 안 — context-notes 「P0 코드 리뷰」. README MCP 절의 `npm i -g …#<태그>` 도 그때 정한 tag 로
@@ -46,7 +46,7 @@
 - [x] 글자 컴포넌트에 글자 쓰기(입력칸 밖) — `text-set`
 - [x] 기본 기다림 설정 · PNG 스크린샷 — `config --wait` · `screenshot {format: png}`. 명령 시간 초과 · 명령 뒤 쉼은 뺌(사용자 — 기다리기가 바깥 되풀이)
 - [x] 영구 id — QA 빌드 훅(b523962)이 장면 오브젝트에 fileID. sample run 41759126839 로그 「Assets/Second.unity 오브젝트 1/1개에 영구 id」 · conform B 영구 id 줄 초록(다시 열어도 같은 id, SecondMarker 는 바뀜)
-- [x] `conform` B 줄 초록(팜 · 33줄) — RF9R408GKRR · 6000.0 옛 Input · 6000.0 Input System(IL2CPP) 모두 「통과 33 · 실패 0 · 건너뜀 0」
+- [x] `conform` B 줄 초록(팜 · 33줄) — RF9R408GKRR · 6000.0 옛 Input · 6000.0 Input System · 2021.3 옛 Input(IL2CPP) · 이 맥 macOS 앱(Mono) 모두 「통과 33 · 실패 0 · 건너뜀 0」
 
 ## P2-C. Unity 입력
 - [ ] 설계 · 구현 계획(손가락 여럿 · 세 입력 길)
