@@ -50,7 +50,8 @@ after(() => children.forEach((c) => c.kill()));
 // HOME 을 빈 임시 폴더로 — 세션 파일이 그 아래 .control-cli/ 에 생긴다. 개발자 셸의 PLATFORM_* 는 넘기지 않는다
 async function server(...argv: string[]) {
   const home = await mkdtemp(join(tmpdir(), 'control-cli-mcp-'));
-  const child = spawn(process.execPath, [join(import.meta.dirname, 'main.js'), ...argv, 'mcp'], { env: { PATH: process.env.PATH, HOME: home } });
+  // Keychain 의 진짜 팜 토큰이 가짜 팜으로 가지 않게 끈다.
+  const child = spawn(process.execPath, [join(import.meta.dirname, 'main.js'), ...argv, 'mcp'], { env: { PATH: process.env.PATH, HOME: home, CONTROL_CLI_KEYCHAIN: '0' } });
   children.push(child);
   const waiting = new Map<number, (m: Rpc) => void>();
   createInterface({ input: child.stdout }).on('line', (line) => {

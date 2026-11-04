@@ -204,7 +204,7 @@ Desktop 은 셸의 PATH 를 안 볼 수 있다 — `control-cli` · `node` 를 �
 | 값 | 옵션 | 환경값 |
 |---|---|---|
 | Appium · 팜 입구 | `--url` | `PLATFORM_APPIUM_URL` (없으면 `http://127.0.0.1:4723`) — 잡기 · 게임 명령 주소는 여기서 `/wd/hub` 를 뗀 곳 |
-| 팜 토큰 (Bearer) | `--token` | `PLATFORM_APPIUM_TOKEN` |
+| 팜 토큰 (Bearer) | `--token` | `PLATFORM_APPIUM_TOKEN` — 둘 다 없으면 macOS Keychain 의 `control-cli-farm`. 한 번 넣는다: QA Hub `/account` 에서 발급한 PAT 를 복사한 채로 `security add-generic-password -U -a <맥 사용자> -s control-cli-farm -w "$(pbpaste)"` |
 | 게임 APK | `--app` | `PLATFORM_APP` |
 | 폰 | `--udid` | `PLATFORM_DEVICE_UDID` |
 | USB · PC · iOS 게임 포트 | `--port` | — (기본 13100) |
