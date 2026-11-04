@@ -114,6 +114,18 @@ test('C 줄 — 옛 SDK(caps 에 touch-down 없음)에 횟수 · 시간 · 세�
   await assert.rejects(game.key('A+LeftShift'), /SDK 0\.6\.0 이상/);
   await game.key('I');
   assert.deepEqual(g.commands.filter((c) => c.cmd === 'key').map((c) => c.key), ['I']);
+  // + 는 key 명령의 여러 키일 때만 — PlayerPrefs 키 이름의 + 는 옛 SDK 도 읽는다
+  await game.setPref('a+b', 'v');
+});
+
+test('C 줄 — 가짜 SDK 도 SDK 처럼 count 1 미만 · power -1~1 밖을 거절하고 키 이름의 빈칸을 무시한다', async () => {
+  const g = standardScreen();
+  const game = direct(g);
+  await assert.rejects(game.click('LoginButton', { count: 0 }), /count 는 1 이상입니다/);
+  await assert.rejects(game.keyDown('A', { power: 5 }), /power 는 -1~1 입니다/);
+  await game.keyDown('A + LeftShift');
+  await game.keyUp('A+LeftShift');
+  assert.equal(g.held.size, 0);
 });
 
 test('C 줄 — 손가락은 비어 있는 가장 작은 번호(10~19)를 받고, 10개면 거절하고, input-reset 이 다 뗀다', async () => {

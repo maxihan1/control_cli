@@ -46,9 +46,14 @@ const INPUTS = ['InputField', 'TMP_InputField', 'TextField'];
 const short = (full: string) => full.slice(full.lastIndexOf('.') + 1);
 export const button = (name: string, label: string, onClick?: () => void): FakeNode => node(name, { kind: 'Button', interactable: true, onClick }, [node('Text', { text: label })]);
 // SDK 처럼 입력 명령 하나는 8초 안 — SDK 답 한도 10초 · 팜 15초
-const tooLong = (c: Command) => Math.max(Number(c.duration ?? 0), 0) + Math.max(Number(c.count ?? 1) - 1, 0) * Number(c.interval ?? 0.1) > 8;
+const tooLong = (c: Command) => Math.max(Number(c.duration ?? 0), 0) + Math.max(Number(c.count ?? 1) - 1, 0) * Math.max(Number(c.interval ?? 0.1), 0) > 8;
+// SDK Limits 와 같은 차례 · 문구 — count · power 를 먼저 본다
+const limits = (c: Command) =>
+  Number(c.count ?? 1) < 1 ? 'count 는 1 이상입니다'
+  : Math.abs(Number(c.power ?? 1)) > 1 ? 'power 는 -1~1 입니다'
+  : tooLong(c) ? `${c.cmd} 은 8초 안이어야 합니다 — 더 길게는 touch-down · key-down 뒤 touch-up · key-up` : undefined;
 const FINGERS = Array.from({ length: 10 }, (_, i) => 10 + i);
-const keysOf = (c: Command) => String(c.key).split('+');
+const keysOf = (c: Command) => String(c.key).split('+').map((k) => k.trim());
 
 export class FakeGame {
   clicks: string[] = [];
@@ -162,7 +167,7 @@ export class FakeGame {
   private point(c: Command, f: { node?: FakeNode }): { node?: FakeNode; x: number; y: number } | { error: string } {
     if (typeof c.target === 'string') {
       if (!f.node) return { error: `켜진 오브젝트 중에 ${c.target} 이 없습니다` };
-      const [x, y] = f.node.at ?? [1, 1];
+      const [x, y] = (c.camera ? f.node.atBy?.[c.camera as string] : f.node.at) ?? [1, 1];
       return { node: f.node, x, y };
     }
     if (typeof c.x !== 'number' || typeof c.y !== 'number') return { error: `${c.cmd} 에 target 또는 x · y 가 필요합니다` };
@@ -198,7 +203,8 @@ export class FakeGame {
     if (f.error) return { ok: false, error: f.error };
     const camera = this.cameraProblem(c.camera);
     if (camera) return { ok: false, error: camera };
-    if (tooLong(c)) return { ok: false, error: `${c.cmd} 은 8초 안이어야 합니다 — 더 길게는 touch-down · key-down 뒤 touch-up · key-up` };
+    const limit = limits(c);
+    if (limit) return { ok: false, error: limit };
     switch (c.cmd) {
       case 'ping':
         return { ok: true, app: 'com.fake.game', version: '1.0', engine: 'fake', engineVersion: '0', sdkVersion: '0.3.0', protocol: 2, caps: this.caps };

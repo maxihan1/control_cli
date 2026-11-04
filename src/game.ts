@@ -120,7 +120,8 @@ const newer = (c: Command) => c.inactive === true || c.camera !== undefined || [
 const extra = (o: FindOptions) => ({ ...(o.inactive ? { inactive: true } : {}), ...(o.camera ? { camera: o.camera } : {}) });
 // 횟수 · 시간 · 세기 · via · 여러 키(A+LeftShift)는 SDK 0.6.0(touch-down 과 같은 판)부터. 옛 SDK 는 모르는 칸을 버리고 한 번만 눌러 통과한 척한다.
 const INPUT = ['count', 'interval', 'via', 'duration', 'power'];
-const timed = (c: Command) => INPUT.some((k) => c[k] !== undefined) || (typeof c.key === 'string' && c.key.includes('+'));
+// + 는 key 명령만 본다 — pref-* 의 key 는 PlayerPrefs 키 이름이다.
+const timed = (c: Command) => INPUT.some((k) => c[k] !== undefined) || (c.cmd === 'key' && typeof c.key === 'string' && c.key.includes('+'));
 const at = (a: At) => (typeof a === 'string' ? { target: a } : { x: a.x, y: a.y });
 // 준 칸만 싣는다 — 옛 명령 꼴이 그대로 남는다.
 const given = (o: Record<string, unknown>) => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined));
