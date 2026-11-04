@@ -115,6 +115,7 @@
 
 ### test_platform 다음 줄 (이 저장소에서는 고치지 않는다)
 - 단계마다 새 명령의 `game.*` 함수를 kit(`packages/kit/src/runtime/game.ts`)에 같은 이름으로 더한다 — 안 그러면 `Ran:` 줄이 케이스에서 안 돈다
+- P2-D — `logs(since)` · `events(since)` · `sdkLog(on)`(꼴은 control_cli `src/game.ts` 의 `GameLogs` · `GameEvents`). 게임 증적 `game-errors.txt` 는 `e.time` 대신 `e.occurredAt ?? e.time` 으로 옮긴다(SDK 0.7.0 이 둘 다 준다 — `time` 은 나중에 뗀다). 같은 자리에 `game-logs.txt`(`logs(since)` — Warning 까지, 케이스 실패 때 앞뒤 사정) · 알림 줄을 남기는 안. 증적 머리의 「들고 있는 수(200)」는 logs 면 500
 - P2-C — `touchDown` · `touchMove` · `touchUp` · `swipe` · `longPress` · `mouseMove` · `scroll` · `keyDown` · `keyUp` · `tilt` · `pointer` · `resetInput`, `click` · `tap` 의 `{ count?, interval? }` · `drag` 의 `{ via?, duration? }` · `key` 의 `{ duration?, power? }` · `key` 의 `A+LeftShift`(꼴은 control_cli `src/game.ts`). `at` 은 주소 글자 또는 `{x, y}`, 시간은 초. 모두 SDK 한 명령이라 되풀이는 없다
 - P2-B — `findAll` · `findAt` · `parent` · `waitForProp` · `components` · `members` · `setText`, `find` · `get` · `set` · `callMethod` · `click` · `drag` 의 마지막 옵션 `{ inactive?, camera? }`, `screenshot(format)`(꼴은 control_cli `src/game.ts`). `parent` · `waitForProp` 은 바깥 되풀이라 kit 에도 같은 되풀이가 든다. 선택자는 SDK 가 풀어 kit 은 글자를 그대로 넘긴다
 - P2-A — `callMethod` · `set` · `callStatic` · `getStatic` · `setStatic` · `pref` · `setPref` · `deletePref` · `clearPrefs` · `timeScale` · `setTimeScale` · `scenes` · `loadScene` · `unloadScene` · `waitForScene`(꼴은 control_cli `src/game.ts`). `loadScene` · `unloadScene` · `waitForScene` 은 `scenes` 를 되풀이하는 바깥 기다리기라 kit 에도 같은 되풀이가 든다
