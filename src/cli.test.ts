@@ -297,6 +297,12 @@ test('입력 명령 — Ran 줄이 kit 의 game.* 이름 · 인자 꼴로 찍히
     await assert.rejects(io('touch-up', 'x'), /touch-up <손가락 번호> 꼴이어야 합니다/);
     await assert.rejects(io('swipe', '1,1'), /swipe <x,y> <x,y> \[x,y…\] \[--duration <초>\] 꼴이어야 합니다/);
     await assert.rejects(io('click', 'LoginButton', '--count', 'two'), /--count 은 수입니다/);
+    // -.5 도 음수 · 빈 글자는 0 이 아니다 · 수가 아닌 좌표는 SDK 로 안 간다
+    assert.match(await io('tilt', '0', '-.5', '0'), /^Ran: await game\.tilt\(\[0, -0\.5, 0\]\)/);
+    await assert.rejects(io('scroll', ''), /scroll \[<ref\|주소> \| <x> <y>\] <dy>/);
+    await assert.rejects(io('tilt', '', '0', '0'), /tilt <x> <y> <z>/);
+    await assert.rejects(io('click', 'LoginButton', '--count', ''), /--count 은 수입니다/);
+    await assert.rejects(io('swipe', '1.2.3,4', '5,6'), /swipe <x,y> <x,y>/);
     await io('close');
   } finally {
     pc.server.close();

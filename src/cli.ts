@@ -126,7 +126,7 @@ export async function run(argv: string[], o: Options): Promise<string> {
   const NEG = '\u0000';
   const un = (s: string) => (s.startsWith(NEG) ? s.slice(NEG.length) : s);
   const { values, positionals } = parseArgs({
-    args: argv.map((a) => (/^-\d/.test(a) ? NEG + a : a)),
+    args: argv.map((a) => (/^-\.?\d/.test(a) ? NEG + a : a)),
     allowPositionals: true,
     options: {
       session: { type: 'string', short: 's' },
@@ -291,10 +291,12 @@ export async function run(argv: string[], o: Options): Promise<string> {
   };
   const typed = () => (values.type === undefined ? [] : [quote(values.type)]);
   type Flag = 'inactive' | 'camera' | 'count' | 'interval' | 'duration' | 'power' | 'dx' | 'via';
+  // Number('') 는 0 이다 — 빈 글자는 수가 아니다.
+  const toNum = (s: string | undefined) => (s === undefined || s.trim() === '' ? NaN : Number(s));
   const num = (k: 'count' | 'interval' | 'duration' | 'power' | 'dx') => {
     const v = values[k];
     if (v === undefined) return undefined;
-    const n = Number(v);
+    const n = toNum(v as string);
     if (!Number.isFinite(n)) throw new Error(`--${k} 은 수입니다`);
     return n;
   };
@@ -504,8 +506,9 @@ export async function run(argv: string[], o: Options): Promise<string> {
       const usage = 'swipe <x,y> <x,y> [x,y…] [--duration <초>]';
       const points = args.map((a) => {
         const m = /^(-?[\d.]+),(-?[\d.]+)$/.exec(a);
-        if (!m) throw new Error(`${usage} 꼴이어야 합니다`);
-        return { x: Number(m[1]), y: Number(m[2]) };
+        const p = m && { x: toNum(m[1]), y: toNum(m[2]) };
+        if (!p || !Number.isFinite(p.x) || !Number.isFinite(p.y)) throw new Error(`${usage} 꼴이어야 합니다`);
+        return p;
       });
       if (points.length < 2) throw new Error(`${usage} 꼴이어야 합니다`);
       await game.swipe(points, flags('duration').o);
@@ -521,7 +524,7 @@ export async function run(argv: string[], o: Options): Promise<string> {
     }
     case 'scroll': {
       const usage = 'scroll [<ref|주소> | <x> <y>] <dy> [--dx <칸>] [--duration <초>]';
-      const dy = Number(args[args.length - 1]);
+      const dy = toNum(args[args.length - 1]);
       if (!args.length || !Number.isFinite(dy)) throw new Error(`${usage} 꼴이어야 합니다`);
       const p = args.length > 1 ? point(args.slice(0, -1), usage) : undefined;
       const f = flags('camera', 'dx', 'duration');
@@ -541,7 +544,7 @@ export async function run(argv: string[], o: Options): Promise<string> {
       return after(ran('keyDown', quote(args[0]), ...f.shown));
     }
     case 'tilt': {
-      const xyz = args.map(Number);
+      const xyz = args.map(toNum);
       if (xyz.length !== 3 || !xyz.every(Number.isFinite)) throw new Error('tilt <x> <y> <z> [--duration <초>] 꼴이어야 합니다');
       const f = flags('duration');
       await game.tilt(xyz as [number, number, number], f.o);
