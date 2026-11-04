@@ -34,22 +34,25 @@ namespace ControlCli
             "timescale-get", "timescale-set", "scenes", "scene-load", "scene-unload",
             "find-all", "find-at", "components", "members", "text-set",
             "touch-down", "touch-move", "touch-up", "swipe", "long-press", "mouse-move", "scroll", "key-down", "key-up", "tilt", "pointer", "input-reset",
+            "logs", "events", "sdk-log",
         };
         // sdk/unity/package.json 의 version 과 같다(src/protocol.test.ts 가 본다).
-        public const string SdkVersion = "0.6.0";
+        public const string SdkVersion = "0.7.0";
 
         private sealed class Request
         {
             public string Line;
             public string Reply;
             public readonly ManualResetEventSlim Done = new ManualResetEventSlim();
+            // Handle 이 읽은 명령 — sdk-log 가 답이 정해질 때 한 줄을 적는다.
+            public Command Command;
             // 0 기다림 · 1 게임이 가져감 · 2 시간 초과로 버림 · 3 답을 미룬 동안(터치 · 키 · 스크린샷) 시간 초과 — 먼저 바꾼 쪽만 이긴다.
             public int State;
         }
 
         // 디바이스 팜은 본문 JSON 객체를 그대로 한 줄로 넘긴다(Devicefarm ADR-048). 쓰는 칸만 읽고 없는 칸은 기본값이다.
         [Serializable]
-        private sealed class Command
+        internal sealed class Command
         {
             public string cmd;
             public string target;
@@ -86,6 +89,8 @@ namespace ControlCli
             public float dy;
             public float z = float.NaN;
             public string @event;
+            // sdk-log(P2-D)
+            public bool on;
         }
 
         private readonly ConcurrentQueue<Request> _requests = new ConcurrentQueue<Request>();
@@ -97,6 +102,8 @@ namespace ControlCli
         private static Func<string> _ready;
         private static Action _cancel;
         private static ControlServer _self;
+        // Handle 이 마지막으로 읽은 명령 — Update 가 그 요청에 붙인다(메인 스레드만).
+        private static Command _parsed;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad), Preserve]
         private static void Boot()
@@ -124,6 +131,9 @@ namespace ControlCli
         }
 
         private void OnDestroy() => _listener?.Stop();
+
+        // 앱이 뒤로 가고(true) 돌아올 때(false) — events 의 game.paused · game.resumed.
+        private void OnApplicationPause(bool paused) => GameEvents.Pause(paused);
 
         private void AcceptLoop()
         {
@@ -170,11 +180,16 @@ namespace ControlCli
             {
                 // 시간 초과(3)면 답할 곳이 없다 — 남은 가짜 입력을 거두고 넘어간다.
                 var cancelled = Volatile.Read(ref _waiting.State) == 3;
-                if (cancelled) _cancel?.Invoke();
+                if (cancelled)
+                {
+                    _cancel?.Invoke();
+                    SdkLog.Write(_waiting.Command, Error("시간 초과"));
+                }
                 else
                 {
                     var reply = _ready();
                     if (reply == null) return;
+                    SdkLog.Write(_waiting.Command, reply);
                     _waiting.Reply = reply;
                     _waiting.Done.Set();
                 }
@@ -188,8 +203,10 @@ namespace ControlCli
             {
                 if (Interlocked.CompareExchange(ref request.State, 1, 0) != 0) continue;
                 string reply;
+                _parsed = null;
                 try { reply = Handle(request.Line.Trim()); }
                 catch (Exception e) { reply = Error(e.GetType().Name + ": " + e.Message); }
+                request.Command = _parsed;
                 // null 은 Handle 이 _ready 를 걸고 답을 미뤘다는 뜻이다.
                 if (reply != null && !FakeInput.Idle)
                 {
@@ -204,6 +221,7 @@ namespace ControlCli
                     _waiting = request;
                     return;
                 }
+                SdkLog.Write(request.Command, reply);
                 request.Reply = reply;
                 request.Done.Set();
             }
@@ -213,6 +231,7 @@ namespace ControlCli
         {
             if (!line.StartsWith("{")) return Error("명령은 JSON 한 줄이어야 합니다 — {\"cmd\":\"ping\"}");
             var c = JsonUtility.FromJson<Command>(line);
+            _parsed = c;
             if (Limits(c) is string limit) return limit;
             switch (c.cmd)
             {
@@ -407,7 +426,13 @@ namespace ControlCli
                 case "scene-unload":
                     return GameState.Unload(c.name);
                 case "errors":
-                    return c.since < 0 ? Error("since 는 0 이상이어야 합니다") : GameErrors.Since(c.since);
+                case "logs":
+                case "events":
+                    if (c.since < 0) return Error("since 는 0 이상이어야 합니다");
+                    return (c.cmd == "errors" ? GameErrors.Errors : c.cmd == "logs" ? GameErrors.Logs : GameEvents.Items).Since(c.since);
+                case "sdk-log":
+                    SdkLog.On = c.on;
+                    return "{\"ok\":true,\"on\":" + (c.on ? "true" : "false") + "}";
                 case "layout":
                     return Layout.Check(c.target ?? "");
                 default:

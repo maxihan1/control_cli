@@ -14,6 +14,8 @@ namespace Sample
         [Preserve] public string Say(string word, int times) => Output.text = word + " " + times;
         [Preserve] public static int Add(int a, int b) => a + b;
         [Preserve] public static string Note { get; set; }
+        // conform D 로그 줄 — static-call 로 게임 로그 한 줄을 남긴다(logs 가 받는지 · 토큰을 가리는지).
+        [Preserve] public static void Log(string text) => Debug.Log(text);
 
         private void Update()
         {
