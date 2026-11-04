@@ -17,6 +17,7 @@ namespace ControlCli
         private static Gamepad _gamepad;
         private static Accelerometer _accelerometer;
         private static uint _queuedAt;
+        private static int _queuedFrame;
         private static bool _queued;
         // PC 에서 Mouse 에 실은 손가락 — 아무 손가락도 안 실렸을 때 처음 누른 것, 뗄 때까지. 나머지 손가락은 Touchscreen.
         private static int _mouseFinger = -1;
@@ -27,7 +28,12 @@ namespace ControlCli
         private static Vector3? _sentTilt;
 
         // 넣은 이벤트는 다음 Input System 업데이트(보통 다음 프레임 처음, FixedUpdate 처리 게임이면 다음 FixedUpdate)에 처리된다 — 그 전까지 바쁘다.
-        public static bool Waiting => _queued && InputState.updateCount <= _queuedAt;
+        // FixedUpdate 처리에 timeScale 0 이면 업데이트가 안 와 모든 명령이 막힌다 — 10프레임 뒤에는 받은 셈 친다.
+        // ponytail: 아주 느린 timeScale 의 FixedUpdate 처리 게임은 받기 전에 답할 수 있다 — 그런 게임이 오면 timeScale 0 일 때만 셈 친다.
+        public static bool Waiting => _queued && InputState.updateCount <= _queuedAt && Time.frameCount - _queuedFrame < 10;
+
+        // 거둘 때(FakeInput.Reset) — 앞서 넣은 이벤트를 더 기다리지 않는다.
+        public static void Forget() => _queued = false;
 
         // 폰에는 진짜 장치가 늘 있다 — 새로 만든 장치는 PlayerInput 짝짓기 밖이라 있는 것부터 쓴다.
         private static T Device<T>(ref T kept, T current) where T : InputDevice
@@ -44,6 +50,8 @@ namespace ControlCli
             {
                 _mouseFinger = end ? -1 : finger;
                 _fingerDown = !end;
+                // 새로 실린 손가락은 이동량 0 으로 시작한다 — 지난 가짜 자리에서 뛰면 끌기로 읽힌다.
+                if (phase == UnityEngine.TouchPhase.Began) _sentAt = position;
                 _mouseAt = position;
                 _mouseDirty = true;
                 return;
@@ -73,12 +81,21 @@ namespace ControlCli
             if (FakeMouse.Moved)
             {
                 _mouseAt = FakeMouse.Position;
+                // 이동량은 가짜 마우스와 같게 — 켜는 프레임은 0(처음 보낼 때도).
+                _sentAt = _mouseAt - FakeMouse.Delta;
                 _mouseDirty = true;
             }
             var buttons = (_fingerDown || FakeKeys.Held(KeyCode.Mouse0) ? 1 : 0) | (FakeKeys.Held(KeyCode.Mouse1) ? 2 : 0) | (FakeKeys.Held(KeyCode.Mouse2) ? 4 : 0)
                 | (FakeKeys.Held(KeyCode.Mouse3) ? 8 : 0) | (FakeKeys.Held(KeyCode.Mouse4) ? 16 : 0);
             // 가짜 마우스 · 마우스 손가락 · 단추를 안 쓰면 진짜 마우스를 건드리지 않는다.
             if (!_mouseDirty && buttons == _sentButtons && FakeMouse.Scroll == Vector2.zero) return;
+            // 가짜 마우스도 마우스 손가락도 자리를 안 정했으면 단추 · 바퀴를 지금 Mouse 자리에 넣는다 — Mouse 가 없으면(폰) 자리를 몰라 보내지 않는다.
+            if (!FakeMouse.Active && _mouseFinger < 0 && !_mouseDirty)
+            {
+                var now = Mouse.current;
+                if (now == null) return;
+                _mouseAt = _sentAt = now.position.ReadValue();
+            }
             var state = new MouseState { position = _mouseAt, delta = _mouseAt - _sentAt, scroll = FakeMouse.Scroll }
                 .WithButton(MouseButton.Left, (buttons & 1) != 0)
                 .WithButton(MouseButton.Right, (buttons & 2) != 0)
@@ -145,7 +162,8 @@ namespace ControlCli
         private static void PublishTilt()
         {
             var tilt = FakeInput.Tilt;
-            if (tilt == _sentTilt) return;
+            // 기울이는 동안은 프레임마다 다시 넣는다 — 켜진 진짜 가속도 장치가 다음 업데이트에 덮어쓴다. 끝나면 0 을 한 번.
+            if (tilt == null && _sentTilt == null) return;
             _sentTilt = tilt;
             // AccelerometerState 는 Input System 안(internal)이라 acceleration 칸 하나만 바꾸는 이벤트로 넣는다.
             InputSystem.QueueDeltaStateEvent(Accel().acceleration, tilt ?? Vector3.zero);
@@ -165,6 +183,7 @@ namespace ControlCli
         private static void Queued()
         {
             _queuedAt = InputState.updateCount;
+            _queuedFrame = Time.frameCount;
             _queued = true;
         }
 

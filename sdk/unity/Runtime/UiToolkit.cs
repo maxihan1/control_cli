@@ -84,10 +84,11 @@ namespace ControlCli
             if (FakeMouse.Scroll != Vector2.zero) Mouse(EventType.ScrollWheel, 0, flipped, new Vector2(FakeMouse.Scroll.x, -FakeMouse.Scroll.y), buttons);
         }
 
-        // 단추를 누른 동안만 panel 을 붙잡는다 — 안 누른 hover 는 프레임마다 맨 앞 panel 을 다시 고른다.
+        // 단추를 누른 동안(이번 프레임에 뗀 단추도 — _mouseButtons 는 지난 프레임 단추)은 누른 panel 을 붙잡고 마지막 단추를 뗄 때 놓는다
+        // — 빈 곳에서 떼도 누른 panel 이 PointerUp 을 받는다. 안 누른 hover 는 프레임마다 맨 앞 panel 을 다시 고른다.
         private static void Mouse(EventType type, int button, Vector2 flipped, Vector2 delta, int buttons)
         {
-            var panel = Target(PointerId.mousePointerId, flipped, type == EventType.MouseDown || buttons == 0, buttons == 0);
+            var panel = Target(PointerId.mousePointerId, flipped, type == EventType.MouseDown || (buttons | _mouseButtons) == 0, type == EventType.MouseUp && buttons == 0);
             if (panel == null) return;
             var e = new Event { type = type, button = button, delta = delta, mousePosition = RuntimePanelUtils.ScreenToPanel(panel, flipped) };
             EventBase pooled;

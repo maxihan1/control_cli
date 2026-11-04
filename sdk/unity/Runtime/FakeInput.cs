@@ -39,6 +39,9 @@ namespace ControlCli
             FakeKeys.ReleaseAll();
             FakeMouse.Reset();
             Tilt = null;
+#if CONTROL_CLI_INPUTSYSTEM && ENABLE_INPUT_SYSTEM
+            FakeInputSystem.Forget();
+#endif
         }
 
         // 바꾼 상태가 한 프레임 나가게 기다린다.

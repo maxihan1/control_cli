@@ -16,6 +16,8 @@ namespace ControlCli
 
         private static Vector2? _next;
         private static Vector2 _scroll;
+        // Reset 뒤 몇 번째 Tick 에 끄나 — 뗀 단추가 나가는 다음 프레임까지는 켜 둔다(uGUI · UI Toolkit 은 마우스가 꺼지면 뗌을 못 본다).
+        private static int _offIn;
 
         internal static void MoveTo(Vector2 p) => _next = p;
         internal static void AddScroll(Vector2 d) => _scroll += d;
@@ -23,6 +25,7 @@ namespace ControlCli
         // 드라이버(FakeTouches)가 프레임마다 일(FakeInput) 다음에 부른다.
         internal static void Tick()
         {
+            if (_offIn > 0 && --_offIn == 0) Active = false;
             Moved = _next.HasValue;
             Delta = Moved && Active ? _next.Value - Position : Vector2.zero;
             if (Moved)
@@ -37,7 +40,7 @@ namespace ControlCli
 
         internal static void Reset()
         {
-            Active = false;
+            _offIn = 2;
             _next = null;
             _scroll = Vector2.zero;
         }

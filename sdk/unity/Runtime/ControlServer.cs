@@ -84,7 +84,7 @@ namespace ControlCli
             public string[] points;
             public float dx;
             public float dy;
-            public float z;
+            public float z = float.NaN;
             public string @event;
         }
 
@@ -169,7 +169,8 @@ namespace ControlCli
             if (_waiting != null)
             {
                 // 시간 초과(3)면 답할 곳이 없다 — 남은 가짜 입력을 거두고 넘어간다.
-                if (Volatile.Read(ref _waiting.State) == 3) _cancel?.Invoke();
+                var cancelled = Volatile.Read(ref _waiting.State) == 3;
+                if (cancelled) _cancel?.Invoke();
                 else
                 {
                     var reply = _ready();
@@ -180,6 +181,8 @@ namespace ControlCli
                 _waiting = null;
                 _ready = null;
                 _cancel = null;
+                // 거둔 Canceled · 뗌은 다음 프레임에 나간다 — 같은 프레임에 다음 명령을 걸면 새 손가락의 Began 과 한 Mouse 상태로 섞여 끌기로 읽힌다.
+                if (cancelled) return;
             }
             while (_requests.TryDequeue(out var request))
             {
@@ -225,6 +228,7 @@ namespace ControlCli
                     return FindAllReply(c.target, c.inactive, c.camera);
                 case "find-at":
                 {
+                    if (float.IsNaN(c.x) || float.IsNaN(c.y)) return Error(c.cmd + " 에 x · y 가 필요합니다");
                     if (!CameraOf(c.camera, out var cam, out var problem)) return Error(problem);
                     var hit = Select.At(new Vector2(c.x, c.y), cam);
                     var trail = hit.Exists ? Tree.TrailOf(hit, false) : null;
@@ -244,6 +248,7 @@ namespace ControlCli
                     return SetText(c.target, c.text ?? "", c.inactive);
                 case "tap":
                 {
+                    if (float.IsNaN(c.x) || float.IsNaN(c.y)) return Error(c.cmd + " 에 x · y 가 필요합니다");
                     var point = new Vector2(c.x, c.y);
                     return WithFinger(f => FakeInput.Tap(f, point, c.count, c.interval), Touched(point));
                 }
@@ -305,7 +310,8 @@ namespace ControlCli
                     foreach (var s in c.points ?? new string[0])
                     {
                         var xy = s.Split(',');
-                        if (xy.Length != 2 || !float.TryParse(xy[0], NumberStyles.Float, CultureInfo.InvariantCulture, out var px) || !float.TryParse(xy[1], NumberStyles.Float, CultureInfo.InvariantCulture, out var py)) return Error(PointsForm);
+                        if (xy.Length != 2 || !float.TryParse(xy[0], NumberStyles.Float, CultureInfo.InvariantCulture, out var px) || !float.TryParse(xy[1], NumberStyles.Float, CultureInfo.InvariantCulture, out var py)
+                            || float.IsNaN(px) || float.IsInfinity(px) || float.IsNaN(py) || float.IsInfinity(py)) return Error(PointsForm);
                         points.Add(new Vector2(px, py));
                     }
                     if (points.Count < 2) return Error(PointsForm);
@@ -326,7 +332,7 @@ namespace ControlCli
                 case "scroll":
                 {
                     Vector2? at = null;
-                    if (!string.IsNullOrEmpty(c.target) || !float.IsNaN(c.x))
+                    if (!string.IsNullOrEmpty(c.target) || !float.IsNaN(c.x) || !float.IsNaN(c.y))
                     {
                         if (!At(c, out var p, out var problem)) return Error(problem);
                         at = p;
@@ -345,7 +351,7 @@ namespace ControlCli
                     return "{\"ok\":true}";
                 }
                 case "tilt":
-                    if (float.IsNaN(c.x) || float.IsNaN(c.y)) return Error("tilt 에 x · y · z 가 필요합니다");
+                    if (float.IsNaN(c.x) || float.IsNaN(c.y) || float.IsNaN(c.z)) return Error("tilt 에 x · y · z 가 필요합니다");
                     FakeInput.Run(FakeInput.TiltFor(new Vector3(c.x, c.y, c.z), Mathf.Max(c.duration, 0)));
                     return "{\"ok\":true}";
                 case "pointer":
@@ -651,7 +657,9 @@ namespace ControlCli
         {
             if (c.count < 1) return Error("count 는 1 이상입니다");
             if (c.power < -1 || c.power > 1) return Error("power 는 -1~1 입니다");
-            var seconds = Mathf.Max(c.duration, 0) + (c.count - 1) * Mathf.Max(c.interval, 0);
+            // 프레임도 센다 — 누름마다 2프레임 · 끌기 한 마디에 적어도 10프레임을 30fps 로 어림(TS 가짜 SDK 와 같은 셈). 2L 은 count 가 아주 클 때 넘침을 막는다.
+            var frames = (c.cmd == "tap" || c.cmd == "click" ? c.count * 2L : 0) + (c.cmd == "drag" ? ((c.via?.Length ?? 0) + 1) * 10 : 0) + (c.cmd == "swipe" ? Math.Max((c.points?.Length ?? 0) - 1, 0) * 10 : 0);
+            var seconds = Mathf.Max(c.duration, 0) + (c.count - 1) * Mathf.Max(c.interval, 0) + frames / 30f;
             return seconds > FakeInput.LongestSeconds ? Error(c.cmd + " 은 " + FakeInput.LongestSeconds + "초 안이어야 합니다 — 더 길게는 touch-down · key-down 뒤 touch-up · key-up") : null;
         }
 
@@ -678,7 +686,9 @@ namespace ControlCli
             problem = null;
             for (var i = 0; i < parts.Length; i++)
             {
-                if (Enum.TryParse(parts[i].Trim(), true, out keys[i]) && keys[i] != KeyCode.None) continue;
+                // Enum.TryParse 는 숫자(8 → Backspace) · 쉼표(A,B → 두 값을 OR)도 받는다 — 이름으로 있는 키만.
+                var name = parts[i].Trim();
+                if (!int.TryParse(name, out _) && name.IndexOf(',') < 0 && Enum.TryParse(name, true, out keys[i]) && keys[i] != KeyCode.None && Enum.IsDefined(typeof(KeyCode), keys[i])) continue;
                 problem = "모르는 키입니다: " + parts[i] + " (KeyCode 이름 — Escape · Space · Return · A · Alpha1 · F1 · UpArrow · Mouse0 · JoystickButton0 …, 여럿은 A+LeftShift)";
                 return false;
             }
