@@ -62,7 +62,7 @@
 - [ ] 옛 Input · Input System · UI Toolkit 직접 길 모두 · `conform` C 줄 초록(Android · macOS)(Task 10)
 
 ## P2-D. Unity 알림
-- [ ] 설계 · 구현 계획
+- [ ] 설계 · 구현 계획 — plan.md 1절 AltTester 셈을 명령 목록으로 다시 센다(P2-C 뒤 어림 셈이 68.5/68 로 넘침)
 - [ ] 장면 열림 · 닫힘 · 로그 · 일시정지 알림(번호 뒤만 가져가기)
 - [ ] SDK 로그 켜고 끄기
 - [ ] `conform` D 줄 초록

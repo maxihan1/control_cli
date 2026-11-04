@@ -5,7 +5,7 @@
 
 ## 1. 기준 — AltTester 기능 목록
 
-기준은 AltTester 문서 [명령 목록](https://alttester.com/docs/sdk/latest/pages/commands.html)(설정 명령 5개를 뺀 68개)과 [Desktop 개요](https://alttester.com/docs/desktop/latest/pages/overview.html)다. 2026-11-03 지금 control_cli 는 명령 기준 22.5/68(약 33%), P2-A 뒤 37.5/68(약 55%), P2-B 뒤 약 52.5/68(약 77% — 찾기 5 · 오브젝트 9.5 · PNG 0.5), P2-C 뒤 입력 16개(아래 입력 줄의 12 + Pointer 넷)를 더해 52.5 + 16 = 68.5/68 — 68 을 넘는다. 알림 P2-D 가 아직인데 만점이 될 수 없으니 앞 셈에 겹쳐 센 곳이 있다(다시 확인한다).
+기준은 AltTester 문서 [명령 목록](https://alttester.com/docs/sdk/latest/pages/commands.html)(설정 명령 5개를 뺀 68개)과 [Desktop 개요](https://alttester.com/docs/desktop/latest/pages/overview.html)다. 2026-11-03 지금 control_cli 는 명령 기준 22.5/68(약 33%), P2-A 뒤 37.5/68(약 55%), P2-B 뒤 약 52.5/68(약 77% — 찾기 5 · 오브젝트 9.5 · PNG 0.5), P2-C 뒤에는 표의 명령 갈래 중 알림(P2-D)만 남는다. 어림 셈으로는 입력 16개(아래 입력 줄의 12 + Pointer 넷)를 더해 68.5 가 되어 68 을 넘으니 앞 셈이 겹쳐 셌다 — P2-D 설계 때 AltTester 명령 목록으로 다시 센다.
 ✓ 는 지금 있음, 단계는 넣을 곳.
 
 | AltTester 갈래 | 명령 · 기능 | 지금 | 단계 |
