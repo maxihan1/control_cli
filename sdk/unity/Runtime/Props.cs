@@ -21,6 +21,70 @@ namespace ControlCli
             return Guard(prop, () => Read(component, null, parts, 1, prop));
         }
 
+        // UI Toolkit 요소처럼 컴포넌트 없이 그 객체에서 바로 — value · text · layout.height
+        public static string GetOn(object owner, string prop)
+        {
+            var parts = (prop ?? "").Split('.');
+            if (parts[0].Length == 0) return Fail("prop 은 「칸[.칸…]」 꼴이어야 합니다 (예: value · layout.height)");
+            return Guard(prop, () => Read(owner, null, parts, 0, prop));
+        }
+
+        // 붙은 컴포넌트 — 스크립트가 빠진 칸(Missing Script)은 건너뛴다.
+        public static string Components(GameObject go)
+        {
+            var list = new List<string>();
+            foreach (var c in go.GetComponents<Component>())
+                if (c != null) list.Add("{\"name\":" + Json.Str(c.GetType().Name) + ",\"type\":" + Json.Str(c.GetType().FullName) + "}");
+            return "{\"ok\":true,\"components\":[" + string.Join(",", list) + "]}";
+        }
+
+        private static bool UnityBase(Type t) => t == typeof(MonoBehaviour) || t == typeof(Behaviour) || t == typeof(Component) || t == typeof(UnityEngine.Object) || t == typeof(object);
+
+        // 그 스크립트가 선언한 칸 · 메서드 — 컴파일러가 만든 이름(<…>)과 속성 접근자는 뺀다. 값은 읽다 던지거나 사본 속성이면 싣지 않는다.
+        public static string Members(GameObject go, string component)
+        {
+            var c = ComponentOf(go, component ?? "");
+            if (c == null) return Fail(go.name + " 에 " + component + " 컴포넌트가 없습니다");
+            const BindingFlags flags = Member | BindingFlags.Static | BindingFlags.DeclaredOnly;
+            var fields = new List<string>();
+            var props = new List<string>();
+            var methods = new List<string>();
+            for (var t = c.GetType(); t != null && !UnityBase(t); t = t.BaseType)
+            {
+                foreach (var f in t.GetFields(flags))
+                    if (f.Name.IndexOf('<') < 0) fields.Add(Entry(f.Name, f.FieldType, f.IsStatic, () => f.GetValue(f.IsStatic ? null : c), f.IsInitOnly || f.IsLiteral));
+                foreach (var p in t.GetProperties(flags))
+                {
+                    var get = p.GetGetMethod(true);
+                    if (get == null || p.GetIndexParameters().Length > 0) continue;
+                    var copy = Array.IndexOf(Copying, p.Name) >= 0;
+                    props.Add(Entry(p.Name, p.PropertyType, get.IsStatic, copy ? null : (Func<object>)(() => p.GetValue(get.IsStatic ? null : c)), p.GetSetMethod(true) == null));
+                }
+                foreach (var m in t.GetMethods(flags))
+                {
+                    if (m.IsSpecialName || m.Name.IndexOf('<') >= 0) continue;
+                    var names = new List<string>();
+                    foreach (var a in m.GetParameters()) names.Add(Json.Str(a.ParameterType.Name));
+                    methods.Add("{\"name\":" + Json.Str(m.Name) + ",\"args\":[" + string.Join(",", names) + "],\"returns\":" + Json.Str(m.ReturnType.Name) + (m.IsStatic ? ",\"static\":true" : "") + "}");
+                }
+            }
+            return "{\"ok\":true,\"fields\":[" + string.Join(",", fields) + "],\"properties\":[" + string.Join(",", props) + "],\"methods\":[" + string.Join(",", methods) + "]}";
+        }
+
+        private static string Entry(string name, Type type, bool isStatic, Func<object> read, bool readOnly)
+        {
+            var sb = new System.Text.StringBuilder("{\"name\":").Append(Json.Str(name)).Append(",\"type\":").Append(Json.Str(type.Name));
+            string value = null;
+            // 게임 쪽 getter 가 던지면 값 없이 — 목록은 이어진다.
+            if (read != null)
+                try { value = Value(read()); }
+                catch (Exception) { value = null; }
+            if (value != null) sb.Append(",\"value\":").Append(value);
+            if (readOnly) sb.Append(",\"readOnly\":true");
+            if (isStatic) sb.Append(",\"static\":true");
+            return sb.Append('}').ToString();
+        }
+
         // value 는 get 이 주는 꼴의 글자 — 2.5 · true · [0,1,0] · 열거 이름. 바꾼 뒤 다시 읽어 준다.
         public static string Set(GameObject go, string prop, string value)
         {
@@ -158,7 +222,8 @@ namespace ControlCli
             problem = null;
             for (var i = start; i < parts.Length; i++)
             {
-                var path = string.Join(".", parts, 0, i);
+                // 요소에서 바로 읽을 때(GetOn) 첫 칸 앞은 그 요소 타입 이름이다.
+                var path = i == 0 && value != null ? value.GetType().Name : string.Join(".", parts, 0, i);
                 var statics = i == start && owner == null;
                 if (!statics && value == null)
                 {

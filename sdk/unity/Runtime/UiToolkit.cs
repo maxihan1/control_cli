@@ -64,6 +64,14 @@ namespace ControlCli
             }
         }
 
+        // 화면 자리(왼쪽 아래 0,0)에서 맨 앞 panel 이 고른 요소 — find-at 이 쓴다. 트리에 없는 속 칸일 수 있다(Select.At 이 조상으로 올린다).
+        public static VisualElement Pick(Vector2 screen)
+        {
+            var flipped = new Vector2(screen.x, Screen.height - screen.y);
+            var panel = Topmost(flipped);
+            return panel?.Pick(RuntimePanelUtils.ScreenToPanel(panel, flipped));
+        }
+
         // 그 자리에 요소가 있는 panel 중 맨 앞 — 정렬 순서가 큰 panel 이 위다.
         private static IPanel Topmost(Vector2 flipped)
         {
