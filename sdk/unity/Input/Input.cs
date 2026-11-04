@@ -4,7 +4,7 @@ using ControlCli;
 
 // 전역 이름공간에 둬야 게임 파일의 `using UnityEngine;` 보다 먼저 잡힌다(C# 이름 찾기는 이름공간 멤버가 using 보다 앞선다).
 // UnityEngine.Input 의 멤버를 전부 감싼다 — 빠진 멤버를 쓰는 게임 파일은 QA 빌드에서만 컴파일이 깨지기 때문이다.
-// 터치 · 마우스 왼쪽 단추 · 키(KeyCode)만 가짜를 섞고 나머지는 그대로 넘긴다.
+// 터치 · 마우스(자리 · 단추 · 바퀴) · 키(KeyCode) · 축 · 가상 단추 · 가속도만 가짜를 섞고 나머지는 그대로 넘긴다.
 // ponytail: 펜(GetPenEvent 등) · mousePositionDelta 는 Unity 판마다 있고 없고가 달라 뺐다. 쓰는 게임이 오면 더한다.
 // IsJoystickPreconfigured 는 리눅스 데스크톱 전용이라 Android 빌드에 없다(CS0117) — 감싸지 않는다.
 // location 도 감싸지 않는다 — LocationService 를 적기만 해도 Android 는 위치 권한을 manifest 에 붙이고 iOS 는 위치 사용 문구가 없으면 빌드를 거절한다.
@@ -30,18 +30,18 @@ public static class Input
     public static bool multiTouchEnabled { get => UnityEngine.Input.multiTouchEnabled; set => UnityEngine.Input.multiTouchEnabled = value; }
     public static bool simulateMouseWithTouches { get => UnityEngine.Input.simulateMouseWithTouches; set => UnityEngine.Input.simulateMouseWithTouches = value; }
 
-    // 진짜 폰은 simulateMouseWithTouches(기본 켜짐)일 때 첫 손가락을 마우스 왼쪽 단추로 비춘다 — 가짜 손가락도 같게.
+    // 진짜 폰은 simulateMouseWithTouches(기본 켜짐)일 때 첫 손가락을 마우스 왼쪽 단추로 비춘다 — 가짜 손가락도 같게. 가짜 마우스(mouse-move)가 켜졌으면 그 자리.
     private static bool Mirrored(int button) => button == 0 && UnityEngine.Input.simulateMouseWithTouches;
-    public static bool mousePresent => UnityEngine.Input.mousePresent;
-    public static Vector3 mousePosition => Mirrored(0) && FakeTouches.MousePosition is Vector2 p ? (Vector3)p : UnityEngine.Input.mousePosition;
-    public static Vector2 mouseScrollDelta => UnityEngine.Input.mouseScrollDelta;
-    public static bool GetMouseButton(int button) => UnityEngine.Input.GetMouseButton(button) || (Mirrored(button) && FakeTouches.MouseHeld);
-    public static bool GetMouseButtonDown(int button) => UnityEngine.Input.GetMouseButtonDown(button) || (Mirrored(button) && FakeTouches.MouseDown);
-    public static bool GetMouseButtonUp(int button) => UnityEngine.Input.GetMouseButtonUp(button) || (Mirrored(button) && FakeTouches.MouseUp);
+    public static bool mousePresent => UnityEngine.Input.mousePresent || FakeMouse.Active;
+    public static Vector3 mousePosition => Mirrored(0) && FakeTouches.MousePosition is Vector2 p ? (Vector3)p : FakeMouse.Active ? (Vector3)FakeMouse.Position : UnityEngine.Input.mousePosition;
+    public static Vector2 mouseScrollDelta => UnityEngine.Input.mouseScrollDelta + FakeMouse.Scroll;
+    public static bool GetMouseButton(int button) => UnityEngine.Input.GetMouseButton(button) || (Mirrored(button) && FakeTouches.MouseHeld) || FakeKeys.Held(FakeKeys.MouseKey(button));
+    public static bool GetMouseButtonDown(int button) => UnityEngine.Input.GetMouseButtonDown(button) || (Mirrored(button) && FakeTouches.MouseDown) || FakeKeys.Down(FakeKeys.MouseKey(button));
+    public static bool GetMouseButtonUp(int button) => UnityEngine.Input.GetMouseButtonUp(button) || (Mirrored(button) && FakeTouches.MouseUp) || FakeKeys.Up(FakeKeys.MouseKey(button));
 
     // 키 이름(string)으로 묻는 것은 가짜 키를 섞지 않는다 — KeyCode 와 이름이 일대일이 아니다.
     public static bool anyKey => UnityEngine.Input.anyKey || FakeKeys.Any;
-    public static bool anyKeyDown => UnityEngine.Input.anyKeyDown || FakeKeys.Any;
+    public static bool anyKeyDown => UnityEngine.Input.anyKeyDown || FakeKeys.AnyDown;
     public static string inputString => UnityEngine.Input.inputString;
     public static bool GetKey(KeyCode key) => UnityEngine.Input.GetKey(key) || FakeKeys.Held(key);
     public static bool GetKey(string name) => UnityEngine.Input.GetKey(name);
@@ -63,7 +63,7 @@ public static class Input
     public static bool imeIsSelected => UnityEngine.Input.imeIsSelected;
     public static Vector2 compositionCursorPos { get => UnityEngine.Input.compositionCursorPos; set => UnityEngine.Input.compositionCursorPos = value; }
 
-    public static Vector3 acceleration => UnityEngine.Input.acceleration;
+    public static Vector3 acceleration => FakeInput.Tilt ?? UnityEngine.Input.acceleration;
     public static int accelerationEventCount => UnityEngine.Input.accelerationEventCount;
     public static AccelerationEvent[] accelerationEvents => UnityEngine.Input.accelerationEvents;
     public static AccelerationEvent GetAccelerationEvent(int index) => UnityEngine.Input.GetAccelerationEvent(index);

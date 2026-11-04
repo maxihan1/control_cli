@@ -1,5 +1,6 @@
-// UI Toolkit(UIDocument) 요소의 화면 자리를 셈하고, EventSystem 이 없는 옛 Input 게임에는 가짜 터치를 panel 에 Pointer 이벤트로 보낸다
+// UI Toolkit(UIDocument) 요소의 화면 자리를 셈하고, EventSystem 이 없는 옛 Input 게임에는 가짜 터치 · 마우스를 panel 에 Pointer · Wheel 이벤트로 보낸다
 #if CONTROL_CLI_UITK
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UIElements;
@@ -35,21 +36,69 @@ namespace ControlCli
             false;
 #endif
 
-        // 누른 panel — 뗄 때까지 같은 panel 로 보낸다(Unity 기본 이벤트 시스템의 soft capture 와 같게).
-        private static IPanel _pressed;
+        // 누른 panel — 뗄 때까지 같은 panel 로 보낸다(Unity 기본 이벤트 시스템의 soft capture 와 같게). 손가락 · 마우스마다 따로.
+        private static readonly Dictionary<int, IPanel> Pressed = new Dictionary<int, IPanel>();
+        private static int _mouseButtons;
 
-        // Unity 기본 이벤트 시스템과 같은 차례 — 위아래 뒤집기 → panel 좌표 → 그 좌표의 Touch 로 Pointer 이벤트.
+        private static Vector2 Flip(Vector2 p) => new Vector2(p.x, Screen.height - p.y);
+
+        private static IPanel Target(int pointer, Vector2 flipped, bool begin, bool end)
+        {
+            Pressed.TryGetValue(pointer, out var pressed);
+            var panel = begin || pressed == null ? Topmost(flipped) : pressed;
+            if (end || panel == null) Pressed.Remove(pointer);
+            else Pressed[pointer] = panel;
+            return panel;
+        }
+
+        // Unity 기본 이벤트 시스템과 같은 차례 — 위아래 뒤집기 → panel 좌표 → 그 좌표의 Touch 로 Pointer 이벤트. 손가락 번호가 pointerId 가 된다.
         public static void Send(Touch touch)
         {
-            var flipped = new Vector2(touch.position.x, Screen.height - touch.position.y);
-            var panel = touch.phase == TouchPhase.Began || _pressed == null ? Topmost(flipped) : _pressed;
-            _pressed = touch.phase == TouchPhase.Ended || touch.phase == TouchPhase.Canceled ? null : panel;
+            var flipped = Flip(touch.position);
+            var panel = Target(touch.fingerId, flipped, touch.phase == TouchPhase.Began, touch.phase == TouchPhase.Ended || touch.phase == TouchPhase.Canceled);
             if (panel == null) return;
             var at = RuntimePanelUtils.ScreenToPanel(panel, flipped);
             var before = RuntimePanelUtils.ScreenToPanel(panel, flipped - new Vector2(touch.deltaPosition.x, -touch.deltaPosition.y));
             touch.position = at;
             touch.deltaPosition = at - before;
             using (var e = Pointer(touch)) panel.visualTree.SendEvent(e);
+        }
+
+        // 가짜 마우스 — 옮긴 프레임에 PointerMove, 단추(키 Mouse0~2)가 바뀐 프레임에 PointerDown/Up, 바퀴는 WheelEvent. IMGUI Event 로 만들어 기본 이벤트 시스템과 같은 꼴(마우스 pointerId).
+        public static void SendMouse()
+        {
+            if (!FakeMouse.Active) return;
+            var flipped = Flip(FakeMouse.Position);
+            var buttons = 0;
+            for (var b = 0; b < 3; b++)
+                if (FakeKeys.Held(KeyCode.Mouse0 + b)) buttons |= 1 << b;
+            if (FakeMouse.Moved) Mouse(EventType.MouseMove, 0, flipped, Vector2.zero, buttons);
+            for (var b = 0; b < 3; b++)
+            {
+                var bit = 1 << b;
+                if ((buttons & bit) != 0 && (_mouseButtons & bit) == 0) Mouse(EventType.MouseDown, b, flipped, Vector2.zero, buttons);
+                if ((buttons & bit) == 0 && (_mouseButtons & bit) != 0) Mouse(EventType.MouseUp, b, flipped, Vector2.zero, buttons);
+            }
+            _mouseButtons = buttons;
+            // IMGUI 바퀴는 아래가 + 라 옛 Input 꼴(위가 +)을 뒤집는다.
+            if (FakeMouse.Scroll != Vector2.zero) Mouse(EventType.ScrollWheel, 0, flipped, new Vector2(FakeMouse.Scroll.x, -FakeMouse.Scroll.y), buttons);
+        }
+
+        // 단추를 누른 동안만 panel 을 붙잡는다 — 안 누른 hover 는 프레임마다 맨 앞 panel 을 다시 고른다.
+        private static void Mouse(EventType type, int button, Vector2 flipped, Vector2 delta, int buttons)
+        {
+            var panel = Target(PointerId.mousePointerId, flipped, type == EventType.MouseDown || buttons == 0, buttons == 0);
+            if (panel == null) return;
+            var e = new Event { type = type, button = button, delta = delta, mousePosition = RuntimePanelUtils.ScreenToPanel(panel, flipped) };
+            EventBase pooled;
+            switch (type)
+            {
+                case EventType.MouseMove: pooled = PointerMoveEvent.GetPooled(e); break;
+                case EventType.MouseDown: pooled = PointerDownEvent.GetPooled(e); break;
+                case EventType.MouseUp: pooled = PointerUpEvent.GetPooled(e); break;
+                default: pooled = WheelEvent.GetPooled(e); break;
+            }
+            using (pooled) panel.visualTree.SendEvent(pooled);
         }
 
         private static EventBase Pointer(Touch touch)
@@ -67,7 +116,7 @@ namespace ControlCli
         // 화면 자리(왼쪽 아래 0,0)에서 맨 앞 panel 이 고른 요소 — find-at 이 쓴다. 트리에 없는 속 칸일 수 있다(Select.At 이 조상으로 올린다).
         public static VisualElement Pick(Vector2 screen)
         {
-            var flipped = new Vector2(screen.x, Screen.height - screen.y);
+            var flipped = Flip(screen);
             var panel = Topmost(flipped);
             return panel?.Pick(RuntimePanelUtils.ScreenToPanel(panel, flipped));
         }

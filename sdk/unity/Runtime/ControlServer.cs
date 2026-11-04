@@ -174,12 +174,12 @@ namespace ControlCli
                 try { reply = Handle(request.Line.Trim()); }
                 catch (Exception e) { reply = Error(e.GetType().Name + ": " + e.Message); }
                 // null 은 Handle 이 _ready 를 걸고 답을 미뤘다는 뜻이다.
-                if (reply != null && !FakeTouches.Idle)
+                if (reply != null && !FakeInput.Idle)
                 {
                     // 람다는 변수를 잡는다 — 아래에서 reply 를 비우므로 답을 따로 둔다.
                     var done = reply;
-                    _ready = () => FakeTouches.Idle ? done : null;
-                    _cancel = FakeTouches.Cancel;
+                    _ready = () => FakeInput.Idle ? done : null;
+                    _cancel = FakeInput.Reset;
                     reply = null;
                 }
                 if (reply == null)
@@ -229,13 +229,12 @@ namespace ControlCli
                     return SetText(c.target, c.text ?? "", c.inactive);
                 case "tap":
                     var point = new Vector2(c.x, c.y);
-                    FakeTouches.Tap(point);
-                    return Touched(point);
+                    return WithFinger(f => FakeInput.Tap(f, point, 1, 0), Touched(point));
                 case "key":
                     // 키 이름은 KeyCode 이름(대소문자 무시) — Escape 는 폰 뒤로 키와 같다(Unity 가 뒤로 키를 Escape 로 준다).
                     if (string.IsNullOrEmpty(c.key) || !Enum.TryParse<KeyCode>(c.key, true, out var key) || key == KeyCode.None)
                         return Error("모르는 키입니다: " + c.key + " (KeyCode 이름 — Escape · Space · Return · A · Alpha1 · F1 · UpArrow …)");
-                    FakeKeys.Press(key);
+                    FakeInput.Run(FakeInput.Keys(new[] { key }, 1, 0));
                     return "{\"ok\":true,\"key\":" + Json.Str(key.ToString()) + "}";
                 case "screenshot":
                     if (!string.IsNullOrEmpty(c.format) && c.format != "jpg" && c.format != "png") return Error("format 은 jpg · png 중 하나입니다");
@@ -247,16 +246,14 @@ namespace ControlCli
                 {
                     if (!CameraOf(c.camera, out var cam, out var problem)) return Error(problem);
                     if (!Point(c.target, cam, out var at, out problem)) return Error(problem);
-                    FakeTouches.Tap(at);
-                    return Touched(at);
+                    return WithFinger(f => FakeInput.Tap(f, at, 1, 0), Touched(at));
                 }
                 case "drag":
                 {
                     if (!CameraOf(c.camera, out var cam, out var problem)) return Error(problem);
                     if (!Point(c.target, cam, out var from, out problem)) return Error(problem);
                     if (!Point(c.to, cam, out var to, out problem)) return Error(problem);
-                    FakeTouches.Drag(from, to);
-                    return Touched(to);
+                    return WithFinger(f => FakeInput.Path(f, new[] { from, to }, 0), Touched(to));
                 }
                 case "type":
                     return TypeText(c.target, c.text ?? "");
@@ -535,6 +532,17 @@ namespace ControlCli
 #else
             _shot = Error("이 게임은 ImageConversion 모듈(com.unity.modules.imageconversion)을 빼서 화면을 찍을 수 없습니다");
 #endif
+        }
+
+        private const string AllDown = "손가락 10개가 다 눌려 있습니다 — touch-up · input-reset 으로 뗍니다";
+
+        // 비어 있는 손가락으로 일을 건다 — 10개가 다 눌려 있으면 실패 글.
+        private static string WithFinger(Func<int, IEnumerator> job, string reply)
+        {
+            var finger = FakeTouches.Free();
+            if (finger < 0) return Error(AllDown);
+            FakeInput.Run(job(finger));
+            return reply;
         }
 
         private static string Touched(Vector2 p) =>
