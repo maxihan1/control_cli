@@ -90,3 +90,11 @@
 - 표준 화면은 `Second` 장면을 더하고, 샘플이 `Sample` 이 열릴 때마다 화면을 다시 만든다(`BeforeSceneLoad` 에서 `sceneLoaded` 를 건다). 한 장면 열기로 `Second` 에 갔다 돌아와도 다음 판 conform 이 돈다
 - 공용 함수에서 고친 것 — `Tree.RootObjects` 가 열리는 중인(isLoaded 아닌) 장면을 건너뛴다. 장면을 비동기로 열면 그동안 `GetRootGameObjects` 가 던져 `tree` · `find` 가 실패한다
 - 뺀 것 — 선택적 인자 채우기 · 제네릭 메서드 · `params` · 객체 참조 값 넣기 · 저장 값 타입 알아내기(`GetInt` 기본값 둘로 견주는 수는 Windows 레지스트리처럼 float 를 DWORD 로 두는 플랫폼에서 틀릴 수 있다)
+
+## 2026-11-04 — P2-A 실기기 (팜 RF9R408GKRR · sample run 41742741513 · 커밋 94ea620)
+
+- CI — sdk-compile run 41742741341 초록(meta 잡이 protocol · mcp · sdk-meta 테스트, 컴파일 2021.3 · 2022.3 · 6000.0). C# 은 이 맥에서 못 굽고 CI 가 처음 본 판이 그대로 통과했다
+- 팜 — sample run 의 첫 잡(6000.0 · 옛 Input · Android IL2CPP ARM64) APK 로 `hold --udid RF9R408GKRR` → `open --app <APK>` → `conform` 「통과 23 · 실패 0 · 건너뜀 0」 → `close` → `release`. `open` 줄에 「· unity 6000.0.84f1 · SDK 0.4.0」. A 줄 7개(메서드 · 칸 쓰기 · static · 시간 배율 · 저장 값 · 장면 둘)가 다 초록이고 마지막 `errors` 줄도 비었다 — 장면을 바꾸고 돌아와도 Unity 에러 로그가 없다
+- IL2CPP 에서 확인된 것 — reflection 칸 쓰기(`Text.text` · 값 타입 `Transform.position.y` 의 거꾸로 써 넣기) · `[Preserve]` 를 붙인 샘플 메서드 · static 속성, `Application.CanStreamedLevelBeLoaded` · `LoadSceneAsync` · `UnloadSceneAsync`, 샘플의 `BeforeSceneLoad` 에서 건 `sceneLoaded` 가 첫 장면에도 와서 표준 화면이 한 번만 선다(겹치면 이름 겹침으로 `find` 가 실패했을 것)
+- 팜 연결 — 팜은 이 맥(launchd)에서 돈다. `http://127.0.0.1:4723/wd/hub` 도 인증 켬이라 토큰을 묻는다. 토큰은 사용자의 QA Hub 통합계정(`https://auth.maxihan.com/account`) PAT 다(Devicefarm `docs/guides/test-platform.md` 4절 — 토큰 주인이 폰을 잡은 사람이어야 한다). docs/unity/checklist.md 의 `vision.maxihan.com` 도 401 로 살아 있었다
+- 계획과 다르게 한 것 — ① cli.test 의 conform 줄 수(16)를 Task 2 커밋 뒤에 알아채 Task 3 커밋에 같이 고쳤다 ② conform.test 의 「다시 돌리기」 두 테스트는 caps 에서 `scene-load` 를 빼 앞 판 상태를 남긴다 — A 장면 줄이 표준 화면을 새로 세워 그 테스트의 뜻이 사라져서. 두 판 돌리기 자체는 새 A 테스트가 본다 ③ `protocol.test` 의 Caps 정규식이 한 줄 배열만 읽어 `\s*` 로 넓혔다(Caps 를 세 줄로 나눔) ④ `.gitignore` 에 `Second.unity*`
