@@ -46,7 +46,12 @@ const INPUTS = ['InputField', 'TMP_InputField', 'TextField'];
 const short = (full: string) => full.slice(full.lastIndexOf('.') + 1);
 export const button = (name: string, label: string, onClick?: () => void): FakeNode => node(name, { kind: 'Button', interactable: true, onClick }, [node('Text', { text: label })]);
 // SDK 처럼 입력 명령 하나는 8초 안 — SDK 답 한도 10초 · 팜 15초
-const tooLong = (c: Command) => Math.max(Number(c.duration ?? 0), 0) + Math.max(Number(c.count ?? 1) - 1, 0) * Math.max(Number(c.interval ?? 0.1), 0) > 8;
+// SDK 처럼 프레임 바닥도 센다(느린 폰 30fps) — 누를 때마다 2프레임, drag · swipe 는 마디마다 10프레임
+const frames = (c: Command) =>
+  (c.cmd === 'tap' || c.cmd === 'click' ? Number(c.count ?? 1) * 2 : 0)
+  + (c.cmd === 'drag' ? (((c.via as unknown[] | undefined) ?? []).length + 1) * 10 : 0)
+  + (c.cmd === 'swipe' ? Math.max(((c.points as unknown[] | undefined) ?? []).length - 1, 0) * 10 : 0);
+const tooLong = (c: Command) => Math.max(Number(c.duration ?? 0), 0) + Math.max(Number(c.count ?? 1) - 1, 0) * Math.max(Number(c.interval ?? 0.1), 0) + frames(c) / 30 > 8;
 // SDK Limits 와 같은 차례 · 문구 — count · power 를 먼저 본다
 const limits = (c: Command) =>
   Number(c.count ?? 1) < 1 ? 'count 는 1 이상입니다'

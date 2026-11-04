@@ -163,6 +163,8 @@ export class Game {
       throw new Error(`이 게임의 SDK 는 ${command.cmd} 를 못 합니다(할 수 있는 것: ${this.caps.join(' · ')}) — SDK 를 올립니다`);
     if (this.caps && !this.caps.includes('find-all') && newer(command)) throw new Error('이 게임의 SDK 는 선택자 · inactive · camera 를 못 읽습니다 — SDK 0.5.0 이상으로 올립니다');
     if (this.caps && !this.caps.includes('touch-down') && timed(command)) throw new Error('이 게임의 SDK 는 횟수 · 시간 · 세기 · 여러 키 · via 를 못 읽습니다 — SDK 0.6.0 이상으로 올립니다');
+    // SDK 의 count 는 int 칸이라 1.5 를 어떻게 읽을지 정해져 있지 않다.
+    if (command.count !== undefined && !Number.isInteger(command.count)) throw new Error('count 는 정수입니다');
     const reply = await this.link(command);
     if (reply.ok !== true) throw new Error(reply.error ?? `게임이 실패로 답했습니다: ${JSON.stringify(reply)}`);
     return reply;

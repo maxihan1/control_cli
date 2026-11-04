@@ -126,6 +126,9 @@ test('C 줄 — 가짜 SDK 도 SDK 처럼 count 1 미만 · power -1~1 밖을 �
   const game = direct(g);
   await assert.rejects(game.click('LoginButton', { count: 0 }), /count 는 1 이상입니다/);
   await assert.rejects(game.keyDown('A', { power: 5 }), /power 는 -1~1 입니다/);
+  // 누를 때마다 2프레임(30fps) — 7.35초 + 100프레임은 10초 답 한도를 넘는다
+  await assert.rejects(game.click('LoginButton', { count: 50, interval: 0.15 }), /click 은 8초 안이어야 합니다/);
+  await assert.rejects(game.click('LoginButton', { count: 1.5 }), /count 는 정수입니다/);
   await game.keyDown('A + LeftShift');
   await game.keyUp('A+LeftShift');
   assert.equal(g.held.size, 0);
