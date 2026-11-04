@@ -96,6 +96,9 @@ test('open 전에는 게임 도구가 실패로 답하고, 인자 꼴이 틀리�
   assert.deepEqual(await call('tree'), { content: [{ type: 'text', text: '열린 세션이 없습니다 — open 부터 합니다' }], isError: true });
   assert.match((await call('click')).content[0].text!, /^click 에 target 칸이 필요합니다/);
   assert.match((await call('tap', { x: '10', y: 10 })).content[0].text!, /^tap 의 x 는 number 여야 합니다 \(받은 값 "10"\)/);
+  assert.match((await call('touch-move', { x: 1, y: 1 })).content[0].text!, /^touch-move 에 finger 칸이 필요합니다/);
+  assert.match((await call('swipe', { points: '1,1 2,2' })).content[0].text!, /^swipe 의 points 는 글자 배열이어야 합니다/);
+  assert.match((await call('pointer', { target: 'HoldBox', event: 'press' })).content[0].text!, /^pointer 의 event 는 down · up · enter · exit 중 하나여야 합니다/);
   assert.match((await call('static-call', { method: 'A.B', args: 'x' })).content[0].text!, /^static-call 의 args 는 글자 배열이어야 합니다/);
   assert.match((await call('pref-get', { key: 'k', type: 'bool' })).content[0].text!, /^pref-get 의 type 는 string · int · float 중 하나여야 합니다/);
   assert.match((await call('find', { target: 'X', inactive: 'yes' })).content[0].text!, /^find 의 inactive 는 true · false 여야 합니다/);
