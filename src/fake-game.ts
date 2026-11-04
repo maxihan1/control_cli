@@ -60,6 +60,21 @@ const limits = (c: Command) =>
 const FINGERS = Array.from({ length: 10 }, (_, i) => 10 + i);
 const keysOf = (c: Command) => String(c.key).split('+').map((k) => k.trim());
 
+// SDK Feed.Mask 와 같다 — 영숫자 · _ · - 가 40자 넘게 이어진 토막(토큰)을 가린다(Issue Bunker nginx 규칙)
+const mask = (s: string) => s.replace(/[A-Za-z0-9_-]{40,}/g, '***');
+const STAMP = '2026-11-04T00:00:00.000Z';
+// SDK SdkLog 와 같은 줄 — 이름 칸은 그대로, 값 칸은 「이름=***」, 실패 글 속 입력값도 ***. 알림 읽기와 sdk-log 자신은 안 적는다
+const NAMED = ['target', 'to', 'name', 'method', 'prop', 'key'];
+const SECRET = ['text', 'value', 'args'];
+const QUIET = ['logs', 'events', 'errors', 'sdk-log'];
+const valuesOf = (c: Command, k: string) => (Array.isArray(c[k]) ? (c[k] as unknown[]).map(String) : typeof c[k] === 'string' ? [c[k] as string] : []).filter((s) => s !== '');
+function sdkLine(c: Command, r: Reply): string {
+  const head = ['[ControlCli]', c.cmd, ...NAMED.filter((k) => typeof c[k] === 'string' && c[k] !== '').map((k) => c[k] as string), ...SECRET.filter((k) => valuesOf(c, k).length > 0).map((k) => `${k}=***`)];
+  if (r.ok) return `${head.join(' ')} — 성공`;
+  const error = SECRET.flatMap((k) => valuesOf(c, k)).reduce((e, s) => e.split(s).join('***'), String(r.error ?? ''));
+  return `${head.join(' ')} — 실패: ${error}`;
+}
+
 export class FakeGame {
   clicks: string[] = [];
   keys: string[] = [];
@@ -92,7 +107,26 @@ export class FakeGame {
   tilted?: number;
   /** 입력 명령마다 — 표준 화면이 InputText 를 다시 쓴다 */
   onInput?: () => void;
+  /** 게임 로그 · 알림 — 번호는 자리 + 1. SDK 처럼 로그는 넣을 때 토큰을 가린다 */
+  logs: Record<string, unknown>[] = [];
+  events: Record<string, unknown>[] = [];
+  /** sdk-log 켬 — 받은 명령마다 SDK 와 같은 한 줄을 logs 에 */
+  sdkLog = false;
   private pending?: { left: number; open: () => void };
+
+  log(type: string, message: string): void {
+    this.logs.push({ occurredAt: STAMP, type, message: mask(message), stack: '' });
+  }
+
+  event(e: Record<string, unknown>): void {
+    this.events.push({ occurredAt: STAMP, ...e });
+  }
+
+  /** 앱이 뒤로 갔다 돌아온다 — Appium backgroundApp 흉내 */
+  background(): void {
+    this.event({ type: 'game.paused' });
+    this.event({ type: 'game.resumed' });
+  }
 
   constructor(
     public roots: FakeNode[],
@@ -198,6 +232,12 @@ export class FakeGame {
   }
 
   handle(c: Command): Reply {
+    const r = this.reply(c);
+    if (this.sdkLog && !QUIET.includes(c.cmd)) this.log('Log', sdkLine(c, r));
+    return r;
+  }
+
+  private reply(c: Command): Reply {
     this.commands.push(c);
     // 트리는 켜진 것만 — SDK 의 Tree.Dump 처럼.
     const on = (ns: FakeNode[] = []) => ns.filter((n) => n.active !== false);
@@ -261,6 +301,15 @@ export class FakeGame {
         return f.node?.props && (c.prop as string) in f.node.props ? { ok: true, value: f.node.props[c.prop as string] } : { ok: false, error: `${c.prop as string} 칸이 없습니다` };
       case 'errors':
         return { ok: true, last: 0, errors: [] };
+      case 'logs':
+      case 'events': {
+        const items = c.cmd === 'logs' ? this.logs : this.events;
+        const since = Number(c.since ?? 0);
+        return { ok: true, last: items.length, [c.cmd]: items.slice(since).map((x, i) => ({ seq: since + i + 1, ...x })) };
+      }
+      case 'sdk-log':
+        this.sdkLog = c.on === true;
+        return { ok: true, on: this.sdkLog };
       case 'layout':
         return { ok: true, checked: 2, problems: [{ kind: 'overlap', name: 'A', path: '/C/A', other: 'B', otherPath: '/C/B' }] };
       case 'tap':
@@ -387,6 +436,8 @@ export class FakeGame {
         return v === undefined ? { ok: true, found: false } : { ok: true, found: true, value: v };
       }
       case 'pref-set':
+        // SDK GameState.PrefSet 처럼 실패 글에 받은 값을 싣는다 — sdk-log 가 그 값을 가리는지 본다
+        if (c.type === 'int' && !/^-?\d+$/.test(String(c.value))) return { ok: false, error: `「${String(c.value)}」은 int 가 아닙니다` };
         this.prefs.set(c.key as string, c.type === 'int' || c.type === 'float' ? Number(c.value) : (c.value as string));
         return { ok: true };
       case 'pref-delete':
@@ -417,10 +468,13 @@ export class FakeGame {
             this.loaded.push({ name, nodes });
             this.roots = [...this.roots, ...nodes];
           } else {
+            // 한 장면 열기는 열린 장면을 닫는다 — Unity 의 sceneUnloaded 차례는 실기기로 확인 안 함
+            for (const l of this.loaded) this.event({ type: 'scene.unloaded', scene: l.name });
             this.loaded = [{ name, nodes }];
             this.roots = nodes;
             this.scene = name;
           }
+          this.event({ type: 'scene.loaded', scene: name, mode: c.mode === 'add' ? 'add' : 'single' });
           this.loads++;
         };
         const loads = this.loads;
@@ -434,6 +488,7 @@ export class FakeGame {
         if (this.loaded.length < 2) return { ok: false, error: '마지막 장면은 닫을 수 없습니다' };
         const [gone] = this.loaded.splice(i, 1);
         this.roots = this.roots.filter((n) => !gone.nodes.includes(n));
+        this.event({ type: 'scene.unloaded', scene: gone.name });
         return { ok: true, unloads: this.unloads++ };
       }
       default:
@@ -606,7 +661,7 @@ export function standardScreen(idAccept = keyFilter(8)): FakeGame {
   game.roots = build();
   game.loaded = [{ name: 'Sample', nodes: game.roots }];
   game.statics = { 'Sample.TouchProbe.Note': null };
-  game.staticMethods = { 'Sample.TouchProbe.Add': (a, b) => Number(a) + Number(b) };
+  game.staticMethods = { 'Sample.TouchProbe.Add': (a, b) => Number(a) + Number(b), 'Sample.TouchProbe.Log': (text) => game.log('Log', text) };
   return game;
 }
 
@@ -705,6 +760,8 @@ export async function fakeFarm(
       if (path === '/wd/hub/session' && req.method === 'POST') return send(200, { value: { sessionId: 'S1', capabilities: JSON.parse(raw) } });
       if (path === '/wd/hub/session/S1/screenshot') return send(200, { value: Buffer.from('png').toString('base64') });
       if (path === '/wd/hub/session/S1/back') return game.onBack?.(), send(200, { value: null });
+      if (path === '/wd/hub/session/S1/execute/sync' && (JSON.parse(raw) as { script?: string }).script === 'mobile: backgroundApp')
+        return game.background(), send(200, { value: null });
       if (path === '/wd/hub/session/S1' && req.method === 'DELETE')
         return state.sessionGone ? send(404, { value: { error: 'invalid session id', message: 'A session is either terminated or not started' } }) : send(200, { value: null });
       send(404, { value: { error: 'unknown command', message: path } });

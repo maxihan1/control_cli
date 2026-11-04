@@ -78,13 +78,42 @@ export interface LayoutProblem {
   rect?: number[];
 }
 
-export interface GameErrors {
+/** 번호 뒤만 가져가는 답의 공통 칸 — errors · logs · events */
+interface Tail {
   last: number;
-  errors: { seq: number; time: string; type: string; message: string; stack: string }[];
-  /** 들고 있는 수(200)를 넘겨 밀려난 수 */
+  /** 들고 있는 수(errors 200 · logs 500 · events 200)를 넘겨 밀려난 수 */
   dropped?: number;
   /** 게임이 다시 켜져 번호가 1 부터 다시 셌다 */
   restarted?: boolean;
+}
+
+/** 게임 로그 한 줄 — type 은 Unity LogType 이름. occurredAt 은 UTC ms 3자리(Issue Bunker 와 같은 이름 · 꼴). 40자 넘는 영숫자 토막은 SDK 가 *** 로 가린다 */
+export interface GameLog {
+  seq: number;
+  occurredAt: string;
+  type: string;
+  message: string;
+  stack: string;
+}
+
+export interface GameErrors extends Tail {
+  /** time 은 옛 꼴(SDK 0.7.0 전부터) — occurredAt 은 SDK 0.7.0 부터 */
+  errors: (Omit<GameLog, 'occurredAt'> & { time: string; occurredAt?: string })[];
+}
+
+export interface GameLogs extends Tail {
+  logs: GameLog[];
+}
+
+/** 게임 알림 — 이름은 Issue Bunker 이벤트 꼴(대상.과거분사) */
+export type GameEvent = { seq: number; occurredAt: string } & (
+  | { type: 'scene.loaded'; scene: string; mode: 'single' | 'add' }
+  | { type: 'scene.unloaded'; scene: string }
+  | { type: 'game.paused' | 'game.resumed' }
+);
+
+export interface GameEvents extends Tail {
+  events: GameEvent[];
 }
 
 /** 열린 장면 — loads · unloads 는 게임이 켜진 뒤 장면이 열리고 닫힌 수(같은 장면을 다시 열어도 는다) */
@@ -285,6 +314,21 @@ export class Game {
   /** 게임 예외 · 에러 로그 — 받아 둔 last 를 다음에 넘기면 그 뒤 것만 */
   async errors(since = 0): Promise<GameErrors> {
     return (await this.call({ cmd: 'errors', since })) as unknown as GameErrors;
+  }
+
+  /** 게임 로그 전부(Log · Warning 까지) — errors 와 같이 last 뒤만 */
+  async logs(since = 0): Promise<GameLogs> {
+    return (await this.call({ cmd: 'logs', since })) as unknown as GameLogs;
+  }
+
+  /** 장면 열림 · 닫힘 · 앱 일시정지 알림 — errors 와 같이 last 뒤만 */
+  async events(since = 0): Promise<GameEvents> {
+    return (await this.call({ cmd: 'events', since })) as unknown as GameEvents;
+  }
+
+  /** 켜면 SDK 가 받은 명령마다 게임 로그에 한 줄(입력 글자 · 값은 ***) */
+  async sdkLog(on: boolean): Promise<void> {
+    await this.call({ cmd: 'sdk-log', on });
   }
 
   /** 좌표 누르기(왼쪽 아래가 0,0) — 살펴볼 때만. 케이스는 좌표를 쓰지 않는다 */

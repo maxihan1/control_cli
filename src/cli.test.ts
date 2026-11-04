@@ -193,12 +193,12 @@ test('게임 SDK 의 caps 에 없는 명령은 보내지 않고 미리 거절한
   }
 });
 
-test('conform — 표준 화면이면 48줄 통과, 다르면 종료 코드로 알린다', async () => {
+test('conform — 표준 화면이면 PC 는 일시정지 줄만 미실행, 다르면 종료 코드로 알린다', async () => {
   const ok = await fakeTcp(standardScreen());
   const bad = await fakeTcp(new FakeGame([node('Boot')]));
   try {
     await cli('-s=cf', 'open', '--pc', '--port', String(ok.port));
-    assert.match(await cli('-s=cf', 'conform', '--port', String(ok.port)), /통과 48 · 실패 0 · 건너뜀 0/);
+    assert.match(await cli('-s=cf', 'conform', '--port', String(ok.port)), /통과 51 · 실패 0 · 미실행 1$/);
     await cli('-s=cf', 'close');
     await cli('-s=cf2', 'open', '--pc', '--port', String(bad.port));
     await assert.rejects(cli('-s=cf2', 'conform', '--port', String(bad.port)), /통과 \d+ · 실패 [1-9]/);
@@ -206,6 +206,43 @@ test('conform — 표준 화면이면 48줄 통과, 다르면 종료 코드로 �
   } finally {
     ok.server.close();
     bad.server.close();
+  }
+});
+
+test('conform — 팜은 Appium 으로 앱을 뒤로 보내 일시정지 줄까지 52줄 통과', async () => {
+  const f = await fakeFarm(standardScreen());
+  const own = await mkdtemp(join(tmpdir(), 'control-cli-'));
+  const fc = (...argv: string[]) => run(argv, { env: { PLATFORM_APPIUM_URL: f.url, PLATFORM_APP: 'http://builds/qa.apk' }, dir: own });
+  try {
+    await fc('hold');
+    await fc('-s=fc', 'open');
+    assert.match(await fc('-s=fc', 'conform'), /통과 52 · 실패 0 · 미실행 0$/);
+    assert.ok(f.seen.includes('POST /wd/hub/session/S1/execute/sync'));
+    await fc('-s=fc', 'close');
+    await fc('release');
+  } finally {
+    f.server.close();
+  }
+});
+
+test('알림 명령 — logs · events 는 번호 뒤만 JSON 으로, sdk-log 는 Ran 줄', async () => {
+  const pc = await fakeTcp(standardScreen());
+  const nt = (...argv: string[]) => cli('-s=nt', ...argv, '--port', String(pc.port));
+  try {
+    await nt('open', '--pc');
+    assert.equal(await nt('sdk-log', 'on'), 'Ran: await game.sdkLog(true)');
+    await nt('scene-load', 'Second', '--add');
+    assert.equal(await nt('sdk-log', 'off'), 'Ran: await game.sdkLog(false)');
+    const logs = JSON.parse(await nt('logs')) as { last: number; logs: { message: string }[] };
+    assert.ok(logs.logs.some((l) => l.message === '[ControlCli] scene-load Second — 성공'), JSON.stringify(logs));
+    await nt('scene-unload', 'Second');
+    const events = JSON.parse(await nt('events', '1')) as { last: number; events: { seq: number; type: string; scene: string }[] };
+    assert.deepEqual(events.events.map((e) => [e.seq, e.type, e.scene]), [[2, 'scene.unloaded', 'Second']]);
+    await assert.rejects(nt('logs', 'x'), /logs \[이 번호 뒤부터\] 꼴이어야 합니다/);
+    await assert.rejects(nt('sdk-log', 'yes'), /sdk-log on\|off 꼴이어야 합니다/);
+    await nt('close');
+  } finally {
+    pc.server.close();
   }
 });
 

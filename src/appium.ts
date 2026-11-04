@@ -59,5 +59,9 @@ export async function screenshot(c: Conn, sessionId: string): Promise<Buffer> {
   return Buffer.from(b64, 'base64');
 }
 
+/** 앱을 seconds 초 뒤로 보냈다가 다시 앞으로 — 게임 일시정지 알림(conform D) */
+export const backgroundApp = (c: Conn, sessionId: string, seconds: number) =>
+  call(c, 'POST', `/session/${sessionId}/execute/sync`, { script: 'mobile: backgroundApp', args: [{ seconds }] });
+
 /** 폰의 뒤로 키 — 닫기 버튼이 없는 창을 닫을 때 */
 export const back = (c: Conn, sessionId: string) => call(c, 'POST', `/session/${sessionId}/back`, {});

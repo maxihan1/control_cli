@@ -1,15 +1,23 @@
 // 표준 화면에 정해진 차례로 명령을 보내 기대값과 견준다 — 엔진마다 같은 표준 화면이면 같은 결과가 나와야 한다(docs/roadmap/plan.md 「적합성 검사」)
-import { WAIT, type Game, type PingReply } from './game.js';
+import { WAIT, type Game, type GameEvent, type PingReply } from './game.js';
 
 // 테스트가 줄일 수 있게 묶어 둔다 — 실기기에서 누른 뒤 글자가 바뀌기까지 1초 안팎이다. holdS · dragS · keyS 는 C 줄이 보내는 시간(가짜는 기다리지 않아 테스트는 작게).
 // dragS · keyS 는 duration 을 무시해도 걸리는 바닥보다 길어야 한다 — via 끌기는 마디 둘 × 10프레임(30fps 0.67초), 키는 한 프레임, 둘 다 왕복이 더해진다.
 export const CONFORM = { waitMs: 5000, holdS: 1, dragS: 2, keyS: 1.5 };
 
 interface Step {
-  /** 이 줄이 쓰는 명령 — 하나라도 게임 SDK 의 caps 에 없으면 건너뛴다 */
+  /** 이 줄이 쓰는 명령 — 하나라도 게임 SDK 의 caps 에 없으면 미실행 */
   cmds: string[];
   label: string;
-  run: (game: Game) => Promise<void>;
+  /** 게임 밖 길 — conform 을 부른 쪽이 주지 않으면 미실행 */
+  needs?: keyof ConformHooks;
+  run: (game: Game, hooks: ConformHooks) => Promise<void>;
+}
+
+/** 게임 SDK 밖에서만 할 수 있는 일 — CLI 가 세션에 맞춰 넘긴다 */
+export interface ConformHooks {
+  /** 앱을 잠깐 뒤로 보냈다 앞으로 — 팜 · USB 는 Appium backgroundApp. PC 는 SDK 가 runInBackground 를 켜 일시정지가 안 나고 iPhone 은 길이 없어 비운다 */
+  background?: () => Promise<void>;
 }
 
 export interface ConformResult {
@@ -290,7 +298,7 @@ export const STEPS: Step[] = [
     label: 'B screenshot png → PNG 머리',
     run: async (g) => same('PNG 머리', [...(await g.screenshot('png')).subarray(0, 8)], [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
   },
-  // C — 입력(P2-C). 표준 화면에 InputText(입력 탐침) · HoldBox · PointerText · ScrollList. cmds 의 touch-down 은 SDK 0.6.0 표 — 바뀐 칸을 못 읽는 옛 SDK 는 건너뛴다.
+  // C — 입력(P2-C). 표준 화면에 InputText(입력 탐침) · HoldBox · PointerText · ScrollList. cmds 의 touch-down 은 SDK 0.6.0 표 — 바뀐 칸을 못 읽는 옛 SDK 는 미실행.
   {
     cmds: ['click', 'find', 'touch-down'],
     label: 'C click LoginButton count 2 → 끝 번호가 2 늚',
@@ -501,22 +509,77 @@ export const STEPS: Step[] = [
       }
     },
   },
+  // D — 알림(P2-D). 줄마다 받아 둔 last 뒤만 본다 — 다시 돌려도 앞 판 알림에 속지 않는다. 이름 · 가리기는 Issue Bunker 정책과 같다(context-notes 「P2-D 설계」).
+  {
+    cmds: ['events', 'scene-load', 'scene-unload', 'scenes'],
+    label: 'D 장면 알림 — scene-load Second --add · scene-unload Second → scene.loaded · scene.unloaded',
+    run: async (g) => {
+      const from = (await g.events()).last;
+      await g.loadScene('Second', { add: true });
+      await g.unloadScene('Second');
+      const got = (await g.events(from)).events.flatMap((e) => (e.type === 'scene.loaded' ? [`${e.type} ${e.scene} ${e.mode}`] : e.type === 'scene.unloaded' ? [`${e.type} ${e.scene}`] : []));
+      same('장면 알림', got, ['scene.loaded Second add', 'scene.unloaded Second']);
+    },
+  },
+  {
+    cmds: ['logs', 'static-call'],
+    label: `D 로그 — static-call Sample.TouchProbe.Log 'conform-<n> token=<x×48>' → Log 「conform-<n> token=***」`,
+    run: async (g) => {
+      const from = (await g.logs()).last;
+      const n = Date.now();
+      await g.callStatic('Sample.TouchProbe.Log', [`conform-${n} token=${'x'.repeat(48)}`]);
+      const got = (await g.logs(from)).logs.filter((l) => l.message.startsWith(`conform-${n}`)).map((l) => `${l.type} ${l.message}`);
+      same('로그', got, [`Log conform-${n} token=***`]);
+    },
+  },
+  {
+    cmds: ['sdk-log', 'logs', 'type'],
+    label: 'D sdk-log — 켜면 type IdInput 이 「[ControlCli] type IdInput text=*** — 성공」, 끄면 안 남는다',
+    run: async (g) => {
+      const from = (await g.logs()).last;
+      const secret = `secret${Date.now() % 100}`;
+      await g.sdkLog(true);
+      try {
+        await g.type('IdInput', secret);
+      } finally {
+        await g.sdkLog(false);
+      }
+      await g.type('IdInput', secret);
+      const got = (await g.logs(from)).logs.map((l) => l.message);
+      same('sdk-log 줄', got.filter((m) => m.startsWith('[ControlCli]')), ['[ControlCli] type IdInput text=*** — 성공']);
+      if (got.some((m) => m.includes(secret))) throw new Error(`넣은 글자 ${secret} 이 로그에 남았다`);
+    },
+  },
+  {
+    cmds: ['events'],
+    needs: 'background',
+    label: 'D 일시정지 알림 — 앱을 2초 뒤로 → game.paused · game.resumed',
+    run: async (g, hooks) => {
+      const from = (await g.events()).last;
+      await hooks.background!();
+      // 돌아오는 동안은 게임이 답하지 않을 수 있다 — 빈 목록으로 보고 다시 묻는다.
+      const types = async () => (await g.events(from).catch(() => ({ events: [] as GameEvent[] }))).events.map((e) => e.type).filter((t) => t.startsWith('game.'));
+      await poll('일시정지 알림 — 기대 game.paused · game.resumed', types, (t) => t.length >= 2);
+      same('일시정지 알림', await types(), ['game.paused', 'game.resumed']);
+    },
+  },
   { cmds: ['errors'], label: 'errors 가 비었다', run: async (g) => same('오류', (await g.errors()).errors.map((e) => e.message), []) },
 ];
 
-export async function conform(game: Game): Promise<ConformResult> {
+export async function conform(game: Game, hooks: ConformHooks = {}): Promise<ConformResult> {
   const ping = await game.ping();
   const r: ConformResult = { ping, lines: [], passed: 0, failed: 0, skipped: 0 };
   for (const step of STEPS) {
     // caps 는 ping 이 꼴을 보고 game 에 적은 것 — 옛 SDK(caps 없음)는 다 보낸다.
     const missing = step.cmds.filter((c) => game.caps && !game.caps.includes(c));
-    if (missing.length) {
+    const why = missing.length ? `이 SDK 의 caps 에 ${missing.join(' · ')} 없음` : step.needs && !hooks[step.needs] ? '앱을 뒤로 보낼 길 없음: PC · iPhone · Appium 없는 USB' : undefined;
+    if (why) {
       r.skipped++;
-      r.lines.push(`- ${step.label} (이 SDK 의 caps 에 ${missing.join(' · ')} 없음)`);
+      r.lines.push(`- ${step.label} (미실행 — ${why})`);
       continue;
     }
     try {
-      await step.run(game);
+      await step.run(game, hooks);
       r.passed++;
       r.lines.push(`✓ ${step.label}`);
     } catch (e) {
@@ -529,5 +592,5 @@ export async function conform(game: Game): Promise<ConformResult> {
 
 export function report(r: ConformResult): string {
   const engine = r.ping.engine ? `${r.ping.engine} ${r.ping.engineVersion} · SDK ${r.ping.sdkVersion} · protocol ${r.ping.protocol}` : 'protocol 1(옛 SDK — caps 없음)';
-  return [`conform — ${r.ping.app} ${r.ping.version} · ${engine}`, ...r.lines, `통과 ${r.passed} · 실패 ${r.failed} · 건너뜀 ${r.skipped}`].join('\n');
+  return [`conform — ${r.ping.app} ${r.ping.version} · ${engine}`, ...r.lines, `통과 ${r.passed} · 실패 ${r.failed} · 미실행 ${r.skipped}`].join('\n');
 }
