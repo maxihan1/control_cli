@@ -270,6 +270,39 @@ test('찾기 · 설정 명령 — Ran 줄이 kit 의 game.* 이름 · 인자 꼴
   }
 });
 
+test('입력 명령 — Ran 줄이 kit 의 game.* 이름 · 인자 꼴로 찍히고, 좌표는 Ran 줄이 없고, 음수도 읽는다', async () => {
+  const pc = await fakeTcp(standardScreen());
+  const io = (...argv: string[]) => cli('-s=io', ...argv, '--port', String(pc.port));
+  try {
+    await io('open', '--pc');
+    assert.match(await io('click', 'LoginButton', '--count', '2', '--interval', '0.2'), /^Ran: await game\.click\('LoginButton', \{ count: 2, interval: 0\.2 \}\)/);
+    assert.match(await io('touch-down', 'Item'), /^Ran: await game\.touchDown\('Item'\)\n- 손가락 10\n/);
+    assert.match(await io('touch-move', '10', '/SampleCanvas/Bag/Slot[1]'), /^Ran: await game\.touchMove\(10, '\/SampleCanvas\/Bag\/Slot\[1\]'\)/);
+    assert.match(await io('touch-up', '10'), /^Ran: await game\.touchUp\(10\)/);
+    assert.match(await io('touch-down', '100', '200'), /^- 좌표 \(100, 200\) 누름 — 케이스에는 주소로 씁니다\n- 손가락 10\n/);
+    assert.match(await io('drag', 'Item', '/SampleCanvas/Bag/Slot[3]', '--via', '/SampleCanvas/Bag/Slot[2]', '--duration', '0.5'), /^Ran: await game\.drag\('Item', '\/SampleCanvas\/Bag\/Slot\[3\]', \{ via: \['\/SampleCanvas\/Bag\/Slot\[2\]'\], duration: 0\.5 \}\)/);
+    assert.match(await io('swipe', '810,550', '810,850', '--duration', '0.3'), /^- 좌표 810,550 → 810,850 끎 — 케이스에는 drag 로 씁니다/);
+    assert.match(await io('long-press', 'HoldBox', '--duration', '1'), /^Ran: await game\.longPress\('HoldBox', \{ duration: 1 \}\)/);
+    assert.match(await io('mouse-move', 'HoldBox'), /^Ran: await game\.mouseMove\('HoldBox'\)/);
+    assert.match(await io('scroll', 'ScrollList', '-10'), /^Ran: await game\.scroll\(-10, \{ at: 'ScrollList' \}\)/);
+    assert.match(await io('scroll', '3', '--dx', '1'), /^Ran: await game\.scroll\(3, \{ dx: 1 \}\)/);
+    assert.match(await io('key', 'A+LeftShift', '--duration', '0.5'), /^Ran: await game\.key\('A\+LeftShift', \{ duration: 0\.5 \}\)/);
+    assert.match(await io('key-down', 'JoystickButton16', '--power', '-1'), /^Ran: await game\.keyDown\('JoystickButton16', \{ power: -1 \}\)/);
+    assert.match(await io('key-up', 'JoystickButton16'), /^Ran: await game\.keyUp\('JoystickButton16'\)/);
+    assert.match(await io('tilt', '0', '-5', '0', '--duration', '1'), /^Ran: await game\.tilt\(\[0, -5, 0\], \{ duration: 1 \}\)/);
+    assert.match(await io('pointer', 'HoldBox', 'enter'), /^Ran: await game\.pointer\('HoldBox', 'enter'\)/);
+    assert.match(await io('input-reset'), /^Ran: await game\.resetInput\(\)/);
+    await assert.rejects(io('pointer', 'HoldBox', 'press'), /pointer <ref\|주소> <down\|up\|enter\|exit> 꼴이어야 합니다/);
+    await assert.rejects(io('long-press', 'HoldBox', '--duration', '9'), /long-press 은 8초 안이어야 합니다/);
+    await assert.rejects(io('touch-up', 'x'), /touch-up <손가락 번호> 꼴이어야 합니다/);
+    await assert.rejects(io('swipe', '1,1'), /swipe <x,y> <x,y> \[x,y…\] \[--duration <초>\] 꼴이어야 합니다/);
+    await assert.rejects(io('click', 'LoginButton', '--count', 'two'), /--count 은 수입니다/);
+    await io('close');
+  } finally {
+    pc.server.close();
+  }
+});
+
 test('iPhone — usbmuxd 로 USB 폰(Wi-Fi 쪽 말고)의 13100 에 붙고, 스크린샷은 게임이 찍는다', async () => {
   const path = join(dir, 'usbmuxd.sock');
   const mux = await fakeUsbmux(game, path);

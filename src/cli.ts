@@ -10,7 +10,7 @@ import { back, call, connect, farmOf, openSession, screenshot, type Conn } from 
 import { conform, report } from './conform.js';
 import { crawl, CRAWL } from './crawl.js';
 import { installAndLaunch, terminate } from './devicectl.js';
-import { Game, settled, WAIT, type FindOptions, type PingReply, type PrefType, type WaitOptions } from './game.js';
+import { Game, settled, WAIT, type At, type FindOptions, type PingReply, type PrefType, type WaitOptions } from './game.js';
 import { instrument } from './instrument.js';
 import { farmLink, GAME_PORT, iosLink, tcpLink, usbLink, type Command, type Reply } from './link.js';
 import { serve } from './mcp.js';
@@ -51,8 +51,8 @@ export const HELP = `control-cli [-s=<세션>] <명령>
   open --pc [--app <실행 파일 · .app>]            내 컴퓨터의 PC 게임 — app 이 있으면 띄우고 close 가 끈다
   open --ios [--app <서명된 .app>] [--udid <UDID>]  USB iPhone(usbmuxd) — app 이 있으면 devicectl 로 깔고 켠다(Xcode 15+ · iOS 17+)
   snapshot [--png]                                 줄인 오브젝트 목록 + 스크린샷 파일(--png 은 게임이 PNG 로)
-  click <ref|주소>                                 Ran: await game.click('LoginButton')
-  drag <ref|주소> <ref|주소>
+  click <ref|주소> [--count <n>] [--interval <초>]  Ran: await game.click('LoginButton')
+  drag <ref|주소> <ref|주소> [--via <주소>]… [--duration <초>]
   type <ref|주소> <글자>
   text <ref|주소>                                  글자 읽기
   get <ref|주소> <컴포넌트.칸>                     속성 읽기 (PlayerController.moveSpeed)
@@ -72,8 +72,17 @@ export const HELP = `control-cli [-s=<세션>] <명령>
   wait <ref|주소> [--text <글자>] [--gone] [--timeout <초>]
   layout [ref|주소]                                안전 영역 밖 · 겹침
   errors [번호]                                    게임 예외 · 에러 로그(이 번호 뒤만)
-  key <키>                                         키 한 번(KeyCode 이름 — Escape · Space · Return · I · Alpha1). Escape 는 폰 뒤로 키와 같다
-  tap <x> <y>                                      좌표 누르기(살펴볼 때만 — Ran 줄 없음)
+  key <키[+키…]> [--duration <초>] [--power <-1~1>]   키(KeyCode 이름 — Escape · Space · Return · I · Alpha1 · Mouse0). Escape 는 폰 뒤로 키와 같다
+  tap <x> <y> [--count <n>] [--interval <초>]      좌표 누르기(살펴볼 때만 — Ran 줄 없음)
+  touch-down <ref|주소>|<x> <y> · touch-move <번호> <ref|주소>|<x> <y> · touch-up <번호>   손가락 눌러 두기 · 옮기기 · 떼기(번호 10~19)
+  swipe <x,y> <x,y>… [--duration <초>]             좌표로 끌기(살펴볼 때만 — 케이스는 drag)
+  long-press <ref|주소>|<x> <y> [--duration <초>]  길게 누르기(기본 1초)
+  mouse-move <ref|주소>|<x> <y> [--duration <초>]  가짜 마우스 — hover. 단추는 key Mouse0
+  scroll [<ref|주소>|<x> <y>] <dy> [--dx <칸>] [--duration <초>]   마우스 바퀴(위가 +)
+  key-down <키[+키…]> [--power <-1~1>] · key-up <키[+키…]>   키 눌러 두기 · 떼기(JoystickButton16~19 는 스틱 — power 가 값)
+  tilt <x> <y> <z> [--duration <초>]               기울이기(가속도 g)
+  pointer <ref|주소> <down|up|enter|exit>          GameObject 하나에 Pointer 이벤트
+  input-reset                                      눌러 둔 손가락 · 키 · 가짜 마우스 · 기울기를 다 거둔다
   ping · tree
   conform                                          표준 화면(샘플)에 명령을 차례로 보내 기대값과 견준다 — open 바로 뒤에
   mcp                                              stdio MCP 서버 — AI 앱(Claude Desktop · Claude Code)이 띄운다. 세션 파일은 ~/.control-cli
@@ -84,6 +93,7 @@ export const HELP = `control-cli [-s=<세션>] <명령>
 
 주소는 오브젝트 이름(하나뿐일 때) · /Canvas/Panel/Slot[2] 경로 · //*[@tag=Player] · //*[contains(@name,Slot)] · //*[@text=OK]/.. 선택자(AltTester PATH 꼴).
 읽기 · 쓰기 명령(get · set · call · text-set …)은 --inactive 로 꺼진 것도, 누르기 · 끌기는 --camera 로 카메라를 고른다. ref(e3)는 마지막 화면에서만 쓴다.
+입력 시간은 초 — 명령 하나는 8초 안(더 길게는 touch-down · key-down 뒤 touch-up · key-up).
 연결: --url 또는 PLATFORM_APPIUM_URL (없으면 http://127.0.0.1:4723) · 토큰: --token 또는 PLATFORM_APPIUM_TOKEN, 둘 다 없으면 macOS Keychain 의 control-cli-farm
 앱: --app 또는 PLATFORM_APP · 폰: --udid 또는 PLATFORM_DEVICE_UDID · USB 게임 포트: --port (기본 ${GAME_PORT})`;
 
@@ -112,8 +122,11 @@ async function idlePhone(farm: Conn): Promise<string> {
 }
 
 export async function run(argv: string[], o: Options): Promise<string> {
+  // parseArgs 는 -10 을 짧은 옵션으로 읽는다 — 음수는 잠깐 다른 글자로 감쌌다 푼다(scroll ScrollList -10 · tilt 0 -5 0 · --power -1).
+  const NEG = '\u0000';
+  const un = (s: string) => (s.startsWith(NEG) ? s.slice(NEG.length) : s);
   const { values, positionals } = parseArgs({
-    args: argv,
+    args: argv.map((a) => (/^-\d/.test(a) ? NEG + a : a)),
     allowPositionals: true,
     options: {
       session: { type: 'string', short: 's' },
@@ -139,9 +152,19 @@ export async function run(argv: string[], o: Options): Promise<string> {
       camera: { type: 'string' },
       png: { type: 'boolean' },
       wait: { type: 'string' },
+      duration: { type: 'string' },
+      count: { type: 'string' },
+      interval: { type: 'string' },
+      power: { type: 'string' },
+      dx: { type: 'string' },
+      via: { type: 'string', multiple: true },
     },
   });
-  const [name, ...args] = positionals;
+  for (const [k, v] of Object.entries(values)) {
+    if (typeof v === 'string') (values as Record<string, unknown>)[k] = un(v);
+    else if (Array.isArray(v)) (values as Record<string, unknown>)[k] = v.map(un);
+  }
+  const [name, ...args] = positionals.map(un);
   if (name === undefined || name === 'help') return HELP;
   const env = o.env;
   // AI 앱이 MCP 서버를 어느 폴더에서 띄울지 모른다(Claude Desktop 은 쓸 수 없는 /) — MCP 세션 파일은 홈 폴더에 둔다.
@@ -267,9 +290,17 @@ export async function run(argv: string[], o: Options): Promise<string> {
     return values.type as PrefType;
   };
   const typed = () => (values.type === undefined ? [] : [quote(values.type)]);
-  // --inactive · --camera — Game 옵션과 Ran 줄의 { … } 칸을 같이 만든다. 그 명령이 받는 것만.
-  const flags = (...which: ('inactive' | 'camera')[]) => {
-    const o: FindOptions = {};
+  type Flag = 'inactive' | 'camera' | 'count' | 'interval' | 'duration' | 'power' | 'dx' | 'via';
+  const num = (k: 'count' | 'interval' | 'duration' | 'power' | 'dx') => {
+    const v = values[k];
+    if (v === undefined) return undefined;
+    const n = Number(v);
+    if (!Number.isFinite(n)) throw new Error(`--${k} 은 수입니다`);
+    return n;
+  };
+  // --inactive · --camera · --count … — Game 옵션과 Ran 줄의 { … } 칸을 같이 만든다. 그 명령이 받는 것만.
+  const flags = (...which: Flag[]) => {
+    const o: FindOptions & { count?: number; interval?: number; duration?: number; power?: number; dx?: number; via?: string[] } = {};
     const shown: string[] = [];
     if (which.includes('inactive') && values.inactive) {
       o.inactive = true;
@@ -279,7 +310,28 @@ export async function run(argv: string[], o: Options): Promise<string> {
       o.camera = target(values.camera, '카메라 주소');
       shown.push(`camera: ${quote(o.camera)}`);
     }
-    return { o, shown: opts(shown) };
+    if (which.includes('via') && values.via?.length) {
+      o.via = values.via.map((v) => target(v, '지날 자리'));
+      shown.push(`via: [${o.via.map(quote).join(', ')}]`);
+    }
+    for (const k of ['count', 'interval', 'duration', 'power', 'dx'] as const) {
+      const n = which.includes(k) ? num(k) : undefined;
+      if (n === undefined) continue;
+      o[k] = n;
+      shown.push(`${k}: ${n}`);
+    }
+    return { o, list: shown, shown: opts(shown) };
+  };
+  // 한 점 — 인자 둘이 다 수면 좌표, 아니면 ref · 주소. shown 은 Ran 줄 인자(좌표면 없음)
+  const point = (xs: string[], usage: string): { at: At; shown?: string; where: string } => {
+    if (xs.length === 2 && xs.every((x) => x.trim() !== '' && Number.isFinite(Number(x)))) return { at: { x: Number(xs[0]), y: Number(xs[1]) }, where: `좌표 (${xs[0]}, ${xs[1]})` };
+    if (xs.length !== 1) throw new Error(`${usage} 꼴이어야 합니다`);
+    const a = target(xs[0]);
+    return { at: a, shown: quote(a), where: a };
+  };
+  const finger = (x: string | undefined, usage: string) => {
+    if (x === undefined || !/^\d+$/.test(x)) throw new Error(`${usage} 꼴이어야 합니다`);
+    return Number(x);
   };
   const waitLine = () => `- 기본 기다림 ${(s.waitMs ?? WAIT.timeoutMs) / 1000}초 — wait · wait-prop (장면 기다림은 ${WAIT.sceneMs / 1000}초)`;
   // 장면 기다리기 한도 — Ran 줄에도 같은 칸을 싣는다.
@@ -304,13 +356,13 @@ export async function run(argv: string[], o: Options): Promise<string> {
       return shot(game, s, appium, file, sname, o.dir, false, values.png === true);
     case 'click': {
       const a = target(args[0]);
-      const f = flags('camera');
+      const f = flags('camera', 'count', 'interval');
       await game.click(a, f.o);
       return after(ran('click', quote(a), ...f.shown));
     }
     case 'drag': {
       const [a, b] = [target(args[0]), target(args[1], '놓을 자리')];
-      const f = flags('camera');
+      const f = flags('camera', 'via', 'duration');
       await game.drag(a, b, f.o);
       return after(ran('drag', quote(a), quote(b), ...f.shown));
     }
@@ -418,16 +470,93 @@ export async function run(argv: string[], o: Options): Promise<string> {
       return JSON.stringify(await game.errors(Number(args[0] ?? 0)));
     }
     case 'key': {
-      if (args[0] === undefined) throw new Error('key <키> 꼴이어야 합니다 — KeyCode 이름(Escape · Space · Return · I · Alpha1)');
-      await game.key(args[0]);
-      return after(ran('key', quote(args[0])));
+      if (args[0] === undefined) throw new Error('key <키[+키…]> 꼴이어야 합니다 — KeyCode 이름(Escape · Space · Return · I · Alpha1 · Mouse0)');
+      const f = flags('duration', 'power');
+      await game.key(args[0], f.o);
+      return after(ran('key', quote(args[0]), ...f.shown));
     }
     case 'tap': {
       const [x, y] = args.map(Number);
       if (args.length !== 2 || !Number.isFinite(x) || !Number.isFinite(y)) throw new Error('tap <x> <y> 꼴이어야 합니다');
-      await game.tap(x, y);
+      await game.tap(x, y, flags('count', 'interval').o);
       return after(`- 좌표 (${x}, ${y}) 누름 — 케이스에는 주소로 씁니다`);
     }
+    case 'touch-down': {
+      const p = point(args, 'touch-down <ref|주소> 또는 touch-down <x> <y>');
+      const f = flags('camera');
+      const n = await game.touchDown(p.at, f.o);
+      return after(`${p.shown ? ran('touchDown', p.shown, ...f.shown) : `- ${p.where} 누름 — 케이스에는 주소로 씁니다`}\n- 손가락 ${n}`);
+    }
+    case 'touch-move': {
+      const usage = 'touch-move <손가락 번호> <ref|주소> 또는 touch-move <손가락 번호> <x> <y>';
+      const n = finger(args[0], usage);
+      const p = point(args.slice(1), usage);
+      const f = flags('camera');
+      await game.touchMove(n, p.at, f.o);
+      return after(p.shown ? ran('touchMove', String(n), p.shown, ...f.shown) : `- 손가락 ${n} 을 ${p.where} 로 — 케이스에는 주소로 씁니다`);
+    }
+    case 'touch-up': {
+      const n = finger(args[0], 'touch-up <손가락 번호>');
+      await game.touchUp(n);
+      return after(ran('touchUp', String(n)));
+    }
+    case 'swipe': {
+      const usage = 'swipe <x,y> <x,y> [x,y…] [--duration <초>]';
+      const points = args.map((a) => {
+        const m = /^(-?[\d.]+),(-?[\d.]+)$/.exec(a);
+        if (!m) throw new Error(`${usage} 꼴이어야 합니다`);
+        return { x: Number(m[1]), y: Number(m[2]) };
+      });
+      if (points.length < 2) throw new Error(`${usage} 꼴이어야 합니다`);
+      await game.swipe(points, flags('duration').o);
+      return after(`- 좌표 ${args.join(' → ')} 끎 — 케이스에는 drag 로 씁니다`);
+    }
+    case 'long-press':
+    case 'mouse-move': {
+      const p = point(args, `${name} <ref|주소> 또는 ${name} <x> <y> [--duration <초>]`);
+      const f = flags('camera', 'duration');
+      if (name === 'long-press') await game.longPress(p.at, f.o);
+      else await game.mouseMove(p.at, f.o);
+      return after(p.shown ? ran(name === 'long-press' ? 'longPress' : 'mouseMove', p.shown, ...f.shown) : `- ${p.where} ${name === 'long-press' ? '길게 누름' : '로 마우스'} — 케이스에는 주소로 씁니다`);
+    }
+    case 'scroll': {
+      const usage = 'scroll [<ref|주소> | <x> <y>] <dy> [--dx <칸>] [--duration <초>]';
+      const dy = Number(args[args.length - 1]);
+      if (!args.length || !Number.isFinite(dy)) throw new Error(`${usage} 꼴이어야 합니다`);
+      const p = args.length > 1 ? point(args.slice(0, -1), usage) : undefined;
+      const f = flags('camera', 'dx', 'duration');
+      await game.scroll(dy, { ...f.o, ...(p ? { at: p.at } : {}) });
+      if (p && !p.shown) return after(`- ${p.where} 에서 바퀴 ${dy} — 케이스에는 주소로 씁니다`);
+      return after(ran('scroll', String(dy), ...opts([...(p ? [`at: ${p.shown}`] : []), ...f.list])));
+    }
+    case 'key-down':
+    case 'key-up': {
+      if (args[0] === undefined) throw new Error(`${name} <키[+키…]> 꼴이어야 합니다`);
+      if (name === 'key-up') {
+        await game.keyUp(args[0]);
+        return after(ran('keyUp', quote(args[0])));
+      }
+      const f = flags('power');
+      await game.keyDown(args[0], f.o);
+      return after(ran('keyDown', quote(args[0]), ...f.shown));
+    }
+    case 'tilt': {
+      const xyz = args.map(Number);
+      if (xyz.length !== 3 || !xyz.every(Number.isFinite)) throw new Error('tilt <x> <y> <z> [--duration <초>] 꼴이어야 합니다');
+      const f = flags('duration');
+      await game.tilt(xyz as [number, number, number], f.o);
+      return after(ran('tilt', `[${xyz.join(', ')}]`, ...f.shown));
+    }
+    case 'pointer': {
+      const a = target(args[0]);
+      const e = args[1];
+      if (e !== 'down' && e !== 'up' && e !== 'enter' && e !== 'exit') throw new Error('pointer <ref|주소> <down|up|enter|exit> 꼴이어야 합니다');
+      await game.pointer(a, e);
+      return after(ran('pointer', quote(a), quote(e)));
+    }
+    case 'input-reset':
+      await game.resetInput();
+      return after(ran('resetInput'));
     case 'call': {
       const a = target(args[0]);
       const [method, ...rest] = args.slice(1);
