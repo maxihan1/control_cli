@@ -5,7 +5,7 @@
 
 ## 1. 기준 — AltTester 기능 목록
 
-기준은 AltTester 문서 [명령 목록](https://alttester.com/docs/sdk/latest/pages/commands.html)(설정 명령 5개를 뺀 68개)과 [Desktop 개요](https://alttester.com/docs/desktop/latest/pages/overview.html)다. 2026-11-03 지금 control_cli 는 명령 기준 22.5/68(약 33%), P2-A 뒤 37.5/68(약 55%), P2-B 뒤 약 52.5/68(약 77% — 찾기 5 · 오브젝트 9.5 · PNG 0.5), P2-C 뒤에는 표의 명령 갈래 중 알림(P2-D)만 남는다. 어림 셈으로는 입력 16개(아래 입력 줄의 12 + Pointer 넷)를 더해 68.5 가 되어 68 을 넘으니 앞 셈이 겹쳐 셌다 — P2-D 설계 때 AltTester 명령 목록으로 다시 센다.
+기준은 AltTester 문서 [명령 목록](https://alttester.com/docs/sdk/latest/pages/commands.html)과 [Desktop 개요](https://alttester.com/docs/desktop/latest/pages/overview.html)다. 명령 목록을 P2-D 설계 때(2026-11-04) 다시 셌다 — 설정(AltDriver) 5개 · 꼴 이름 `PlayerPrefKeyType` 을 빼면 명령 64(찾기 9 · 입력 16 · 스크린샷 1 · Unity 15 · Other(SetServerLogging) 1 · 오브젝트 19 · 역방향 포트 3) + 알림 4 = 68. P2-C 뒤 63/68(역방향 포트 셋은 게임이 서버라 adb forward 로 대신), P2-D 뒤 68/68 이다. 앞 어림 셈(22.5 → 37.5 → 52.5)은 반 개 셈과 겹침이 섞여 P2-C 뒤 68.5 로 넘쳤었다.
 ✓ 는 지금 있음, 단계는 넣을 곳.
 
 | AltTester 갈래 | 명령 · 기능 | 지금 | 단계 |
@@ -22,7 +22,7 @@
 | 오브젝트 | CallComponentMethod · SetComponentProperty | ✓ `call` · `set` | P2-A |
 | 오브젝트 | WaitForComponentProperty · GetParent · GetScreenPosition · SetText(글자 컴포넌트) · 컴포넌트 · 필드 · 메서드 목록 | ✓ `wait-prop` · `parent`(`/..`) · `find` 답 `x,y` · `text-set` · `components` · `members` | P2-B |
 | 오브젝트 | GetVisualElementProperty · WaitForVisualElementProperty(UI Toolkit) | ✓ 요소에 `get` · `wait-prop`(`value` · `text` · `layout.height`) | P2-B |
-| 알림 | 장면 열림 · 닫힘 · 로그 · 앱 일시정지 · SetServerLogging | `errors`(오류만) | P2-D |
+| 알림 | 장면 열림 · 닫힘 · 로그 · 앱 일시정지 · SetServerLogging | ✓ `events`(`scene.loaded` · `scene.unloaded` · `game.paused` · `game.resumed`) · `logs` · `sdk-log on\|off` — 가져가기(번호 뒤만). 이름 · 시각 칸 · 토큰 가리기는 Issue Bunker 정책과 같다 | P2-D |
 | 연결 | Android 역방향 포트 연결 · iOS 역방향 · AltTester Server(로컬 · 원격 중계) | ✓ adb forward · 팜 · usbmuxd | P3 |
 | 플랫폼 | Android · iOS · Windows · macOS | ✓ | — |
 | 플랫폼 | Linux · WebGL | | P3 |
