@@ -2,7 +2,7 @@
 
 ## ▶ 다음 세션은 여기부터 (2026-11-04)
 
-- P2-B Unity 찾기 · 설정 — 설계 · 구현 계획(writing-plans, [p2a-plan.md](p2a-plan.md) 꼴)부터. 첫 결정은 선택자 꼴(이름 일부 · 태그 · 레이어 · 컴포넌트 · 글자 · id 를 `target` 한 칸에 어떻게 싣나 — 지금 주소 규칙 `이름` · `/경로[n]` 과 겹치지 않게). 브랜치 `p2b` — PR #17(`p2a`)이 `roadmap` 에 합쳐졌으면 `origin/roadmap` 에서, 아직이면 `origin/p2a` 위에 쌓고 PR base 를 `p2a` 로. 끝 기준은 `conform` B 줄 초록(팜)
+- P2-B Unity 찾기 · 설정 — 구현을 [p2b-plan.md](p2b-plan.md) Task 1 부터(태스크 9개, superpowers:subagent-driven-development 또는 executing-plans). 설계는 끝 — 선택자는 AltTester PATH 꼴 일부 · 설정은 기본 기다림만 · 꺼진 오브젝트 · 카메라 · 영구 id(QA 빌드 훅) 넣기(사용자, context-notes 「P2-B 설계」). 브랜치 `p2b`(`origin/roadmap` 위 — PR #17 합쳐짐, PR 은 `roadmap` 으로). 끝 기준은 `conform` 33줄 초록(팜) · sample 로그의 영구 id 줄(Task 6 Step 3)
 - P2-A 끝 — draft PR #17(`p2a` → `roadmap`) · sdk-compile run 41742741341 초록(meta · 2021.3 · 2022.3 · 6000.0). 팜 RF9R408GKRR 에서 sample run 41742741513 의 6000.0 옛 Input APK · 2021.3 옛 Input APK 모두, 이 맥 macOS 앱(같은 run 의 StandaloneOSX · Mono)도 conform 「통과 23 · 실패 0 · 건너뜀 0」(A 줄 7개 포함). sample run 7개 잡 모두 초록. 새 명령 14개는 commands.json 에 더해 MCP 도구 · CLI · `Ran:` 줄이 같이 따라왔다
 - 팜 연결 — 팜은 이 맥에서 돈다(`http://127.0.0.1:4723/wd/hub`, 밖에서는 `https://farm.maxihan.com/wd/hub`). 토큰은 사용자의 QA Hub 통합계정 PAT(`https://auth.maxihan.com/account` 「개인 접근 토큰 (PAT)」)를 job tmp 의 `farm.env` 로 받는다 — 저장소 · 대화에 적지 않는다
 - macOS 시험은 `caffeinate -d -u -t 900` — 잠금 화면은 `-d` 만으로는 13초 만에 화면을 꺼 Unity 가 멈춘다(context-notes 「P1 실기기」)
@@ -37,14 +37,16 @@
 - [x] 표준 화면 · `conform` A 줄 · 팜 초록 — 표준 화면에 `Second` 장면 · `SecondMarker` · `TouchProbe.Say` · `Add` · `Note`(94ea620), A 줄 7개 → 23줄. 팜 RF9R408GKRR(sample run 41742741513 · 6000.0 옛 Input · 2021.3 옛 Input · 둘 다 IL2CPP) · 이 맥 macOS 앱(Mono) 모두 「통과 23 · 실패 0 · 건너뜀 0」
 
 ## P2-B. Unity 찾기 · 설정
-- [ ] 설계 · 구현 계획(선택자 꼴 확정)
-- [ ] 이름 일부 · 태그 · 레이어 · 컴포넌트 · 글자 · id 선택자 · 여러 개 찾기 · 좌표로 찾기
-- [ ] 부모 · 화면 좌표 · 속성 값이 될 때까지 기다리기
-- [ ] 컴포넌트 · 필드 · 메서드 목록(인스펙터 바탕)
-- [ ] UI Toolkit 요소 속성 읽기 · 기다리기
-- [ ] 글자 컴포넌트에 글자 쓰기(입력칸 밖)
-- [ ] 명령 시간 초과 · 명령 뒤 쉼 · 기본 기다림 설정 · PNG 스크린샷
-- [ ] `conform` B 줄 초록
+- [x] 설계 · 구현 계획 — [p2b-plan.md](p2b-plan.md)(태스크 9개). 선택자 = AltTester PATH 꼴 일부(`//` · `*` · `..` · `[@칸=값]` · `contains` · `[n]` · `[-1]`), 새 명령 5개 · 칸 셋(`inactive` · `camera` · `format`), conform B 10줄 → 33줄, 0.5.0
+- [ ] 선택자 — `src/select.ts`(가짜 SDK · 기준) · `Select.cs` · 옛 SDK 거절
+- [ ] 여러 개 찾기 · 좌표로 찾기 · 꺼진 오브젝트 · 카메라 고르기 — `find-all` · `find-at` · `inactive` · `camera`
+- [ ] 부모 · 화면 좌표 · 속성 값이 될 때까지 기다리기 — `parent` · find 답 `x,y` · `wait-prop`(CLI)
+- [ ] 컴포넌트 · 필드 · 메서드 목록(인스펙터 바탕) — `components` · `members`
+- [ ] UI Toolkit 요소 속성 읽기 · 기다리기 — 요소에 `get` · `wait-prop`
+- [ ] 글자 컴포넌트에 글자 쓰기(입력칸 밖) — `text-set`
+- [ ] 기본 기다림 설정 · PNG 스크린샷 — `config --wait` · `screenshot {format: png}`. 명령 시간 초과 · 명령 뒤 쉼은 뺌(사용자 — 기다리기가 바깥 되풀이)
+- [ ] 영구 id — QA 빌드 훅이 장면 오브젝트에 fileID(sample 로그로 확인)
+- [ ] `conform` B 줄 초록(팜 · 33줄)
 
 ## P2-C. Unity 입력
 - [ ] 설계 · 구현 계획(손가락 여럿 · 세 입력 길)
