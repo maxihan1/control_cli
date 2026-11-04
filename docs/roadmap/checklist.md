@@ -3,7 +3,7 @@
 ## ▶ 다음 세션은 여기부터 (2026-11-04)
 
 - P2-B Unity 찾기 · 설정 — 설계 · 구현 계획(writing-plans, [p2a-plan.md](p2a-plan.md) 꼴)부터. 첫 결정은 선택자 꼴(이름 일부 · 태그 · 레이어 · 컴포넌트 · 글자 · id 를 `target` 한 칸에 어떻게 싣나 — 지금 주소 규칙 `이름` · `/경로[n]` 과 겹치지 않게). 브랜치 `p2b` — PR #17(`p2a`)이 `roadmap` 에 합쳐졌으면 `origin/roadmap` 에서, 아직이면 `origin/p2a` 위에 쌓고 PR base 를 `p2a` 로. 끝 기준은 `conform` B 줄 초록(팜)
-- P2-A 끝 — draft PR #17(`p2a` → `roadmap`) · sdk-compile run 41742741341 초록(meta · 2021.3 · 2022.3 · 6000.0). 팜 RF9R408GKRR 에서 sample run 41742741513 의 6000.0 옛 Input APK · 2021.3 옛 Input APK 모두 conform 「통과 23 · 실패 0 · 건너뜀 0」(A 줄 7개 포함). 새 명령 14개는 commands.json 에 더해 MCP 도구 · CLI · `Ran:` 줄이 같이 따라왔다
+- P2-A 끝 — draft PR #17(`p2a` → `roadmap`) · sdk-compile run 41742741341 초록(meta · 2021.3 · 2022.3 · 6000.0). 팜 RF9R408GKRR 에서 sample run 41742741513 의 6000.0 옛 Input APK · 2021.3 옛 Input APK 모두, 이 맥 macOS 앱(같은 run 의 StandaloneOSX · Mono)도 conform 「통과 23 · 실패 0 · 건너뜀 0」(A 줄 7개 포함). sample run 7개 잡 모두 초록. 새 명령 14개는 commands.json 에 더해 MCP 도구 · CLI · `Ran:` 줄이 같이 따라왔다
 - 팜 연결 — 팜은 이 맥에서 돈다(`http://127.0.0.1:4723/wd/hub`, 밖에서는 `https://farm.maxihan.com/wd/hub`). 토큰은 사용자의 QA Hub 통합계정 PAT(`https://auth.maxihan.com/account` 「개인 접근 토큰 (PAT)」)를 job tmp 의 `farm.env` 로 받는다 — 저장소 · 대화에 적지 않는다
 - macOS 시험은 `caffeinate -d -u -t 900` — 잠금 화면은 `-d` 만으로는 13초 만에 화면을 꺼 Unity 가 멈춘다(context-notes 「P1 실기기」)
 - main 에 합치기 전에 정할 것 — `instrument` 의 기본 ref `main` 과 UPM 경로 `?path=/sdk/unity` 가 엇갈린다(main 에 `sdk/unity/` 가 생기기 전엔 새 CLI 가, 생긴 뒤엔 옛 CLI 의 `?path=/sdk#main` 이 깨진다). 기본 ref 를 CLI 판 tag(`v0.3.0`)로 두는 안 — context-notes 「P0 코드 리뷰」. README MCP 절의 `npm i -g …#<태그>` 도 그때 정한 tag 로
@@ -34,7 +34,7 @@
 - [x] PlayerPrefs 읽기 · 쓰기 · 키 지우기 · 다 지우기 — `pref-get` · `pref-set` · `pref-delete` · `pref-clear`(`type` string · int · float, GameState.cs)
 - [x] timeScale 읽기 · 쓰기 — `timescale-get` · `timescale-set`(0~100)
 - [x] 장면 열기(하나 · 더하기) · 닫기 · 열린 목록 · 이 장면이 될 때까지 기다리기 — `scene-load [--add]` · `scene-unload` · `scenes` · CLI `scene-wait`(Game 이 `loads` · `unloads` 수로 기다림). CLI · MCP · Ran 줄 63522c1, sdk-compile run 41742741341 초록(meta · 2021.3 · 2022.3 · 6000.0)
-- [x] 표준 화면 · `conform` A 줄 · 팜 초록 — 표준 화면에 `Second` 장면 · `SecondMarker` · `TouchProbe.Say` · `Add` · `Note`(94ea620), A 줄 7개 → 23줄. 팜 RF9R408GKRR(sample run 41742741513 · 6000.0 옛 Input · 2021.3 옛 Input · 둘 다 IL2CPP) 모두 「통과 23 · 실패 0 · 건너뜀 0」
+- [x] 표준 화면 · `conform` A 줄 · 팜 초록 — 표준 화면에 `Second` 장면 · `SecondMarker` · `TouchProbe.Say` · `Add` · `Note`(94ea620), A 줄 7개 → 23줄. 팜 RF9R408GKRR(sample run 41742741513 · 6000.0 옛 Input · 2021.3 옛 Input · 둘 다 IL2CPP) · 이 맥 macOS 앱(Mono) 모두 「통과 23 · 실패 0 · 건너뜀 0」
 
 ## P2-B. Unity 찾기 · 설정
 - [ ] 설계 · 구현 계획(선택자 꼴 확정)
