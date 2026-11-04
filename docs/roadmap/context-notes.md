@@ -151,3 +151,4 @@
 ## 2026-11-04 — P2-C 구현
 
 - 길게 누르기 명령 이름은 `hold` 가 아니라 `long-press`(Game · kit `longPress`) — `hold` 는 이미 팜 폰을 잡는 세션 명령이다(`src/cli.ts` · MCP 세션 도구 · test_platform GAME-F2-15). MCP 도구 이름은 겹칠 수 없고 배포된 세션 `hold` 를 바꾸면 깨진다. 계획서도 같이 고쳤다(세션 `hold --udid` 줄만 그대로). 표준 화면 오브젝트 `HoldBox` · `CONFORM.holdS` 는 그대로
+- conform C 줄 검토 반영(계획과 다르게 한 것) — 가짜 SDK 가 가린 실기기 문제 넷. ① swipe 는 ScrollList 가운데에서 시작한다 — 목록이 140 높이라 가운데 ± 150 은 목록 밖이고 uGUI 는 누른 자리로 끌 대상을 정한다(가짜 SDK 도 첫 점으로 고르게 바꿈). ② mouse-move · UI Toolkit 줄은 대상에 올리기 전에 다른 곳으로 뺀다 — PC Input System(이번에 더하는 macOS input 1)은 앞 줄 손가락이 Mouse 라 마우스가 이미 그 위에 있어 enter 가 안 난다. ③ `dragS` 2 · `keyS` 1.5 — via 끌기는 duration 을 무시해도 마디 둘 × 10프레임(30fps 0.67초) + 왕복이라 0.5 로는 못 가른다. ④ long-press 는 먼저 `pointer down` · `up` 을 바로 이어 held 를 작게 둔다 — pointer 줄이 poll 사이에 남긴 held 가 팜에서는 0.95 를 넘을 수 있다. 테스트의 `holdS` 는 0 → 0.1(다시 둔 held 0 이 기준 밑이어야 해서)

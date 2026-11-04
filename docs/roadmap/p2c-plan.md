@@ -46,18 +46,18 @@
 | C click count | `click LoginButton` 한 번 → 끝 번호 n → `click LoginButton {count: 2}` → 끝 번호 n+2 |
 | C 손가락 둘 | `touchDown('StatusText')` · `touchDown('TouchText')` → 번호 둘이 다름 · InputText 「fingers 2」 → `touchUp` 둘 → 「fingers 0」(Input System 탐침은 Touchscreen 누른 손가락 + PC 의 Mouse 왼 단추를 센다) |
 | C down · move · up 끌기 | Item 이 든 칸 k → `touchDown('Item')` · `touchMove(f, Slot[k+1])` · `touchUp(f)` → Item 이 그 칸 |
-| C drag via · duration | `drag('Item', Slot[k+2], {via: [Slot[k+1]], duration: 0.5})` → Item 이 Slot[k+2] · 0.5초 넘게 걸림 |
-| C swipe | ScrollList 가운데 위아래 150 픽셀을 잇는 `swipe`(0.3초) → `ScrollRect.verticalNormalizedPosition` 이 바뀜 — 0.5 보다 크면 위로 밀어 줄고, 아니면 아래로 밀어 는다(다시 돌려도 움직일 쪽이 있다) |
+| C drag via · duration | `drag('Item', Slot[k+2], {via: [Slot[k+1]], duration: 2})` → Item 이 Slot[k+2] · 2초 넘게 걸림(duration 을 무시해도 마디 둘 × 10프레임 — 30fps 0.67초 — 이 걸려 0.5 로는 못 가른다) |
+| C swipe | ScrollList 가운데에서 위나 아래로 150 픽셀 `swipe`(0.3초 — 누른 자리가 끌 대상이라 가운데에서 시작, 목록 높이는 140) → `ScrollRect.verticalNormalizedPosition` 이 바뀜 — 0.5 보다 크면 위로 밀어 줄고, 아니면 아래로 밀어 는다(다시 돌려도 움직일 쪽이 있다) |
 | C pointer | `pointer HoldBox enter · down · up · exit` → PointerText 의 last 가 차례로 enter · down · up · exit |
-| C long-press | `long-press HoldBox {duration: 1}` → PointerText 의 held 가 0.95 이상(바로 앞 pointer 줄이 held 를 0 근처로 새로 둔다) |
-| C mouse-move hover | `mouseMove('HoldBox')` → last enter → `mouseMove('StatusText')` → last exit |
+| C long-press | `long-press HoldBox {duration: 1}` → PointerText 의 held 가 0.95 이상. 먼저 `pointer down` · `up` 을 바로 이어 보내 held 가 0.95 밑인지 본다(앞 줄이 남긴 held 로 통과하지 않게) |
+| C mouse-move hover | `mouseMove('StatusText')`(PC Input System 은 앞 줄 손가락이 Mouse 라 마우스가 HoldBox 에 남는다) → `mouseMove('HoldBox')` → last enter → `mouseMove('StatusText')` → last exit |
 | C scroll | `scroll(∓10, {at: 'ScrollList'})` → `verticalNormalizedPosition` 이 바뀜 — 0.5 보다 크면 −10(아래로 — 준다), 아니면 +10 |
 | C key-down 여럿 | `keyDown('A+LeftShift')` → InputText keys 「A LeftShift」 → `keyUp('A+LeftShift')` → keys 「-」 |
-| C key duration | TouchText 를 `-` 로 비우고 `key('I', {duration: 0.5})` → 0.5초 넘게 걸림 · TouchText 「key I」 |
+| C key duration | TouchText 를 `-` 로 비우고 `key('I', {duration: 1.5})` → 1.5초 넘게 걸림 · TouchText 「key I」 |
 | C 축 · 조이스틱 | `keyDown('RightArrow+JoystickButton16', {power: 1})` → axis 1 · `keyDown('LeftControl+JoystickButton0')` → fire 1 → `keyUp` 넷 → axis 0 · fire 0(옛 Input 은 InputManager 기본 축 Horizontal · Fire1, Input System 은 Gamepad 왼 스틱 x · A) |
 | C tilt | `tilt([0, v, 0])`(v 는 판마다 20~49) → InputText tilt v |
 | C input-reset | `touchDown('StatusText')` · `keyDown('W')` → fingers 1 · keys W → `resetInput()` → fingers 0 · keys - |
-| C UI Toolkit 직접 | (A 장면 줄 뒤) `scene-load Second` → `click SecondButton` → SecondText 「second 1」 · `mouseMove('SecondButton')` → 「enter」 · `scroll(-10, {at: 'SecondScroll'})` → `SecondScroll` 의 `scrollOffset` y 가 0 보다 큼 → (실패해도) `resetInput` · `scene-load Sample` |
+| C UI Toolkit 직접 | (A 장면 줄 뒤) `scene-load Second` → `click SecondButton` → SecondText 「second 1」 · `mouseMove('SecondText')`(PC 는 click 손가락이 마우스) → `mouseMove('SecondButton')` → 「enter」 · `scroll(-10, {at: 'SecondScroll'})` → `SecondScroll` 의 `scrollOffset` y 가 0 보다 큼 → (실패해도) `resetInput` · `scene-load Sample` |
 
 InputText 꼴은 `fingers N · keys A LeftShift W(누른 것만, 없으면 -) · axis 정수 · fire 0|1 · tilt 정수|-`, PointerText 꼴은 `last down|up|enter|exit|- · held 초(소수 한 자리)|-` — 줄은 ` · ` 로 나눈 마디를 이름으로 읽는다. C 줄의 `cmds` 에는 쓰는 명령과 함께 `touch-down` 을 넣는다 — 바뀐 칸(`count` · `duration` …)을 못 읽는 옛 SDK 에서 실패 대신 건너뛴다.
 

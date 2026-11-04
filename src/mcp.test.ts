@@ -15,7 +15,7 @@ import type { Link } from './link.js';
 import { COMMANDS, PROTOCOL } from './protocol.js';
 
 Object.assign(WAIT, { intervalMs: 5 });
-Object.assign(CONFORM, { waitMs: 50, holdS: 0, dragS: 0, keyS: 0 });
+Object.assign(CONFORM, { waitMs: 50, holdS: 0.1, dragS: 0, keyS: 0 });
 
 interface Content {
   type: string;

@@ -300,8 +300,8 @@ export class FakeGame {
         const points = ((c.points as string[] | undefined) ?? []).map((s) => /^(-?[\d.]+),(-?[\d.]+)$/.exec(s));
         if (points.length < 2 || points.some((m) => !m)) return { ok: false, error: 'swipe 의 points 는 "x,y" 글자 둘 이상입니다 — ["540,400", "540,900"]' };
         const [a, b] = [points[0]!, points[points.length - 1]!].map((m) => [Number(m[1]), Number(m[2])]);
-        // 가짜 자리는 점 하나라 첫 점과 끝 점의 가운데로 고른다 — 손가락을 위로 밀면 바퀴를 아래로 굴린 것과 같다.
-        const hit = this.hit((a[0] + b[0]) / 2, (a[1] + b[1]) / 2);
+        // uGUI 처럼 누른 자리(첫 점)가 끌 대상이다 — 손가락을 위로 밀면 바퀴를 아래로 굴린 것과 같다.
+        const hit = this.hit(a[0], a[1]);
         hit?.[hit.length - 1].onScroll?.(-Math.sign(b[1] - a[1]));
         return { ok: true, x: b[0], y: b[1] };
       }

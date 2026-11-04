@@ -1,8 +1,9 @@
 // 표준 화면에 정해진 차례로 명령을 보내 기대값과 견준다 — 엔진마다 같은 표준 화면이면 같은 결과가 나와야 한다(docs/roadmap/plan.md 「적합성 검사」)
 import { WAIT, type Game, type PingReply } from './game.js';
 
-// 테스트가 줄일 수 있게 묶어 둔다 — 실기기에서 누른 뒤 글자가 바뀌기까지 1초 안팎이다. holdS · dragS · keyS 는 C 줄이 보내는 시간(가짜는 기다리지 않아 테스트는 0).
-export const CONFORM = { waitMs: 5000, holdS: 1, dragS: 0.5, keyS: 0.5 };
+// 테스트가 줄일 수 있게 묶어 둔다 — 실기기에서 누른 뒤 글자가 바뀌기까지 1초 안팎이다. holdS · dragS · keyS 는 C 줄이 보내는 시간(가짜는 기다리지 않아 테스트는 작게).
+// dragS · keyS 는 duration 을 무시해도 걸리는 바닥보다 길어야 한다 — via 끌기는 마디 둘 × 10프레임(30fps 0.67초), 키는 한 프레임, 둘 다 왕복이 더해진다.
+export const CONFORM = { waitMs: 5000, holdS: 1, dragS: 2, keyS: 1.5 };
 
 interface Step {
   /** 이 줄이 쓰는 명령 — 하나라도 게임 SDK 의 caps 에 없으면 건너뛴다 */
@@ -345,7 +346,8 @@ export const STEPS: Step[] = [
       const before = await listPos(g)();
       // 위로 밀면 아래 것이 올라와 위치가 준다 — 이미 아래쪽이면 아래로 민다.
       const up = before > 0.5 ? 1 : -1;
-      await g.swipe([{ x: list.x, y: list.y - 150 * up }, { x: list.x, y: list.y + 150 * up }], { duration: 0.3 });
+      // 누른 자리가 끌 대상이라 가운데에서 시작한다 — 목록은 140 높이라 가운데 ± 150 은 밖이다.
+      await g.swipe([{ x: list.x, y: list.y }, { x: list.x, y: list.y + 150 * up }], { duration: 0.3 });
       await poll(`ScrollList 위치 — 기대 ${up > 0 ? '줄어듦' : '늚'}(앞 ${before})`, listPos(g), (v) => (up > 0 ? v < before : v > before));
     },
   },
@@ -360,17 +362,24 @@ export const STEPS: Step[] = [
     },
   },
   {
-    cmds: ['long-press', 'find', 'touch-down'],
+    cmds: ['long-press', 'pointer', 'find', 'touch-down'],
     label: 'C long-press HoldBox → PointerText held 가 duration 이상',
     run: async (g) => {
+      // 앞 줄이 남긴 held 로 통과하지 않게 down · up 을 바로 이어 보내 작게 둔다.
+      const min = CONFORM.holdS - 0.05;
+      await g.pointer('HoldBox', 'down');
+      await g.pointer('HoldBox', 'up');
+      await poll(`PointerText 의 held — 기대 ${min} 미만(다시 둠)`, textOf(g, 'PointerText'), (t) => part(t, 'last') === 'up' && Number(part(t, 'held')) < min);
       await g.longPress('HoldBox', { duration: CONFORM.holdS });
-      await poll(`PointerText 의 held — 기대 ${CONFORM.holdS} 이상`, textOf(g, 'PointerText'), (t) => Number(part(t, 'held')) >= CONFORM.holdS - 0.05);
+      await poll(`PointerText 의 held — 기대 ${CONFORM.holdS} 이상`, textOf(g, 'PointerText'), (t) => Number(part(t, 'held')) >= min);
     },
   },
   {
     cmds: ['mouse-move', 'find'],
     label: 'C mouse-move HoldBox → enter · StatusText 로 → exit',
     run: async (g) => {
+      // PC Input System 은 앞 줄의 손가락이 Mouse 라 마우스가 HoldBox 에 남아 있다 — 밖으로 뺐다 들인다.
+      await g.mouseMove('StatusText');
       await g.mouseMove('HoldBox');
       await shows(g, 'PointerText', 'last', 'enter');
       await g.mouseMove('StatusText');
@@ -475,10 +484,12 @@ export const STEPS: Step[] = [
     cmds: ['scene-load', 'scenes', 'click', 'mouse-move', 'scroll', 'get', 'find', 'input-reset'],
     label: 'C UI Toolkit 직접 — Second(EventSystem 없음)의 SecondButton click · hover · scroll',
     run: async (g) => {
-      await g.loadScene('Second');
       try {
+        await g.loadScene('Second');
         await g.click('SecondButton');
         await poll('SecondText — 기대 「second 1」', textOf(g, 'SecondText'), (t) => t === 'second 1');
+        // PC 는 click 손가락이 마우스라 이미 SecondButton 위다 — 밖으로 뺐다 들인다.
+        await g.mouseMove('SecondText');
         await g.mouseMove('SecondButton');
         await poll('SecondText — 기대 「enter」', textOf(g, 'SecondText'), (t) => t === 'enter');
         await g.scroll(-10, { at: 'SecondScroll' });

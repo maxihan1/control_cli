@@ -8,7 +8,7 @@ import { Game, WAIT } from './game.js';
 import { flatten } from './snapshot.js';
 
 Object.assign(WAIT, { intervalMs: 5 });
-Object.assign(CONFORM, { waitMs: 50, holdS: 0, dragS: 0, keyS: 0 });
+Object.assign(CONFORM, { waitMs: 50, holdS: 0.1, dragS: 0, keyS: 0 });
 
 const direct = (g: FakeGame) => new Game(async (c) => g.handle(c));
 const byName = (g: FakeGame, name: string) => flatten(g.roots).find((e) => e.node.name === name)!.node as FakeNode;

@@ -13,7 +13,7 @@ import { SETTLE, WAIT } from './game.js';
 
 Object.assign(SETTLE, { maxMs: 30, stepMs: 5 });
 Object.assign(WAIT, { intervalMs: 5 });
-Object.assign(CONFORM, { waitMs: 50, holdS: 0, dragS: 0, keyS: 0 });
+Object.assign(CONFORM, { waitMs: 50, holdS: 0.1, dragS: 0, keyS: 0 });
 Object.assign(TIMING, { openWaitMs: 200, openStepMs: 5, cleanWaitMs: 100, cleanStepMs: 5 });
 
 const status = node('StatusText', { text: '' });
