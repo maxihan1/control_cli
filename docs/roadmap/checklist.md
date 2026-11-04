@@ -63,10 +63,10 @@
 - [x] 옛 Input · Input System · UI Toolkit 직접 길 모두 · `conform` C 줄 초록(Android · macOS)(Task 10) — sample run 41793375943(27feaef · 2021.3 Android 잡은 Docker 층 쓰기 실패로 한 번 다시)의 팜 RF9R408GKRR 6000.0 옛 Input · 6000.0 Input System · 2021.3 옛 Input · 2022.3 둘 다, 이 맥 macOS 6000.0 옛 Input · Input System 모두 「통과 48 · 실패 0 · 건너뜀 0」. 빌드 로그 「축 18개」. 샘플 SecondScroll 을 두 번 고침(테마 없는 panel — context-notes 「P2-C 실기기」)
 
 ## P2-D. Unity 알림
-- [ ] 설계 · 구현 계획 — plan.md 1절 AltTester 셈을 명령 목록으로 다시 센다(P2-C 뒤 어림 셈이 68.5/68 로 넘침)
-- [ ] 장면 열림 · 닫힘 · 로그 · 일시정지 알림(번호 뒤만 가져가기)
-- [ ] SDK 로그 켜고 끄기
-- [ ] `conform` D 줄 초록
+- [x] 설계 · 구현 계획 — [p2d-plan.md](p2d-plan.md). AltTester 셈 다시 — 명령 64 + 알림 4 = 68, P2-C 뒤 63/68. `logs` · `events` · `sdk-log` 셋, Issue Bunker 정책과 맞춤(알림 이름 `scene.loaded` 꼴 · `occurredAt` · 토큰 `***` · conform 「미실행」), conform D 4줄 → 52줄, 0.7.0
+- [ ] 장면 열림 · 닫힘 · 로그 · 일시정지 알림(번호 뒤만 가져가기) — `events` · `logs`, `errors` 에 `occurredAt` · 가리기
+- [ ] SDK 로그 켜고 끄기 — `sdk-log on|off`
+- [ ] `conform` D 줄 초록 — 팜 APK 넷 「통과 52 · 실패 0 · 미실행 0」 · 이 맥 macOS 둘 「통과 51 · 실패 0 · 미실행 1」(PC 는 일시정지가 안 난다)
 
 ## P3. 연결 · 플랫폼
 - [ ] 설계 · 구현 계획
