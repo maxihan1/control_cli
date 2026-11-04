@@ -38,6 +38,9 @@ namespace Sample
             var scroll = new ScrollView { name = "SecondScroll" };
             // 테마가 주던 내용 칸의 flex-shrink 0 — 없으면 줄이 10 높이로 줄어 내용이 보이는 높이와 같아지고 굴릴 거리가 0 이다(이 맥 실측).
             scroll.contentContainer.style.flexShrink = 0;
+            // 바퀴 한 칸을 직접 준다 — 테마가 없으면 ScrollView.ReadSingleLineHeight 가 줄 높이 변수를 못 찾고 null 조상에 콜백을 걸다 NullReferenceException 으로 멈춘다(6000.0 실측).
+            // 기본값 18 과 달라야 inline 으로 잡혀 그 함수를 건너뛴다 — 30 은 uGUI ScrollList 의 scrollSensitivity 와 같다.
+            scroll.mouseWheelScrollSize = 30;
             for (var i = 0; i < 20; i++) scroll.Add(new Label("row " + i) { style = { height = 60 } });
             text.style.height = button.style.height = 80;
             scroll.style.height = 200;
