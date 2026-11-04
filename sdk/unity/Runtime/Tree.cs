@@ -1,4 +1,4 @@
-// 켜진 오브젝트 트리를 JSON 으로 쓰고, 이름이나 경로 주소로 하나를 찾는다 — 게임 오브젝트와 UI Toolkit 요소(UIDocument 아래)를 한 트리로 본다
+// 켜진 오브젝트 트리를 JSON 으로 쓰고, 주소(이름 · 경로 · 선택자 — Select.cs)로 하나를 찾는다 — 게임 오브젝트와 UI Toolkit 요소(UIDocument 아래)를 한 트리로 본다
 using System.Collections.Generic;
 using System.Text;
 using UnityEngine;
@@ -50,6 +50,13 @@ namespace ControlCli
             Ve != null ? Ve == other.Ve :
 #endif
             Go == other.Go;
+
+        // 같은 것 가르기(선택자가 두 길로 닿을 때) — 게임 오브젝트 또는 요소 그 자체.
+        public object Key =>
+#if CONTROL_CLI_UITK
+            Ve != null ? (object)Ve :
+#endif
+            Go;
     }
 
     internal static class Tree
@@ -88,8 +95,8 @@ namespace ControlCli
             sb.Append('}');
         }
 
-        // 켜진 자식 — UIDocument 가 있는 오브젝트는 그 요소들도 자식이다. 트리 · 찾기 · 경로가 모두 이것 하나로 내려간다.
-        public static List<Item> ChildrenOf(Item item)
+        // 켜진 자식 — UIDocument 가 있는 오브젝트는 그 요소들도 자식이다. 트리 · 찾기 · 경로가 모두 이것 하나로 내려간다. all 이면 꺼진 것 · 숨은 요소도(inactive).
+        public static List<Item> ChildrenOf(Item item, bool all = false)
         {
             var list = new List<Item>();
 #if CONTROL_CLI_UITK
@@ -98,17 +105,17 @@ namespace ControlCli
                 // 컨트롤(버튼 · 입력칸 …) 속은 내보내지 않는다 — 안쪽 요소는 컨트롤의 일부이고 비밀번호 칸 속 글자를 드러낼 수 있다.
                 if (KindOf(item) == null)
                     foreach (var child in item.Ve.Children())
-                        if (Shown(child)) list.Add(new Item(child));
+                        if (all || Shown(child)) list.Add(new Item(child));
                 return list;
             }
 #endif
             foreach (Transform child in item.Go.transform)
-                if (child.gameObject.activeInHierarchy) list.Add(new Item(child.gameObject));
+                if (all || child.gameObject.activeInHierarchy) list.Add(new Item(child.gameObject));
 #if CONTROL_CLI_UITK
             var doc = item.Go.GetComponent<UIDocument>();
-            if (doc != null && doc.isActiveAndEnabled && doc.rootVisualElement != null)
+            if (doc != null && (all || doc.isActiveAndEnabled) && doc.rootVisualElement != null)
                 foreach (var child in doc.rootVisualElement.Children())
-                    if (Shown(child)) list.Add(new Item(child));
+                    if (all || Shown(child)) list.Add(new Item(child));
 #endif
             return list;
         }
@@ -116,6 +123,23 @@ namespace ControlCli
 #if CONTROL_CLI_UITK
         private static bool Shown(VisualElement ve) => ve.visible && ve.resolvedStyle.display != DisplayStyle.None;
 #endif
+
+        // 줄(뿌리 → 그것)이 다 켜졌나 — inactive 로 찾은 것은 find 답에 active:false 로 알린다.
+        public static bool Active(List<Item> trail)
+        {
+            foreach (var x in trail)
+            {
+#if CONTROL_CLI_UITK
+                if (x.Ve != null)
+                {
+                    if (!Shown(x.Ve)) return false;
+                    continue;
+                }
+#endif
+                if (!x.Go.activeSelf) return false;
+            }
+            return true;
+        }
 
         // 누를 수 있는 것의 종류 — uGUI 는 Selectable, UI Toolkit 은 컨트롤 요소. 창 훑기가 이것으로 누를 것을 고른다.
         public static string KindOf(Item item)
@@ -172,108 +196,50 @@ namespace ControlCli
         // 비밀번호는 글자를 가리되 비었는지는 보이게 한다 — 「입력 안 됨」을 케이스가 확인할 수 있어야 한다.
         private static string Masked(string text, bool password) => password && text.Length > 0 ? "***" : text;
 
-        // 주소는 이름(하나뿐일 때) 또는 / 로 시작하는 경로다. 같은 이름 형제는 경로 칸에 [순번](0부터)을 붙인다.
-        // 이름이 겹치면 고르지 않고 알린다 — 엉뚱한 것을 누르면 케이스가 틀린 곳에서 통과한다.
-        public static Item Find(string target, out string problem) => Find(target, out problem, out _);
+        // 주소는 이름(하나뿐일 때) · / 로 시작하는 경로 · 선택자(//*[@tag=Player] — Select.cs)다. 같은 이름 형제는 경로 칸에 [순번](0부터)을 붙인다.
+        // 여럿이 맞으면 고르지 않고 알린다 — 엉뚱한 것을 누르면 케이스가 틀린 곳에서 통과한다.
+        public static Item Find(string target, out string problem) => Find(target, false, out problem, out _, out _);
 
-        // missing 은 「켜진 것 중에 없다」 — 기다리기가 되풀이할 수 있는 실패다. 겹침 · 빈 주소는 몇 번 해도 같다.
-        public static Item Find(string target, out string problem, out bool missing)
-        {
-            problem = null;
-            missing = false;
-            if (string.IsNullOrEmpty(target))
-            {
-                problem = "주소가 비었습니다";
-                return default;
-            }
-            if (target[0] == '/') return FindPath(target, out problem, out missing);
-            Item found = default;
-            var count = 0;
-            var todo = new Stack<Item>(Roots());
-            while (todo.Count > 0)
-            {
-                var item = todo.Pop();
-                if (item.Name == target)
-                {
-                    if (count == 0) found = item;
-                    count++;
-                }
-                foreach (var child in ChildrenOf(item)) todo.Push(child);
-            }
-            missing = count == 0;
-            if (count == 0) problem = "켜진 오브젝트 중에 " + target + " 이 없습니다";
-            else if (count > 1)
-            {
-                problem = target + " 이 " + count + "개라 하나를 고를 수 없습니다 — 경로로 주소를 씁니다";
-                found = default;
-            }
-            return found;
-        }
+        // missing 은 「켜진 것 중에 없다」 — 기다리기가 되풀이할 수 있는 실패다. 여럿 · 틀린 꼴 · 빈 주소는 몇 번 해도 같다.
+        public static Item Find(string target, out string problem, out bool missing) => Find(target, false, out problem, out missing, out _);
 
-        private static Item FindPath(string path, out string problem, out bool missing)
+        // all 은 꺼진 것도(inactive), trail 은 뿌리에서 그것까지의 줄(경로 · 켜짐을 셈한다).
+        public static Item Find(string target, bool all, out string problem, out bool missing, out List<Item> trail)
         {
-            problem = null;
-            missing = false;
-            var level = Roots();
-            Item at = default;
-            foreach (var part in path.Substring(1).Split('/'))
-            {
-                var name = part;
-                var index = -1;
-                var open = part.LastIndexOf('[');
-                if (open > 0 && part.EndsWith("]") && int.TryParse(part.Substring(open + 1, part.Length - open - 2), out var n))
-                {
-                    name = part.Substring(0, open);
-                    index = n;
-                }
-                var same = level.FindAll(x => x.Name == name);
-                if (same.Count == 0 || index >= same.Count)
-                {
-                    missing = true;
-                    problem = "켜진 오브젝트 중에 " + path + " 이 없습니다 (" + part + " 에서 끊김)";
-                    return default;
-                }
-                if (index < 0 && same.Count > 1)
-                {
-                    problem = path + " 의 " + name + " 이 " + same.Count + "개라 " + name + "[0] 처럼 순번을 붙입니다";
-                    return default;
-                }
-                at = same[index < 0 ? 0 : index];
-                level = ChildrenOf(at);
-            }
-            return at;
+            trail = Select.Find(target, all, out problem, out missing);
+            return trail == null ? default : trail[trail.Count - 1];
         }
 
         // Find 가 받는 꼴 그대로 — CLI 가 트리에서 셈한 경로와 같아야 한다.
-        // 위로 올라가지 않고 트리를 내려가며 찾는다 — 요소의 부모 사슬에는 트리에 없는 속 칸(ScrollView 내용 칸 등)이 끼어 있다.
         public static string PathOf(Item item)
         {
-            var parts = new List<string>();
-            return Seek(Roots(), item, parts) ? "/" + string.Join("/", parts) : null;
+            var trail = TrailOf(item, false);
+            return trail == null ? null : Select.PathOf(trail, false);
         }
 
         public static string PathOf(Transform t) => PathOf(new Item(t.gameObject));
 
-        private static bool Seek(List<Item> level, Item item, List<string> parts)
+        // 뿌리에서 그것까지의 줄 — 위로 올라가지 않고 트리를 내려가며 찾는다. 요소의 부모 사슬에는 트리에 없는 속 칸(ScrollView 내용 칸 등)이 끼어 있다.
+        public static List<Item> TrailOf(Item item, bool all)
+        {
+            var trail = new List<Item>();
+            return Seek(Roots(all), item, trail, all) ? trail : null;
+        }
+
+        private static bool Seek(List<Item> level, Item item, List<Item> trail, bool all)
         {
             foreach (var x in level)
             {
-                int index = 0, count = 0;
-                foreach (var s in level)
-                {
-                    if (s.Name != x.Name) continue;
-                    if (s.Is(x)) index = count;
-                    count++;
-                }
-                parts.Add(count > 1 ? x.Name + "[" + index + "]" : x.Name);
-                if (x.Is(item) || Seek(ChildrenOf(x), item, parts)) return true;
-                parts.RemoveAt(parts.Count - 1);
+                trail.Add(x);
+                if (x.Is(item) || Seek(ChildrenOf(x, all), item, trail, all)) return true;
+                trail.RemoveAt(trail.Count - 1);
             }
             return false;
         }
 
         // 누를 자리(화면 좌표 · 왼쪽 아래가 0,0). UI 는 사각형 가운데, 월드 오브젝트는 보이는 덩어리 가운데를 주 카메라로 비춘다.
-        public static Vector2? ScreenPoint(Item item)
+        // cam 은 월드 오브젝트를 비출 카메라(camera 칸) — 없으면 주 카메라. UI 는 Canvas · panel 이 제 카메라를 안다.
+        public static Vector2? ScreenPoint(Item item, Camera cam = null)
         {
 #if CONTROL_CLI_UITK
             if (item.Ve != null) return UiToolkit.ScreenRect(item.Ve)?.center;
@@ -281,7 +247,7 @@ namespace ControlCli
             var go = item.Go;
             var rect = ScreenRect(go);
             if (rect != null) return rect.Value.center;
-            var cam = Camera.main;
+            if (cam == null) cam = Camera.main;
             if (cam == null) return null;
             var renderer = go.GetComponentInChildren<Renderer>();
             var world = renderer != null ? renderer.bounds.center : go.transform.position;
@@ -328,11 +294,11 @@ namespace ControlCli
                     if (go.name != "[ControlCli]") yield return go;
         }
 
-        private static List<Item> Roots()
+        public static List<Item> Roots(bool all = false)
         {
             var list = new List<Item>();
             foreach (var go in RootObjects())
-                if (go.activeInHierarchy) list.Add(new Item(go));
+                if (all || go.activeInHierarchy) list.Add(new Item(go));
             return list;
         }
     }

@@ -100,3 +100,33 @@
 - IL2CPP 에서 확인된 것 — reflection 칸 쓰기(`Text.text` · 값 타입 `Transform.position.y` 의 거꾸로 써 넣기) · `[Preserve]` 를 붙인 샘플 메서드 · static 속성, `Application.CanStreamedLevelBeLoaded` · `LoadSceneAsync` · `UnloadSceneAsync`, 샘플의 `BeforeSceneLoad` 에서 건 `sceneLoaded` 가 첫 장면에도 와서 표준 화면이 한 번만 선다(겹치면 이름 겹침으로 `find` 가 실패했을 것)
 - 팜 연결 — 팜은 이 맥(launchd)에서 돈다. `http://127.0.0.1:4723/wd/hub` 도 인증 켬이라 토큰을 묻는다. 토큰은 사용자의 QA Hub 통합계정(`https://auth.maxihan.com/account`) PAT 다(Devicefarm `docs/guides/test-platform.md` 4절 — 토큰 주인이 폰을 잡은 사람이어야 한다). docs/unity/checklist.md 의 `vision.maxihan.com` 도 401 로 살아 있었다
 - 계획과 다르게 한 것 — ① cli.test 의 conform 줄 수(16)를 Task 2 커밋 뒤에 알아채 Task 3 커밋에 같이 고쳤다 ② conform.test 의 「다시 돌리기」 두 테스트는 caps 에서 `scene-load` 를 빼 앞 판 상태를 남긴다 — A 장면 줄이 표준 화면을 새로 세워 그 테스트의 뜻이 사라져서. 두 판 돌리기 자체는 새 A 테스트가 본다 ③ `protocol.test` 의 Caps 정규식이 한 줄 배열만 읽어 `\s*` 로 넓혔다(Caps 를 세 줄로 나눔) ④ `.gitignore` 에 `Second.unity*`
+
+## 2026-11-04 — P2-B 설계 ([p2b-plan.md](p2b-plan.md))
+
+- 브랜치 — PR #17(`p2a`)이 `roadmap` 에 합쳐져(43158ee) `p2b` 는 `origin/roadmap` 에서, PR 은 `roadmap` 으로
+- 선택자는 AltTester PATH 꼴의 일부(사용자 — 접두어 `tag:x` · CSS `[tag=x]` 와 견줘 고름). AltTester 문서의 `[n]` 이 「같은 이름 형제 중 n번째(0부터)」(`//Button/Text[1]`)라 지금 `/a/b[n]` 이 그 꼴의 부분집합이다 — 문법이 하나로 이어지고 범위 좁히기 · 조건 겹치기 · `..` 부모가 된다. 1.6.3 판 소식 · SDK 문서로 `/` · `//` · `..` · `*` · `contains` · `@tag/@layer/@name/@component/@id/@text` · 조건 이어 붙이기 · `[-1]` 마지막을 확인했다
+- 해석은 `src/select.ts` 한 곳을 기준으로 가짜 SDK 가 쓰고 `Select.cs` 가 같은 글로 옮긴다. 단계마다 뿌리에서의 줄(trail)을 들고 내려가 `..` 는 줄 끝을 뗀다(UI Toolkit 요소의 부모 사슬에는 트리에 없는 속 칸이 끼어 위로 오르기가 안 맞는다). 계획 속 기준 코드는 job tmp 에서 tsc strict · 제 테스트 3개 통과를 확인했다
+- `/a/b/c` 는 이제 b 가 여럿이어도 c 가 하나면 맞는다(단계마다 모아 내려간다) — 옛 Tree.FindPath 는 b 에서 「순번을 붙입니다」로 멈췄다. 하나를 짚는 명령이 여럿을 만나면 고르지 않고 실패하는 규칙은 그대로
+- 옛 SDK 에 선택자 · `inactive` · `camera` 를 보내면 Game 이 보내기 전에 거절 — 옛 Tree.Find 는 `//*[@tag=x]` 를 이름으로 찾아 「없음」으로 답해 `wait` 가 10초 내내 헛돈다. 판 가르기는 caps 의 `find-all`(같은 판에 들어옴)
+- 설정 셋 중 기본 기다림만(사용자 「이게 왜 필요한거야?」 → 설명 뒤 고름). AltTester 는 `WaitForObject` 같은 기다리기를 게임 안 명령 하나로 오래 돌려 driver 의 답 한도가 필요하다. 우리는 CLI 가 짧은 명령을 되풀이해 명령 하나가 1초 안팎이고, 고정 쉼은 테스트를 느리고 흔들리게 한다 — 명령 시간 초과 · 명령 뒤 쉼은 AltTester 표에 「필요 없음」
+- AltTester 와 견줘 뺀 것을 묻자(사용자 「alttester와 비교해사 제외한거 있어?」) 꺼진 오브젝트 찾기(`enabled: false`) · 카메라 고르기(`cameraBy`) · 영구 id(`AltId`)를 보였고 사용자가 셋 다 넣기로 했다. `[-1]` 은 그때 빠뜨린 것을 찾아 넣었다. 그대로 둔 차이 — `members` 의 상속 고르기 · `WaitForComponentProperty` 의 `interval` · `maxDepth` · AltObject 의 월드 좌표 · 부모 id 칸
+- 영구 id 는 빌드 때 박기(사용자). AltTester 처럼 장면에 저장하면 SDK 가 빌드 잡에서만 드는 우리 구조(instrument)에서 보통 빌드 · 개발 중 Missing Script 가 된다. 샘플은 `CONTROL_CLI` 를 `extraScriptingDefines`(플레이어만)로 켜 Editor 는 `CONTROL_CLI` 어셈블리를 컴파일하지 않는다 — 그래서 `ControlCliId` 를 정의 제약 없는 `ControlCli.Id` 에, 빌드 훅을 Editor 전용 `ControlCli.Editor` 에 둔다. `GlobalObjectId` 가 장면을 굽는 중에도 번호를 주는지는 확인 못 했다 — sample 로그 줄로 보고, 안 되면 「장면 이름/형제 순번 줄」로 물러난다(Task 6 Step 3)
+- `tools/unity-compile-check/check.py` 는 Android 플레이어 어셈블리만 굽는다(`included()` 가 Editor 전용을 뺀다) — Editor 훅 코드는 sample 빌드(진짜 Unity)에서만 컴파일 확인된다
+- UI Toolkit `get` 의 예는 `layout.height` — `resolvedStyle` 은 `VisualElement` 가 `IResolvedStyle` 를 명시적으로 구현해 실제 타입에서 `height` 라는 이름으로 안 찾아진다
+- 크기 — 사용자가 더한 셋(꺼진 것 · 카메라 · 영구 id)으로 로드맵의 1~2일이 2~3일
+
+## 2026-11-04 — P2-B 구현 (PR #18 · 커밋 2055e4a~58d2412)
+
+- 계획과 다르게 한 것 — ① 가짜 SDK 의 `screenshot` PNG 를 Task 3 이 아니라 Task 1 에서 넣었다(Task 1 의 MCP PNG 테스트가 기대서). MCP 테스트의 링크도 `image/png` 를 `png` 칸으로 되돌린다 ② 가짜 큐브 자리는 `[0, 0, 5]` 그대로 두고 `waitForProp` 테스트를 거기 맞췄다(계획은 `[0, -2.5, 0]` — 실제 샘플 자리지만 가짜는 P0 부터 달랐다) ③ 가짜 StatusText 에 `Text.text` 읽기 칸을 더했다(B text-set 줄의 `waitForProp`) ④ `wait-prop` · `find-at` 의 꼴 안내 글에 옵션까지 싣고 테스트 정규식을 그 글에 맞췄다 ⑤ 인자 없는 `call` 에 `--inactive` 를 주면 Ran 줄이 `callMethod('X', 'M', [], { inactive: true })` — kit 의 인자 차례 ⑥ `Select.At` 의 물리 raycast 한도를 카메라 `farClipPlane` 으로(안 보이는 것은 안 맞는다 · 물리 모듈이 하나뿐인 게임에서 상수 local 경고 CS0219 를 피한다) ⑦ `members` 값은 먼저 읽고 성공했을 때만 붙인다(getter 가 던지면 `"value":` 만 남아 JSON 이 깨진다)
+- 고친 회귀 — 새 선택자 해석이 `[숫자]` 가 아닌 `[ ]` 를 조건으로 읽어 `/[DOTween]/x` · `Slot[A]` 같은 이름에서 꼴 오류를 냈다(옛 FindPath 는 끝의 `[숫자]` 만 순번으로 뗐다). 플러그인 싱글턴 이름(`[DOTween]` · `[Debug Updater]`)이 흔해 `@` · `contains(` · 숫자로 시작하지 않는 `[ ]` 가 있으면 단계 전체를 이름으로, 끝의 `[숫자]` 만 순번으로 본다(678f070 · Select.cs 같이)
+- 이 맥에서 C# 컴파일 — Docker 가 있어 `tools/unity-compile-check/check.py fetch 6000.0`(Linux 에디터 tar.xz 를 흘려받아 Managed · 내장 패키지만 풀기, `.cache` 1.5GB) 뒤 `check.py 6000.0` 이 입력 설정 셋 모두 성공. CI 를 기다리지 않고 SDK 컴파일 오류를 잡을 수 있다(Editor 어셈블리는 여전히 빠진다)
+- 팜 토큰을 Keychain 에서 — 사용자 「PAT를 왜 매번 넣어야하는건데」 · 「PAT 통합해서 사용하는걸 auth에 추가 했는데 그게 왜 반영이 안되는거냐」. 조사 결과 Auth S25 「PAT 공유」는 Test Commander 서버(client secret)의 3시간 「대신 PAT」뿐이고, CLI · MCP 가 PAT 를 받는 device flow 는 S25 「안 하는 것」(`Auth_platform/docs/superpowers/plans/2026-11-04-s25-pat-share.md:106`)이라 control_cli 에 반영될 길이 없었다. 그래서 `src/main.ts` 가 `--token` · `PLATFORM_APPIUM_TOKEN` 이 없으면 macOS Keychain `control-cli-farm` 을 읽는다(사용자가 한 번 넣는다 — CLI 와 Claude Desktop 이 띄우는 MCP 서버 둘 다). 테스트는 `CONTROL_CLI_KEYCHAIN=0` 으로 끈다. 이 맥 팜에서 끈 때 401 · 켠 때 409(없는 폰 — 인증 통과)로 확인. 붙여 넣기를 아예 없애려면 Auth 에 device flow 를 새로 만든다(이 저장소 밖)
+
+## 2026-11-04 — P2-B 실기기 (팜 RF9R408GKRR · sample run 41759126839 · 커밋 b629a39)
+
+- CI — sdk-compile run 41759126717 초록(meta · 2021.3 · 2022.3 · 6000.0). 2021.3 · 2022.3 은 이 맥에서 안 굽고 CI 가 처음 본 판이 그대로 통과
+- 영구 id — sample run 의 6000.0 Android 두 잡 로그에 「[ControlCli] Assets/Sample.unity 오브젝트 0/0개에 영구 id」 · 「Assets/Second.unity 오브젝트 1/1개에 영구 id」. `IProcessSceneWithReport` 안에서 `GlobalObjectId.GetGlobalObjectIdSlow` 가 번호를 준다 — 계획의 물러설 길(장면 이름/형제 순번)은 안 썼다. Sample.unity 는 빈 장면(표준 화면은 코드로 선다)이라 0/0
+- 팜 — run 이 다 끝나기 전에 끝난 잡의 결과물(`gh run download -n sample-6000.0.84f1-Android-input0`)을 받아 `hold --udid RF9R408GKRR` → `open --app <APK>` → `conform` 「통과 33 · 실패 0 · 건너뜀 0」 → `close`, 같은 잡기 안에서 Input System APK(`…-input1`)도 「통과 33 · 실패 0 · 건너뜀 0」 → `close` → `release`. 토큰은 Keychain 에서(env 없이). `open` 줄에 「· unity 6000.0.84f1 · SDK 0.5.0」
+- IL2CPP 에서 확인된 것 — 선택자 해석(Regex 포함) · `find-at` 의 uGUI RaycastAll · UI Toolkit `panel.Pick` · 물리 raycast(꺼진 SideCamera 로도 `ScreenPointToRay`) · `inactive` 로 꺼진 HiddenText · `members` 의 reflection 목록(TouchProbe `Say(String, Int32)` · `Output`) · UI Toolkit 요소 `get`(`text` · `layout.height`) · TMP · UI Toolkit `text-set` · `EncodeToPNG`
+- 가장 옛 판 · macOS — run 이 다 끝난 뒤(8개 잡 모두 초록) 2021.3.45f1 옛 Input APK 를 같은 폰에 다시 잡아 「통과 33 · 실패 0 · 건너뜀 0」 → `release`. 이 맥 macOS 앱(StandaloneOSX · Mono)도 `caffeinate -d -u -t 900` 을 건 채 `open --pc --app` → 「통과 33 · 실패 0 · 건너뜀 0」 → `close` 가 게임을 껐고, 건 caffeinate 만 껐다. `--url` 없이 기본 `http://127.0.0.1:4723` 으로도 팜이 받았다
+- CI 에서 새로 안 것 — 문서 · TS 만 바꾼 push 에도 sample 워크플로가 떠(같은 Unity 내용) 두 run(41760691153 · 41762170550)을 취소했다. sample 의 `paths` 를 `sdk/**` · `sample/**` 로 좁히면 러너 시간을 아낀다(이번 PR 에서는 안 고침)

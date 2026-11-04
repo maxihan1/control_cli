@@ -146,6 +146,117 @@ export const STEPS: Step[] = [
       same('다 지운 뒤', [await g.pref('conform_float', 'float'), await g.pref('conform_text')], [null, null]);
     },
   },
+  // B — 찾기 · 설정(P2-B). 표준 화면의 WorldCube(태그 Player · 레이어 Water) · SideCamera(꺼진 Camera) · HiddenText(꺼짐) · Second 의 SecondSaved(장면에 저장).
+  {
+    cmds: ['find-all', 'find'],
+    label: 'B find-all //Bag/Slot → 넷 · //Bag/Slot[-1] → Slot[3]',
+    run: async (g) => {
+      same('Slot', (await g.findAll('//Bag/Slot')).map((f) => f.path), [0, 1, 2, 3].map((i) => `/SampleCanvas/Bag/Slot[${i}]`));
+      same('마지막', (await g.find('//Bag/Slot[-1]'))?.path, '/SampleCanvas/Bag/Slot[3]');
+    },
+  },
+  {
+    cmds: ['find', 'find-all'],
+    label: 'B 선택자 @tag · @layer · @component · @text · contains · 이어 붙이기',
+    run: async (g) => {
+      same('tag', (await g.find('//*[@tag=Player]'))?.path, '/WorldCube');
+      same('layer', (await g.find('//*[@layer=Water]'))?.path, '/WorldCube');
+      same('tag + layer', (await g.findAll('//*[@tag=Player][@layer=Water]')).length, 1);
+      same('component', (await g.find('//*[@component=TouchProbe]'))?.path, '/SampleCanvas');
+      same('text', (await g.find('//*[@text=UITK Login]'))?.path, '/UitkDocument/UitkPanel/UitkLoginButton');
+      same('contains', (await g.findAll('//*[contains(@name,LoginButton)]')).map((f) => f.path).sort(), ['/SampleCanvas/LoginButton', '/SampleCanvas/TmpLoginButton', '/UitkDocument/UitkPanel/UitkLoginButton']);
+    },
+  },
+  {
+    cmds: ['find'],
+    label: 'B //*[@text=UITK Login]/.. → UitkPanel · parent Item → Bag/Slot',
+    run: async (g) => {
+      same('..', (await g.find('//*[@text=UITK Login]/..'))?.path, '/UitkDocument/UitkPanel');
+      const p = (await g.parent('Item'))?.path ?? '';
+      if (!/^\/SampleCanvas\/Bag\/Slot\[\d\]$/.test(p)) throw new Error(`Item 의 부모 ${JSON.stringify(p)} — /SampleCanvas/Bag/Slot[n] 이어야 합니다`);
+    },
+  },
+  {
+    cmds: ['find', 'find-at'],
+    label: 'B find 의 x,y 로 find-at → 같은 것 · camera SideCamera 는 다른 x',
+    run: async (g) => {
+      for (const name of ['LoginButton', 'UitkLoginButton', 'WorldCube']) {
+        const f = (await g.find(name))!;
+        const at = (await g.findAt(f.x!, f.y!))?.path ?? '';
+        // 버튼 속 글자가 맞을 수 있다 — 그 버튼이거나 그 아래면 된다.
+        if (at !== f.path && !at.startsWith(`${f.path}/`)) throw new Error(`${name} (${f.x}, ${f.y}) 의 find-at ${JSON.stringify(at)} — ${f.path} 이어야 합니다`);
+      }
+      const main = (await g.find('WorldCube'))!;
+      const side = (await g.find('WorldCube', { camera: 'SideCamera' }))!;
+      if (side.x === main.x) throw new Error(`SideCamera 로 본 x(${side.x})가 Camera.main 과 같습니다`);
+      same('SideCamera find-at', (await g.findAt(side.x!, side.y!, { camera: 'SideCamera' }))?.path, '/WorldCube');
+    },
+  },
+  {
+    cmds: ['find', 'get'],
+    label: 'B HiddenText 는 찾기에 없고 inactive 로는 active:false · get',
+    run: async (g) => {
+      same('켜진 것만', await g.find('HiddenText'), null);
+      const f = await g.find('HiddenText', { inactive: true });
+      same('inactive', [f?.active, f?.text], [false, 'hidden']);
+      same('get', await g.get('HiddenText', 'Text.text', { inactive: true }), 'hidden');
+    },
+  },
+  {
+    cmds: ['scenes', 'scene-load', 'scene-unload', 'find'],
+    label: 'B 영구 id — SecondSaved 는 다시 열어도 id 가 같고 [@id] 로 찾는다',
+    run: async (g) => {
+      await g.loadScene('Second', { add: true });
+      const a = (await g.find('SecondSaved'))?.id;
+      const marker = (await g.find('SecondMarker'))?.id;
+      same('[@id]', (await g.find(`//*[@id=${a}]`))?.path, '/SecondSaved');
+      await g.unloadScene('Second');
+      await g.loadScene('Second', { add: true });
+      same('다시 연 SecondSaved id', (await g.find('SecondSaved'))?.id, a);
+      // 실행 중 만든 SecondMarker 는 instance id 라 바뀐다 — 같은 id 가 우연이 아님을 본다.
+      if ((await g.find('SecondMarker'))?.id === marker) throw new Error(`SecondMarker id(${marker})가 다시 열어도 같습니다 — 영구 id 가 아닌 instance id 여야 합니다`);
+      await g.unloadScene('Second');
+    },
+  },
+  {
+    cmds: ['components', 'members'],
+    label: 'B components SampleCanvas · members TouchProbe → Output · Say(String, Int32)',
+    run: async (g) => {
+      const c = await g.components('SampleCanvas');
+      same('TouchProbe', c.some((x) => x.name === 'TouchProbe' && x.type === 'Sample.TouchProbe'), true);
+      const m = await g.members('SampleCanvas', 'TouchProbe');
+      same('Output', m.fields.some((f) => f.name === 'Output' && f.type === 'Text'), true);
+      same('Say', m.methods.some((x) => x.name === 'Say' && JSON.stringify(x.args) === '["String","Int32"]' && x.returns === 'String'), true);
+    },
+  },
+  {
+    cmds: ['get'],
+    label: 'B UI Toolkit get UitkLoginButton text · UitkPanel layout.height · wait-prop',
+    run: async (g) => {
+      same('text', await g.get('UitkLoginButton', 'text'), 'UITK Login');
+      const h = await g.get('UitkPanel', 'layout.height');
+      if (!(typeof h === 'number' && h > 0)) throw new Error(`UitkPanel 높이 ${JSON.stringify(h)} — 0 보다 큰 숫자여야 합니다`);
+      await g.waitForProp('UitkLoginButton', 'text', 'UITK Login', { timeoutMs: CONFORM.waitMs });
+    },
+  },
+  {
+    cmds: ['text-set', 'find', 'get'],
+    label: 'B text-set StatusText · TmpStatusText · UitkStatusText · 입력칸은 type 으로',
+    run: async (g) => {
+      for (const name of ['StatusText', 'TmpStatusText', 'UitkStatusText']) {
+        same(name, await g.setText(name, 'text-set ok'), 'text-set ok');
+        same(`${name} 글자`, (await g.find(name))?.text, 'text-set ok');
+      }
+      await g.waitForProp('StatusText', 'Text.text', 'text-set ok', { timeoutMs: CONFORM.waitMs });
+      const refused = await g.setText('IdInput', 'x').then(() => '', (e: unknown) => (e instanceof Error ? e.message : String(e)));
+      if (!refused.includes('type')) throw new Error(`IdInput text-set — 「type 으로 넣습니다」 실패여야 합니다 (받은 것 ${JSON.stringify(refused)})`);
+    },
+  },
+  {
+    cmds: ['screenshot'],
+    label: 'B screenshot png → PNG 머리',
+    run: async (g) => same('PNG 머리', [...(await g.screenshot('png')).subarray(0, 8)], [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+  },
   // 장면 줄은 맨 뒤 — 한 장면 열기로 Second 에 갔다 Sample 로 돌아오면 표준 화면이 새로 선다.
   {
     cmds: ['scenes', 'scene-load', 'scene-unload', 'find'],

@@ -4,7 +4,8 @@
     "references": [
         "UnityEngine.UI",
         "Unity.TextMeshPro",
-        "Unity.InputSystem"
+        "Unity.InputSystem",
+        "ControlCli.Id"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
@@ -40,6 +41,16 @@
             "name": "com.unity.modules.uielements",
             "expression": "1.0",
             "define": "CONTROL_CLI_UITK"
+        },
+        {
+            "name": "com.unity.modules.physics",
+            "expression": "1.0",
+            "define": "CONTROL_CLI_PHYSICS"
+        },
+        {
+            "name": "com.unity.modules.physics2d",
+            "expression": "1.0",
+            "define": "CONTROL_CLI_PHYSICS2D"
         }
     ],
     "noEngineReferences": false

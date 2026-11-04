@@ -2,6 +2,7 @@
 using System;
 using System.Collections;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
@@ -29,9 +30,10 @@ namespace ControlCli
             "ping", "tree", "find", "click", "drag", "type", "get", "tap", "key", "screenshot", "errors", "layout",
             "call", "set", "static-call", "static-get", "static-set", "pref-get", "pref-set", "pref-delete", "pref-clear",
             "timescale-get", "timescale-set", "scenes", "scene-load", "scene-unload",
+            "find-all", "find-at", "components", "members", "text-set",
         };
         // sdk/unity/package.json 의 version 과 같다(src/protocol.test.ts 가 본다).
-        public const string SdkVersion = "0.4.0";
+        public const string SdkVersion = "0.5.0";
 
         private sealed class Request
         {
@@ -63,6 +65,12 @@ namespace ControlCli
             public string mode;
             // 0 은 멈춤이라 「칸 없음」과 갈라 둔다.
             public float scale = -1;
+            // 꺼진 오브젝트 · 숨은 요소도 찾는다(읽기 · 쓰기 명령만 — 누르기 · 끌기는 켜진 것만).
+            public bool inactive;
+            // 월드 오브젝트의 화면 자리를 셀 카메라 오브젝트 주소 — 비면 Camera.main.
+            public string camera;
+            public string component;
+            public string format;
         }
 
         private readonly ConcurrentQueue<Request> _requests = new ConcurrentQueue<Request>();
@@ -196,7 +204,28 @@ namespace ControlCli
                 case "tree":
                     return "{\"ok\":true,\"scene\":" + Json.Str(SceneManager.GetActiveScene().name) + ",\"screen\":[" + Screen.width + "," + Screen.height + "],\"tree\":" + Tree.Dump() + "}";
                 case "find":
-                    return FindReply(c.target);
+                    return FindReply(c.target, c.inactive, c.camera);
+                case "find-all":
+                    return FindAllReply(c.target, c.inactive, c.camera);
+                case "find-at":
+                {
+                    if (!CameraOf(c.camera, out var cam, out var problem)) return Error(problem);
+                    var hit = Select.At(new Vector2(c.x, c.y), cam);
+                    var trail = hit.Exists ? Tree.TrailOf(hit, false) : null;
+                    return trail == null ? "{\"ok\":true,\"found\":false}" : "{\"ok\":true,\"found\":true," + Found(trail, false, cam) + "}";
+                }
+                case "components":
+                {
+                    var go = GameObjectOf(c.target, c.inactive, out var problem);
+                    return go == null ? Error(problem) : Props.Components(go);
+                }
+                case "members":
+                {
+                    var go = GameObjectOf(c.target, c.inactive, out var problem);
+                    return go == null ? Error(problem) : Props.Members(go, c.component);
+                }
+                case "text-set":
+                    return SetText(c.target, c.text ?? "", c.inactive);
                 case "tap":
                     var point = new Vector2(c.x, c.y);
                     FakeTouches.Tap(point);
@@ -208,20 +237,23 @@ namespace ControlCli
                     FakeKeys.Press(key);
                     return "{\"ok\":true,\"key\":" + Json.Str(key.ToString()) + "}";
                 case "screenshot":
+                    if (!string.IsNullOrEmpty(c.format) && c.format != "jpg" && c.format != "png") return Error("format 은 jpg · png 중 하나입니다");
                     _shot = null;
-                    _self.StartCoroutine(Capture());
+                    _self.StartCoroutine(Capture(c.format == "png"));
                     _ready = () => _shot;
                     return null;
                 case "click":
                 {
-                    if (!Point(c.target, out var at, out var problem)) return Error(problem);
+                    if (!CameraOf(c.camera, out var cam, out var problem)) return Error(problem);
+                    if (!Point(c.target, cam, out var at, out problem)) return Error(problem);
                     FakeTouches.Tap(at);
                     return Touched(at);
                 }
                 case "drag":
                 {
-                    if (!Point(c.target, out var from, out var problem)) return Error(problem);
-                    if (!Point(c.to, out var to, out problem)) return Error(problem);
+                    if (!CameraOf(c.camera, out var cam, out var problem)) return Error(problem);
+                    if (!Point(c.target, cam, out var from, out problem)) return Error(problem);
+                    if (!Point(c.to, cam, out var to, out problem)) return Error(problem);
                     FakeTouches.Drag(from, to);
                     return Touched(to);
                 }
@@ -229,17 +261,22 @@ namespace ControlCli
                     return TypeText(c.target, c.text ?? "");
                 case "get":
                 {
-                    var go = GameObjectOf(c.target, out var problem);
-                    return go == null ? Error(problem) : Props.Get(go, c.prop);
+                    var item = Tree.Find(c.target, c.inactive, out var problem, out _, out _);
+                    if (!item.Exists) return Error(problem);
+#if CONTROL_CLI_UITK
+                    // UI Toolkit 요소는 컴포넌트가 없다 — 요소 칸(value · text · layout.height)을 바로 읽는다.
+                    if (item.Ve != null) return Props.GetOn(item.Ve, c.prop);
+#endif
+                    return Props.Get(item.Go, c.prop);
                 }
                 case "set":
                 {
-                    var go = GameObjectOf(c.target, out var problem);
+                    var go = GameObjectOf(c.target, c.inactive, out var problem);
                     return go == null ? Error(problem) : Props.Set(go, c.prop, c.value);
                 }
                 case "call":
                 {
-                    var go = GameObjectOf(c.target, out var problem);
+                    var go = GameObjectOf(c.target, c.inactive, out var problem);
                     return go == null ? Error(problem) : Props.Call(go, c.method, c.args);
                 }
                 case "static-call":
@@ -275,33 +312,115 @@ namespace ControlCli
             }
         }
 
-        // 기다리기는 바깥에서 find 를 되풀이한다 — 없음은 실패가 아니라 found:false 다. 이름이 겹치는 것만 실패다.
-        private static string FindReply(string target)
+        // 기다리기는 바깥에서 find 를 되풀이한다 — 없음은 실패가 아니라 found:false 다. 여럿이 맞거나 꼴이 틀린 것만 실패다.
+        private static string FindReply(string target, bool all, string camera)
         {
-            var item = Tree.Find(target, out var problem, out var missing);
+            if (!CameraOf(camera, out var cam, out var problem)) return Error(problem);
+            var item = Tree.Find(target, all, out problem, out var missing, out var trail);
             if (!item.Exists) return missing ? "{\"ok\":true,\"found\":false}" : Error(problem);
-            var sb = new StringBuilder("{\"ok\":true,\"found\":true,\"path\":").Append(Json.Str(Tree.PathOf(item)));
+            return "{\"ok\":true,\"found\":true," + Found(trail, all, cam) + "}";
+        }
+
+        private static string FindAllReply(string target, bool all, string camera)
+        {
+            if (!CameraOf(camera, out var cam, out var problem)) return Error(problem);
+            var trails = Select.All(target, all, out problem);
+            if (trails == null) return Error(problem);
+            var sb = new StringBuilder("{\"ok\":true,\"found\":[");
+            for (var i = 0; i < trails.Count; i++)
+            {
+                if (i > 0) sb.Append(',');
+                sb.Append('{').Append(Found(trails[i], all, cam)).Append('}');
+            }
+            return sb.Append("]}").ToString();
+        }
+
+        // find · find-all · find-at 답 한 칸(중괄호 안) — 경로 · 글자 · 누를 수 있나 · id · 화면 가운데(켜진 것만) · 꺼짐.
+        private static string Found(List<Item> trail, bool all, Camera cam)
+        {
+            var item = trail[trail.Count - 1];
+            var sb = new StringBuilder("\"path\":").Append(Json.Str(Select.PathOf(trail, all)));
             var text = Tree.TextOf(item);
             if (text != null) sb.Append(",\"text\":").Append(Json.Str(text));
             if (Tree.KindOf(item) != null) sb.Append(",\"interactable\":").Append(Tree.Interactable(item) ? "true" : "false");
-            return sb.Append('}').ToString();
+            var ids = Select.Attr(item, "id");
+            if (ids.Count > 0) sb.Append(",\"id\":").Append(Json.Str(ids[0]));
+            if (Tree.Active(trail))
+            {
+                var p = Tree.ScreenPoint(item, cam);
+                if (p != null) sb.Append(",\"x\":").Append(Mathf.RoundToInt(p.Value.x)).Append(",\"y\":").Append(Mathf.RoundToInt(p.Value.y));
+            }
+            else sb.Append(",\"active\":false");
+            return sb.ToString();
+        }
+
+        // camera 칸 — 비면 null(Camera.main). 꺼진 Camera 컴포넌트도 화면 자리를 셈할 수 있다.
+        private static bool CameraOf(string address, out Camera cam, out string problem)
+        {
+            cam = null;
+            problem = null;
+            if (string.IsNullOrEmpty(address)) return true;
+            var item = Tree.Find(address, out problem);
+            if (!item.Exists) return false;
+            cam = item.Go != null ? item.Go.GetComponent<Camera>() : null;
+            if (cam == null) problem = address + " 에 Camera 가 없습니다";
+            return cam != null;
         }
 
         // 컴포넌트를 가진 게임 오브젝트 — UI Toolkit 요소는 게임 오브젝트가 아니다.
-        private static GameObject GameObjectOf(string target, out string problem)
+        private static GameObject GameObjectOf(string target, bool all, out string problem)
         {
-            var item = Tree.Find(target, out problem);
+            var item = Tree.Find(target, all, out problem, out _, out _);
             if (!item.Exists) return null;
-            if (item.Go == null) problem = target + " 은 UI Toolkit 요소라 컴포넌트 칸이 없습니다 — text · find 로 읽습니다";
+            if (item.Go == null) problem = target + " 은 UI Toolkit 요소라 컴포넌트가 없습니다 — get 은 요소 칸(value · text)을 바로 읽습니다";
             return item.Go;
         }
 
-        private static bool Point(string target, out Vector2 point, out string problem)
+        // 글자 컴포넌트에 글자를 바로 넣는다 — 입력칸은 type(글자 수 · 거르기를 키로 칠 때의 차례로)이 맡는다.
+        private static string SetText(string target, string text, bool all)
+        {
+            var item = Tree.Find(target, all, out var problem, out _, out _);
+            if (!item.Exists) return Error(problem);
+            const string none = " 에 글자 컴포넌트(Text · TMP_Text · UI Toolkit Label/Button)가 없습니다";
+#if CONTROL_CLI_UITK
+            if (item.Ve != null)
+            {
+                if (item.Ve is UnityEngine.UIElements.TextField) return Error(target + " 은 입력칸이라 type 으로 넣습니다");
+                if (!(item.Ve is UnityEngine.UIElements.TextElement label)) return Error(target + none);
+                label.text = text;
+                return "{\"ok\":true,\"text\":" + Json.Str(Tree.TextOf(item)) + "}";
+            }
+#endif
+            var go = item.Go;
+            var input = go.GetComponent<InputField>() != null;
+#if CONTROL_CLI_TMP
+            input = input || go.GetComponent<TMPro.TMP_InputField>() != null;
+#endif
+            if (input) return Error(target + " 은 입력칸이라 type 으로 넣습니다");
+            var ugui = go.GetComponent<Text>();
+            if (ugui != null)
+            {
+                ugui.text = text;
+                return "{\"ok\":true,\"text\":" + Json.Str(Tree.TextOf(item)) + "}";
+            }
+#if CONTROL_CLI_TMP
+            var tmp = go.GetComponent<TMPro.TMP_Text>();
+            if (tmp != null)
+            {
+                tmp.text = text;
+                return "{\"ok\":true,\"text\":" + Json.Str(Tree.TextOf(item)) + "}";
+            }
+#endif
+            return Error(target + none);
+        }
+
+        // 누르기 · 끌기는 켜진 것만 — 꺼진 것을 누르면 그 자리의 다른 것이 눌린다.
+        private static bool Point(string target, Camera cam, out Vector2 point, out string problem)
         {
             point = default;
             var item = Tree.Find(target, out problem);
             if (!item.Exists) return false;
-            var p = Tree.ScreenPoint(item);
+            var p = Tree.ScreenPoint(item, cam);
             if (p == null)
             {
                 problem = target + " 은 화면에 비친 자리가 없습니다(UI 도 아니고 주 카메라 앞도 아님)";
@@ -401,17 +520,17 @@ namespace ControlCli
 
         private static string _shot;
 
-        // 다 그린 화면은 프레임 끝에서만 읽힌다 — Appium 이 없는 PC · iOS · 이미 켠 USB 게임의 스크린샷. JPEG 라 PNG 보다 몇 배 작다.
-        private static IEnumerator Capture()
+        // 다 그린 화면은 프레임 끝에서만 읽힌다 — Appium 이 없는 PC · iOS · 이미 켠 USB 게임의 스크린샷. 기본 JPEG 는 PNG 보다 몇 배 작고, png 는 무손실(비교용).
+        private static IEnumerator Capture(bool png)
         {
             yield return new WaitForEndOfFrame();
 #if CONTROL_CLI_IMAGECONVERSION
             var texture = new Texture2D(Screen.width, Screen.height, TextureFormat.RGB24, false);
             texture.ReadPixels(new Rect(0, 0, Screen.width, Screen.height), 0, 0);
             texture.Apply(false);
-            var jpg = texture.EncodeToJPG(80);
+            var bytes = png ? texture.EncodeToPNG() : texture.EncodeToJPG(80);
             Destroy(texture);
-            _shot = "{\"ok\":true,\"jpg\":\"" + Convert.ToBase64String(jpg) + "\"}";
+            _shot = "{\"ok\":true,\"" + (png ? "png" : "jpg") + "\":\"" + Convert.ToBase64String(bytes) + "\"}";
 #else
             _shot = Error("이 게임은 ImageConversion 모듈(com.unity.modules.imageconversion)을 빼서 화면을 찍을 수 없습니다");
 #endif

@@ -40,6 +40,13 @@ namespace Sample
             var cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
             cube.name = "WorldCube";
             cube.transform.position = new Vector3(0, -2.5f, 0);
+            // conform B — 내장 태그 · 레이어(프로젝트 설정 없이)로 선택자를 본다.
+            cube.tag = "Player";
+            cube.layer = 4; // Water
+            // 화면을 덮지 않게 끈 옆 카메라 — camera 칸이 Camera.main 과 다른 자리를 셈하는지. 세로 화면 반 폭(거리 10 에서 약 2.6)보다 덜 비켜 큐브가 시야 안이다.
+            var side = new GameObject("SideCamera", typeof(Camera));
+            side.GetComponent<Camera>().enabled = false;
+            side.transform.position = new Vector3(1.5f, 0, -10);
 
             var canvas = new GameObject("SampleCanvas", typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
             canvas.GetComponent<Canvas>().renderMode = RenderMode.ScreenSpaceOverlay;
@@ -67,6 +74,10 @@ namespace Sample
             item.transform.SetParent(bag.GetChild(0), false);
 
             canvas.AddComponent<TouchProbe>().Output = Label(root, "TouchText", Left, 5);
+            // 꺼진 글자 — inactive 로만 찾는다.
+            var hidden = Label(root, "HiddenText", Right, 5);
+            hidden.text = "hidden";
+            hidden.gameObject.SetActive(false);
 #if SAMPLE_TMP
             BuildTmp(root);
 #endif

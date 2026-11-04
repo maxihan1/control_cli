@@ -15,7 +15,7 @@ export interface Handlers {
 }
 
 interface Prop {
-  type: 'string' | 'number' | 'array';
+  type: 'string' | 'number' | 'array' | 'boolean';
   description: string;
   enum?: (string | number)[];
   /** array 칸은 글자 배열 */
@@ -38,7 +38,7 @@ const VERSION = (JSON.parse(readFileSync(join(import.meta.dirname, '..', 'packag
 const INSTRUCTIONS = [
   'QA 빌드 게임(control_cli SDK)을 조작한다.',
   '먼저 open — 디바이스 팜은 hold 로 폰을 잡은 뒤 open {app: QA APK}, 이 컴퓨터 PC 게임은 open {via: "pc"}.',
-  '화면은 tree · screenshot 으로 본다. 주소는 오브젝트 이름(켜진 것 중 하나뿐일 때) 또는 /Canvas/Panel/Slot[2] 경로.',
+  '화면은 tree · screenshot 으로 본다. 주소는 오브젝트 이름(켜진 것 중 하나뿐일 때) · /Canvas/Panel/Slot[2] 경로 · //*[@tag=Player] · //*[contains(@name,Slot)] · //*[@text=OK]/.. 같은 선택자(AltTester PATH 꼴).',
   '다 쓰면 close, 팜 폰은 release.',
 ].join(' ');
 
@@ -61,8 +61,9 @@ export function tools(h: Handlers): Tool[] {
         .map(([k]) => k),
     ),
     run: async (args) => {
-      const { ok: _ok, jpg, ...rest } = await h.game({ cmd: c.name, ...args });
+      const { ok: _ok, jpg, png, ...rest } = await h.game({ cmd: c.name, ...args });
       // 스크린샷은 그림으로 — AI 앱이 화면을 바로 본다.
+      if (typeof png === 'string') return [{ type: 'image', data: png, mimeType: 'image/png' }];
       return typeof jpg === 'string' ? [{ type: 'image', data: jpg, mimeType: 'image/jpeg' }] : text(JSON.stringify(rest));
     },
   }));
@@ -110,7 +111,7 @@ function pick(tool: Tool, args: unknown): Record<string, unknown> {
       continue;
     }
     if (typeof v !== p.type || (p.enum !== undefined && !p.enum.includes(v as string | number)))
-      throw new Error(`${tool.name} 의 ${k} 는 ${p.enum ? `${p.enum.join(' · ')} 중 하나여야` : `${p.type} 여야`} 합니다 (받은 값 ${JSON.stringify(v)})`);
+      throw new Error(`${tool.name} 의 ${k} 는 ${p.enum ? `${p.enum.join(' · ')} 중 하나여야` : `${p.type === 'boolean' ? 'true · false' : p.type} 여야`} 합니다 (받은 값 ${JSON.stringify(v)})`);
     out[k] = v;
   }
   return out;

@@ -3,8 +3,8 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 export interface Arg {
-  /** array 는 글자 배열 — 메서드 인자 */
-  type: 'string' | 'number' | 'array';
+  /** array 는 글자 배열 — 메서드 인자. boolean 은 켜는 칸(inactive) */
+  type: 'string' | 'number' | 'array' | 'boolean';
   required: boolean;
   summary: string;
   /** 고를 수 있는 글자 — string 칸만 */

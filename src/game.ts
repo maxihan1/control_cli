@@ -19,6 +19,35 @@ export interface Found {
   path: string;
   text?: string;
   interactable?: boolean;
+  /** 영구 id(QA 빌드가 장면 오브젝트에 붙인 것) 또는 instance id — [@id=…] 로 다시 찾는다. UI Toolkit 요소는 없다 */
+  id?: string;
+  /** 화면 가운데(왼쪽 아래가 0,0) — 화면에 비친 자리가 없거나 꺼졌으면 없다 */
+  x?: number;
+  y?: number;
+  /** inactive 로 찾은 꺼진 오브젝트 */
+  active?: false;
+}
+
+export interface FindOptions {
+  /** 꺼진 오브젝트 · 숨은 요소도 — 경로 순번이 꺼진 형제까지 센다 */
+  inactive?: boolean;
+  /** 월드 오브젝트의 화면 자리를 셀 카메라 오브젝트 주소(기본 Camera.main) */
+  camera?: string;
+}
+
+export interface Member {
+  name: string;
+  type: string;
+  value?: unknown;
+  readOnly?: boolean;
+  static?: boolean;
+}
+
+/** 컴포넌트가 선언한 칸 · 메서드 — Unity 부모(MonoBehaviour …) 칸은 뺀다 */
+export interface Members {
+  fields: Member[];
+  properties: Member[];
+  methods: { name: string; args: string[]; returns: string; static?: boolean }[];
 }
 
 export interface PingReply {
@@ -72,7 +101,37 @@ export type PrefType = 'string' | 'int' | 'float';
 // 기다리기는 짧은 find 를 되풀이한다 — 명령 하나가 팜 15초 · SDK 10초 한도에 걸리지 않게(게임 명세 「게임 연결」). 장면은 크면 10초를 넘겨 따로 둔다.
 export const WAIT = { timeoutMs: 10_000, intervalMs: 300, sceneMs: 30_000 };
 
+// 선택자(// · [@ · [contains( · [-n] · .. · *) · inactive · camera 는 SDK 0.5.0(find-all 과 같은 판)부터. 옛 SDK 는 선택자를 이름으로 찾아 「없음」으로 답해 wait 가 헛돈다.
+const SELECTOR = /\/\/|\[@|\[contains\(|\[-\d+\]|(^|\/)(\.\.|\*)(\/|\[|$)/;
+const newer = (c: Command) => c.inactive === true || c.camera !== undefined || [c.target, c.to].some((t) => typeof t === 'string' && t.startsWith('/') && SELECTOR.test(t));
+// 옵션은 켜졌을 때만 싣는다 — 옛 명령 꼴이 그대로 남는다.
+const extra = (o: FindOptions) => ({ ...(o.inactive ? { inactive: true } : {}), ...(o.camera ? { camera: o.camera } : {}) });
+const found = (r: Record<string, unknown>): Found => ({
+  path: r.path as string,
+  text: r.text as string | undefined,
+  interactable: r.interactable as boolean | undefined,
+  id: r.id as string | undefined,
+  x: r.x as number | undefined,
+  y: r.y as number | undefined,
+  active: r.active === false ? false : undefined,
+});
+// 기다린 값과 같은가 — CLI 인자는 늘 글자라 '10' · '[0, 1, 0]' 을 JSON 으로도 읽어 견준다.
+const sameValue = (got: unknown, want: unknown) => {
+  const g = JSON.stringify(got);
+  if (g === JSON.stringify(want)) return true;
+  if (typeof want !== 'string') return false;
+  try {
+    return g === JSON.stringify(JSON.parse(want));
+  } catch {
+    return false;
+  }
+};
+const sleep = (ms: number) => new Promise((ok) => setTimeout(ok, ms));
+
 export class Game {
+  /** wait · wait-prop 의 기본 한도 — CLI 가 세션의 config --wait 로 덮는다 */
+  waitMs = WAIT.timeoutMs;
+
   /** caps 는 그 게임 SDK 의 명령 목록 — 세션 파일에서 받고 ping 마다 새로 적는다. 없으면(옛 SDK) 다 보낸다 */
   constructor(
     private readonly link: Link,
@@ -83,6 +142,7 @@ export class Game {
   async call(command: Command): Promise<Reply> {
     if (this.caps && !this.caps.includes(command.cmd))
       throw new Error(`이 게임의 SDK 는 ${command.cmd} 를 못 합니다(할 수 있는 것: ${this.caps.join(' · ')}) — SDK 를 올립니다`);
+    if (this.caps && !this.caps.includes('find-all') && newer(command)) throw new Error('이 게임의 SDK 는 선택자 · inactive · camera 를 못 읽습니다 — SDK 0.5.0 이상으로 올립니다');
     const reply = await this.link(command);
     if (reply.ok !== true) throw new Error(reply.error ?? `게임이 실패로 답했습니다: ${JSON.stringify(reply)}`);
     return reply;
@@ -100,18 +160,36 @@ export class Game {
     return (await this.call({ cmd: 'tree' })) as unknown as TreeReply;
   }
 
-  /** 켜진 오브젝트 중에 없으면 null. 이름이 겹치면 던진다 */
-  async find(target: string): Promise<Found | null> {
-    const r = await this.call({ cmd: 'find', target });
-    return r.found === true ? { path: r.path as string, text: r.text as string | undefined, interactable: r.interactable as boolean | undefined } : null;
+  /** 켜진 오브젝트 중에 없으면 null. 여럿이 맞으면 던진다 — target 은 이름 · 경로 · 선택자(//*[@tag=Player]) */
+  async find(target: string, o: FindOptions = {}): Promise<Found | null> {
+    const r = await this.call({ cmd: 'find', target, ...extra(o) });
+    return r.found === true ? found(r) : null;
   }
 
-  async click(target: string): Promise<void> {
-    await this.call({ cmd: 'click', target });
+  /** 맞는 것 전부 — 없으면 빈 목록 */
+  async findAll(target: string, o: FindOptions = {}): Promise<Found[]> {
+    return ((await this.call({ cmd: 'find-all', target, ...extra(o) })).found as Record<string, unknown>[]).map(found);
   }
 
-  async drag(target: string, to: string): Promise<void> {
-    await this.call({ cmd: 'drag', target, to });
+  /** 화면 좌표(왼쪽 아래가 0,0)의 맨 위 — UI Toolkit · uGUI · 물리 차례. 없으면 null */
+  async findAt(x: number, y: number, o: { camera?: string } = {}): Promise<Found | null> {
+    const r = await this.call({ cmd: 'find-at', x, y, ...extra(o) });
+    return r.found === true ? found(r) : null;
+  }
+
+  /** 부모 — 뿌리면 null. 경로에 .. 를 붙여 찾는다 */
+  async parent(target: string, o: { inactive?: boolean } = {}): Promise<Found | null> {
+    const f = await this.find(target, o);
+    if (f === null) throw new Error(`${o.inactive ? '' : '켜진 '}오브젝트 중에 ${target} 이 없습니다`);
+    return this.find(`${f.path}/..`, o);
+  }
+
+  async click(target: string, o: { camera?: string } = {}): Promise<void> {
+    await this.call({ cmd: 'click', target, ...extra(o) });
+  }
+
+  async drag(target: string, to: string, o: { camera?: string } = {}): Promise<void> {
+    await this.call({ cmd: 'drag', target, to, ...extra(o) });
   }
 
   /** 넣은 뒤 칸의 글자를 돌려준다 — 글자 수 제한 · 거르기가 자른 결과(비밀번호 칸은 ***) */
@@ -126,13 +204,41 @@ export class Game {
     return found.text;
   }
 
-  /** prop 은 「컴포넌트.칸」 — 'PlayerController.moveSpeed' · 'Transform.position' */
-  async get(target: string, prop: string): Promise<unknown> {
-    return (await this.call({ cmd: 'get', target, prop })).value;
+  /** prop 은 「컴포넌트.칸」 — 'PlayerController.moveSpeed' · 'Transform.position'. UI Toolkit 요소는 요소 칸 — 'value' · 'text' */
+  async get(target: string, prop: string, o: { inactive?: boolean } = {}): Promise<unknown> {
+    return (await this.call({ cmd: 'get', target, prop, ...extra(o) })).value;
+  }
+
+  /** 칸 값이 value 가 될 때까지 get 을 되풀이한다 — '10' · 10 · '[0, 1, 0]' 처럼 글자로 줘도 견준다. 오브젝트 · 칸이 없으면 바로 던진다 */
+  async waitForProp(target: string, prop: string, value: unknown, o: { timeoutMs?: number; inactive?: boolean } = {}): Promise<void> {
+    const timeoutMs = o.timeoutMs ?? this.waitMs;
+    const end = Date.now() + timeoutMs;
+    for (;;) {
+      const got = await this.get(target, prop, { inactive: o.inactive });
+      if (sameValue(got, value)) return;
+      if (Date.now() >= end)
+        throw new Error(`${target} 의 ${prop} 이 ${timeoutMs / 1000}초 안에 ${typeof value === 'string' ? value : JSON.stringify(value)} 이 되지 않았습니다 (마지막: ${JSON.stringify(got)})`);
+      await sleep(WAIT.intervalMs);
+    }
+  }
+
+  /** 붙은 컴포넌트 — name 은 타입 이름, type 은 전체 이름 */
+  async components(target: string, o: { inactive?: boolean } = {}): Promise<{ name: string; type: string }[]> {
+    return (await this.call({ cmd: 'components', target, ...extra(o) })).components as { name: string; type: string }[];
+  }
+
+  async members(target: string, component: string, o: { inactive?: boolean } = {}): Promise<Members> {
+    const r = await this.call({ cmd: 'members', target, component, ...extra(o) });
+    return { fields: r.fields as Member[], properties: r.properties as Member[], methods: r.methods as Members['methods'] };
+  }
+
+  /** 글자 컴포넌트(Text · TMP · UI Toolkit Label/Button)의 글자를 바꾸고 다시 읽은 글자를 돌려준다 — 입력칸은 type */
+  async setText(target: string, text: string, o: { inactive?: boolean } = {}): Promise<string> {
+    return (await this.call({ cmd: 'text-set', target, text, ...extra(o) })).text as string;
   }
 
   async waitFor(target: string, options: WaitOptions = {}): Promise<void> {
-    const timeoutMs = options.timeoutMs ?? WAIT.timeoutMs;
+    const timeoutMs = options.timeoutMs ?? this.waitMs;
     const end = Date.now() + timeoutMs;
     for (;;) {
       const found = await this.find(target);
@@ -169,13 +275,13 @@ export class Game {
   }
 
   /** 컴포넌트 메서드를 부른다 — method 는 「컴포넌트.메서드」. 인자는 글자로 보내고 SDK 가 그 메서드 칸 타입으로 바꾼다 */
-  async callMethod(target: string, method: string, args: (string | number | boolean)[] = []): Promise<unknown> {
-    return (await this.call({ cmd: 'call', target, method, args: args.map(String) })).value;
+  async callMethod(target: string, method: string, args: (string | number | boolean)[] = [], o: { inactive?: boolean } = {}): Promise<unknown> {
+    return (await this.call({ cmd: 'call', target, method, args: args.map(String), ...extra(o) })).value;
   }
 
   /** 컴포넌트 칸을 쓰고 다시 읽은 값을 돌려준다 — value 는 get 이 주는 꼴의 글자('2.5' · 'true' · '[0,1,0]') */
-  async set(target: string, prop: string, value: string): Promise<unknown> {
-    return (await this.call({ cmd: 'set', target, prop, value })).value;
+  async set(target: string, prop: string, value: string, o: { inactive?: boolean } = {}): Promise<unknown> {
+    return (await this.call({ cmd: 'set', target, prop, value, ...extra(o) })).value;
   }
 
   /** static 메서드 — method 는 「타입.메서드」(전체 이름 또는 하나뿐인 짧은 이름) */
@@ -254,11 +360,12 @@ export class Game {
     }
   }
 
-  /** 게임이 프레임 끝에서 찍은 화면(JPEG) — Appium 이 없는 PC · iOS · 이미 켠 USB 게임용 */
-  async screenshot(): Promise<Buffer> {
-    const r = await this.call({ cmd: 'screenshot' });
-    if (typeof r.jpg !== 'string') throw new Error('게임이 스크린샷을 주지 않았습니다');
-    return Buffer.from(r.jpg, 'base64');
+  /** 게임이 프레임 끝에서 찍은 화면 — Appium 이 없는 PC · iOS · 이미 켠 USB 게임용. png 는 무손실(SDK 0.5.0 부터) */
+  async screenshot(format: 'jpg' | 'png' = 'jpg'): Promise<Buffer> {
+    const r = await this.call({ cmd: 'screenshot', ...(format === 'png' ? { format } : {}) });
+    const data = r[format];
+    if (typeof data !== 'string') throw new Error(format === 'png' ? '게임이 PNG 스크린샷을 주지 않았습니다 — PNG 는 SDK 0.5.0 이상' : '게임이 스크린샷을 주지 않았습니다');
+    return Buffer.from(data, 'base64');
   }
 }
 

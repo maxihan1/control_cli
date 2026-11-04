@@ -193,12 +193,12 @@ test('게임 SDK 의 caps 에 없는 명령은 보내지 않고 미리 거절한
   }
 });
 
-test('conform — 표준 화면이면 23줄 통과, 다르면 종료 코드로 알린다', async () => {
+test('conform — 표준 화면이면 33줄 통과, 다르면 종료 코드로 알린다', async () => {
   const ok = await fakeTcp(standardScreen());
   const bad = await fakeTcp(new FakeGame([node('Boot')]));
   try {
     await cli('-s=cf', 'open', '--pc', '--port', String(ok.port));
-    assert.match(await cli('-s=cf', 'conform', '--port', String(ok.port)), /통과 23 · 실패 0 · 건너뜀 0/);
+    assert.match(await cli('-s=cf', 'conform', '--port', String(ok.port)), /통과 33 · 실패 0 · 건너뜀 0/);
     await cli('-s=cf', 'close');
     await cli('-s=cf2', 'open', '--pc', '--port', String(bad.port));
     await assert.rejects(cli('-s=cf2', 'conform', '--port', String(bad.port)), /통과 \d+ · 실패 [1-9]/);
@@ -234,6 +234,37 @@ test('게임 상태 명령 — Ran 줄이 kit 의 game.* 이름 · 인자 꼴로
     await assert.rejects(gs('call', 'SampleCanvas'), /call <ref\|주소> <컴포넌트\.메서드> \[인자…\] 꼴이어야 합니다/);
     await assert.rejects(gs('pref-get', 'lv', '--type', 'bool'), /--type 은 string · int · float 중 하나입니다/);
     await gs('close');
+  } finally {
+    pc.server.close();
+  }
+});
+
+test('찾기 · 설정 명령 — Ran 줄이 kit 의 game.* 이름 · 인자 꼴로 찍힌다', async () => {
+  const pc = await fakeTcp(standardScreen());
+  const fs = (...argv: string[]) => cli('-s=fs', ...argv, '--port', String(pc.port));
+  try {
+    await fs('open', '--pc');
+    assert.match(await fs('find', '//*[@tag=Player]'), /^Ran: await game\.find\('\/\/\*\[@tag=Player\]'\)\n- 값: \{"path":"\/WorldCube"/);
+    assert.match(await fs('find', 'HiddenText', '--inactive'), /^Ran: await game\.find\('HiddenText', \{ inactive: true \}\)\n- 값: .*"active":false/);
+    assert.match(await fs('find-all', '//Bag/Slot'), /^Ran: await game\.findAll\('\/\/Bag\/Slot'\)\n- 값: \[\{"path":"\/SampleCanvas\/Bag\/Slot\[0\]"/);
+    assert.match(await fs('find', 'WorldCube', '--camera', 'SideCamera'), /^Ran: await game\.find\('WorldCube', \{ camera: 'SideCamera' \}\)\n- 값: .*"x":400/);
+    assert.equal(await fs('find-at', '540', '600'), '- 좌표 (540, 600) 의 맨 위: /WorldCube — 케이스에는 주소로 씁니다');
+    assert.equal(await fs('find-at', '1', '1'), '- 좌표 (1, 1) 에 맞는 것이 없습니다');
+    assert.match(await fs('parent', 'Item'), /^Ran: await game\.parent\('Item'\)\n- 값: \{"path":"\/SampleCanvas\/Bag\/Slot\[0\]"/);
+    assert.match(await fs('wait-prop', 'UitkLoginButton', 'text', 'UITK Login', '--timeout', '5'), /^Ran: await game\.waitForProp\('UitkLoginButton', 'text', 'UITK Login', \{ timeoutMs: 5000 \}\)/);
+    assert.match(await fs('components', 'SampleCanvas'), /^Ran: await game\.components\('SampleCanvas'\)\n- 값: .*"TouchProbe"/);
+    assert.match(await fs('members', 'SampleCanvas', 'TouchProbe'), /^Ran: await game\.members\('SampleCanvas', 'TouchProbe'\)\n- 값: .*"Say"/);
+    assert.match(await fs('text-set', 'StatusText', 'hi'), /^Ran: await game\.setText\('StatusText', 'hi'\)\n- 칸 글자: "hi"\n- Snapshot:/);
+    assert.match(await fs('get', 'HiddenText', 'Text.text', '--inactive'), /^Ran: await game\.get\('HiddenText', 'Text\.text', \{ inactive: true \}\)\n- 값: "hidden"/);
+    assert.match(await fs('click', 'WorldCube', '--camera', 'SideCamera'), /^Ran: await game\.click\('WorldCube', \{ camera: 'SideCamera' \}\)/);
+    assert.equal(await fs('config'), '- 기본 기다림 10초 — wait · wait-prop (장면 기다림은 30초)');
+    assert.equal(await fs('config', '--wait', '20'), '- 기본 기다림 20초 — wait · wait-prop (장면 기다림은 30초)');
+    assert.equal(await fs('config'), '- 기본 기다림 20초 — wait · wait-prop (장면 기다림은 30초)');
+    assert.match(await fs('snapshot', '--png'), /- Screenshot: .*\.png/);
+    await assert.rejects(fs('wait-prop', 'StatusText', 'Text.text'), /wait-prop <ref\|주소> <컴포넌트\.칸> <값> \[--timeout <초>\] \[--inactive\] 꼴이어야 합니다/);
+    await assert.rejects(fs('config', '--wait', '0'), /--wait 은 0 보다 큰 초입니다/);
+    await assert.rejects(fs('find-at', '1'), /find-at <x> <y> \[--camera <주소>\] 꼴이어야 합니다/);
+    await fs('close');
   } finally {
     pc.server.close();
   }
