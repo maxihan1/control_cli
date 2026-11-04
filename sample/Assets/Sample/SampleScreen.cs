@@ -25,7 +25,12 @@ namespace Sample
                 Build();
             }
             // 더해 열면 지금 장면이 Sample 그대로라 표시를 Second 로 옮긴다 — scene-unload 하면 같이 사라진다.
-            else if (scene.name == "Second") SceneManager.MoveGameObjectToScene(new GameObject("SecondMarker"), scene);
+            else if (scene.name == "Second")
+            {
+                SceneManager.MoveGameObjectToScene(new GameObject("SecondMarker"), scene);
+                // 한 장면으로 열면 EventSystem 이 없다 — UI Toolkit 이 입력을 스스로 읽는 길(SDK 의 UI Toolkit 직접)을 conform C 가 본다.
+                if (mode == LoadSceneMode.Single) SampleUitk.BuildSecond();
+            }
         };
 
         private static void Build()
@@ -78,6 +83,18 @@ namespace Sample
             var hidden = Label(root, "HiddenText", Right, 5);
             hidden.text = "hidden";
             hidden.gameObject.SetActive(false);
+            // C — 입력 탐침(손가락 · 키 · 축 · 단추 · 기울기)과 Pointer 칸 · 세로 목록.
+            var input = Label(root, "InputText", Left, 6);
+            input.fontSize = 28;
+            canvas.AddComponent<InputProbe>().Output = input;
+            var pointerText = Label(root, "PointerText", Right, 4);
+            pointerText.fontSize = 28;
+            var holdBox = Place(DefaultControls.CreateImage(Look), root, "HoldBox", Right, 4);
+            holdBox.GetComponent<Image>().color = new Color(0.6f, 0.8f, 1f);
+            holdBox.AddComponent<PointerBox>().Output = pointerText;
+            Half((RectTransform)holdBox.transform, -1);
+            Half((RectTransform)pointerText.transform, 1);
+            BuildList(root);
 #if SAMPLE_TMP
             BuildTmp(root);
 #endif
@@ -123,6 +140,38 @@ namespace Sample
             rect.anchoredPosition = new Vector2(x, -100 - row * 200);
             rect.sizeDelta = new Vector2(500, 140);
             return go;
+        }
+
+        // 한 칸(넓이 500)의 반 — side -1 왼쪽 · 1 오른쪽
+        private static void Half(RectTransform rect, int side)
+        {
+            rect.sizeDelta = new Vector2(240, rect.sizeDelta.y);
+            rect.anchoredPosition += new Vector2(side * 130, 0);
+        }
+
+        // 세로 목록 — swipe · scroll 이 ScrollRect 를 움직이는지. 바퀴 한 칸이 30 픽셀.
+        private static void BuildList(Transform root)
+        {
+            var list = Place(new GameObject("ScrollList", typeof(RectTransform), typeof(Image), typeof(RectMask2D), typeof(ScrollRect)), root, "ScrollList", Right, 6);
+            var content = new GameObject("Content", typeof(RectTransform), typeof(VerticalLayoutGroup)).GetComponent<RectTransform>();
+            content.SetParent(list.transform, false);
+            content.anchorMin = new Vector2(0, 1);
+            content.anchorMax = Vector2.one;
+            content.pivot = new Vector2(0.5f, 1);
+            content.sizeDelta = new Vector2(0, 1000);
+            var layout = content.GetComponent<VerticalLayoutGroup>();
+            layout.childControlHeight = layout.childForceExpandHeight = true;
+            for (var i = 0; i < 10; i++)
+            {
+                var row = DefaultControls.CreateText(Look).GetComponent<Text>();
+                row.text = "row " + i;
+                row.fontSize = 40;
+                row.transform.SetParent(content, false);
+            }
+            var scroll = list.GetComponent<ScrollRect>();
+            scroll.content = content;
+            scroll.horizontal = false;
+            scroll.scrollSensitivity = 30;
         }
 
         private static Text Label(Transform parent, string name, float x, int row)
