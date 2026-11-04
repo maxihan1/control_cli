@@ -29,6 +29,16 @@ test('지금 주소 — 이름 · /a/b[n] 은 뜻이 그대로다', () => {
   assert.deepEqual(paths('/Canvas/Bag/Slot/Item'), ['/Canvas/Bag/Slot[0]/Item']);
 });
 
+test('조건 · 순번 꼴이 아닌 [ ] 는 이름의 일부다 — 옛 경로 규칙 그대로', () => {
+  const odd: View<N> = { ...view, roots: [n('[DOTween]', {}, [n('Slot[A]'), n('Slot[A]')])] };
+  const at = (t: string) => select(steps(t), odd).trails.map((x) => pathOf(x, odd));
+  assert.deepEqual(at('/[DOTween]/Slot[A][1]'), ['/[DOTween]/Slot[A][1]']);
+  assert.deepEqual(at('[DOTween]'), ['/[DOTween]']);
+  assert.deepEqual(at('//Slot[A]'), ['/[DOTween]/Slot[A][0]', '/[DOTween]/Slot[A][1]']);
+  // @ · contains( 로 시작하면 조건이라 꼴을 본다.
+  assert.throws(() => steps('//*[@colour=red]'), /모르는 칸/);
+});
+
 test('// · * · 조건 · contains · 이어 붙이기 · [-1] · ..', () => {
   assert.deepEqual(paths('//*[@tag=Player]'), ['/Cube']);
   assert.deepEqual(paths('//*[@component=Button]'), ['/Canvas/LoginButton', '/Canvas/TmpLoginButton']);

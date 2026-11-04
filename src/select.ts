@@ -40,18 +40,28 @@ export function steps(target: string): Step[] {
     const start = i;
     const deep = target.startsWith('//', i);
     i += deep ? 2 : 1;
+    const nameStart = i;
     let name = '';
     while (i < target.length && target[i] !== '/' && target[i] !== '[') name += target[i++];
     const step: Step = { raw: '', deep, name, conds: [] };
     while (target[i] === '[') {
       const end = target.indexOf(']', i);
       if (end < 0) throw bad(target, `${target.slice(i)} 를 닫는 ] 가 없습니다`);
-      cond(step, target.slice(i + 1, end), target);
+      const inside = target.slice(i + 1, end);
+      // 조건 · 순번 꼴이 아닌 [ ] 는 이름의 일부다([DOTween] · Slot[A]) — 단계 전체가 이름이고 끝의 [숫자]만 순번(옛 경로 규칙 그대로).
+      if (!/^-?\d+$/.test(inside) && !inside.startsWith('@') && !inside.startsWith('contains(')) {
+        const slash = target.indexOf('/', nameStart);
+        i = slash < 0 ? target.length : slash;
+        const m = /^(.+)\[(\d+)\]$/s.exec(target.slice(nameStart, i));
+        Object.assign(step, { name: m ? m[1] : target.slice(nameStart, i), conds: [], index: m ? Number(m[2]) : undefined });
+        break;
+      }
+      cond(step, inside, target);
       i = end + 1;
     }
     if (i < target.length && target[i] !== '/') throw bad(target, '] 뒤에는 / 가 와야 합니다');
-    if (name === '') throw bad(target, '단계마다 이름이나 * 가 있어야 합니다 (예: //*[@tag=Player])');
-    if (name === '..' && (deep || step.conds.length > 0 || step.index !== undefined)) throw bad(target, '.. 은 /.. 꼴로만 씁니다');
+    if (step.name === '') throw bad(target, '단계마다 이름이나 * 가 있어야 합니다 (예: //*[@tag=Player])');
+    if (step.name === '..' && (deep || step.conds.length > 0 || step.index !== undefined)) throw bad(target, '.. 은 /.. 꼴로만 씁니다');
     step.raw = target.slice(start, i).replace(/^\/+/, '');
     out.push(step);
   }
