@@ -193,12 +193,12 @@ test('게임 SDK 의 caps 에 없는 명령은 보내지 않고 미리 거절한
   }
 });
 
-test('conform — 표준 화면이면 23줄 통과, 다르면 종료 코드로 알린다', async () => {
+test('conform — 표준 화면이면 33줄 통과, 다르면 종료 코드로 알린다', async () => {
   const ok = await fakeTcp(standardScreen());
   const bad = await fakeTcp(new FakeGame([node('Boot')]));
   try {
     await cli('-s=cf', 'open', '--pc', '--port', String(ok.port));
-    assert.match(await cli('-s=cf', 'conform', '--port', String(ok.port)), /통과 23 · 실패 0 · 건너뜀 0/);
+    assert.match(await cli('-s=cf', 'conform', '--port', String(ok.port)), /통과 33 · 실패 0 · 건너뜀 0/);
     await cli('-s=cf', 'close');
     await cli('-s=cf2', 'open', '--pc', '--port', String(bad.port));
     await assert.rejects(cli('-s=cf2', 'conform', '--port', String(bad.port)), /통과 \d+ · 실패 [1-9]/);

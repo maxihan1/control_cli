@@ -5,7 +5,7 @@ import { createServer as createNetServer, type AddressInfo, type Server as NetSe
 import type { Node } from './game.js';
 import type { Command, Reply } from './link.js';
 import { COMMANDS } from './protocol.js';
-import { flatten } from './snapshot.js';
+import { one, pathOf, select, steps, type View } from './select.js';
 import { packet } from './usbmux.js';
 
 export interface FakeNode extends Node {
@@ -21,9 +21,25 @@ export interface FakeNode extends Node {
   methods?: Record<string, (...args: string[]) => unknown>;
   /** set — 바꾼 뒤 읽은 값, 그런 칸이 없으면 undefined */
   set?: (prop: string, value: string) => unknown;
+  tag?: string;
+  layer?: string;
+  /** 붙은 컴포넌트 전체 이름 — UnityEngine.UI.Button · Sample.TouchProbe */
+  components?: string[];
+  /** instance id 흉내 — node() 가 늘어나는 번호를 준다(다시 만든 장면은 새 번호). 영구 id 흉내는 직접 준다 */
+  id?: string;
+  /** 꺼진 오브젝트 — inactive 로만 보인다 */
+  active?: false;
+  /** 화면 가운데(Camera.main) · 카메라 이름별 자리 */
+  at?: [number, number];
+  atBy?: Record<string, [number, number]>;
+  /** members 답 — 컴포넌트 이름별 */
+  members?: Record<string, unknown>;
 }
 
-export const node = (name: string, extra: Partial<FakeNode> = {}, children?: FakeNode[]): FakeNode => ({ name, ...extra, ...(children ? { children } : {}) });
+let ids = 0;
+export const node = (name: string, extra: Partial<FakeNode> = {}, children?: FakeNode[]): FakeNode => ({ name, id: String(++ids), ...extra, ...(children ? { children } : {}) });
+const INPUTS = ['InputField', 'TMP_InputField', 'TextField'];
+const short = (full: string) => full.slice(full.lastIndexOf('.') + 1);
 export const button = (name: string, label: string, onClick?: () => void): FakeNode => node(name, { kind: 'Button', interactable: true, onClick }, [node('Text', { text: label })]);
 
 export class FakeGame {
@@ -46,6 +62,8 @@ export class FakeGame {
   unloads = 0;
   /** scenes 를 이만큼 물을 때까지 장면이 열리는 중 — Infinity 면 끝내 안 열린다 */
   loadDelay = 0;
+  /** get 을 받을 때마다 — 테스트가 값이 늦게 바뀌는 게임을 흉내 낸다 */
+  onGet?: () => void;
   private pending?: { left: number; open: () => void };
 
   constructor(
@@ -64,30 +82,101 @@ export class FakeGame {
     return undefined;
   }
 
-  // SDK 의 Tree.Find 와 같은 규칙 — 이름은 하나뿐일 때만, 경로는 [순번]
-  private find(target: string): { node?: FakeNode; path?: string; error?: string } {
-    const all = flatten(this.roots);
-    if (target.startsWith('/')) {
-      const e = all.find((x) => x.path === target);
-      return e ? { node: e.node as FakeNode, path: e.path } : {};
+  // SDK 가 보는 트리 — inactive 가 아니면 꺼진 것을 뺀다. 선택자 칸은 Select.cs 의 Attr 과 같은 뜻.
+  private view(all: boolean): View<FakeNode> {
+    const shown = (ns: FakeNode[]) => (all ? ns : ns.filter((n) => n.active !== false));
+    return {
+      roots: shown(this.roots),
+      children: (n) => shown(n.children ?? []),
+      attr: (n, k) => {
+        const v = k === 'name' ? n.name : k === 'text' ? (n.password && n.text ? '***' : n.text) : k === 'tag' ? n.tag : k === 'layer' ? n.layer : k === 'id' ? n.id : undefined;
+        if (k === 'component') return (n.components ?? []).flatMap((c) => [short(c), c]);
+        return v === undefined ? [] : [v];
+      },
+    };
+  }
+
+  // SDK 의 Tree.Find 와 같은 규칙 — select.ts. 없음은 {}, 여럿 · 틀린 꼴은 error
+  private find(target: string, all = false): { node?: FakeNode; path?: string; trail?: FakeNode[]; error?: string } {
+    const v = this.view(all);
+    try {
+      const path = steps(target);
+      const r = one(target, select(path, v), !all, path);
+      if (r.trail) return { node: r.trail[r.trail.length - 1], trail: r.trail, path: pathOf(r.trail, v) };
+      return r.missing ? {} : { error: r.problem };
+    } catch (e) {
+      return { error: e instanceof Error ? e.message : String(e) };
     }
-    const same = all.filter((x) => x.node.name === target);
-    if (same.length > 1) return { error: `${target} 이 ${same.length}개라 하나를 고를 수 없습니다` };
-    return same.length ? { node: same[0].node as FakeNode, path: same[0].path } : {};
+  }
+
+  // find · find-all · find-at 답 한 칸 — SDK 의 Found 와 같은 꼴
+  private found(trail: FakeNode[], all: boolean, camera?: string): Record<string, unknown> {
+    const n = trail[trail.length - 1];
+    const active = trail.every((x) => x.active !== false);
+    const at = camera ? n.atBy?.[camera] : n.at;
+    return {
+      path: pathOf(trail, this.view(all)),
+      ...(n.text !== undefined ? { text: n.text } : {}),
+      ...(n.kind ? { interactable: n.interactable } : {}),
+      ...(n.id ? { id: n.id } : {}),
+      ...(active && at ? { x: at[0], y: at[1] } : {}),
+      ...(active ? {} : { active: false }),
+    };
+  }
+
+  private cameraProblem(camera: unknown): string | undefined {
+    if (camera === undefined) return undefined;
+    const f = this.find(camera as string);
+    if (f.error || !f.node) return f.error ?? `켜진 오브젝트 중에 ${camera as string} 이 없습니다`;
+    return f.node.components?.some((c) => short(c) === 'Camera') ? undefined : `${camera as string} 에 Camera 가 없습니다`;
   }
 
   handle(c: Command): Reply {
     this.commands.push(c);
-    const strip = (n: FakeNode): Node => ({ name: n.name, ...(n.text !== undefined ? { text: n.text } : {}), ...(n.kind ? { kind: n.kind, interactable: n.interactable } : {}), ...(n.children?.length ? { children: n.children.map(strip) } : {}) });
-    const f = typeof c.target === 'string' ? this.find(c.target) : {};
+    // 트리는 켜진 것만 — SDK 의 Tree.Dump 처럼.
+    const on = (ns: FakeNode[] = []) => ns.filter((n) => n.active !== false);
+    const strip = (n: FakeNode): Node => ({ name: n.name, ...(n.text !== undefined ? { text: n.text } : {}), ...(n.kind ? { kind: n.kind, interactable: n.interactable } : {}), ...(on(n.children).length ? { children: on(n.children).map(strip) } : {}) });
+    const all = c.inactive === true;
+    // find-all 은 여럿이 맞아도 된다 — 따로 고른다.
+    const f = typeof c.target === 'string' && c.cmd !== 'find-all' ? this.find(c.target, all) : {};
     if (f.error) return { ok: false, error: f.error };
+    const camera = this.cameraProblem(c.camera);
+    if (camera) return { ok: false, error: camera };
     switch (c.cmd) {
       case 'ping':
         return { ok: true, app: 'com.fake.game', version: '1.0', engine: 'fake', engineVersion: '0', sdkVersion: '0.3.0', protocol: 2, caps: this.caps };
       case 'tree':
-        return { ok: true, scene: this.scene, screen: [2400, 1080], tree: this.roots.map(strip) };
+        return { ok: true, scene: this.scene, screen: [2400, 1080], tree: on(this.roots).map(strip) };
       case 'find':
-        return f.node ? { ok: true, found: true, path: f.path, ...(f.node.text !== undefined ? { text: f.node.text } : {}) } : { ok: true, found: false };
+        return f.trail ? { ok: true, found: true, ...this.found(f.trail, all, c.camera as string | undefined) } : { ok: true, found: false };
+      case 'find-all':
+        try {
+          const v = this.view(all);
+          return { ok: true, found: select(steps(c.target as string), v).trails.map((t) => this.found(t, all, c.camera as string | undefined)) };
+        } catch (e) {
+          return { ok: false, error: e instanceof Error ? e.message : String(e) };
+        }
+      case 'find-at': {
+        const hit = select(steps('//*'), this.view(false)).trails.find((t) => {
+          const n = t[t.length - 1];
+          const at = c.camera ? n.atBy?.[c.camera as string] : n.at;
+          return at?.[0] === c.x && at?.[1] === c.y;
+        });
+        return hit ? { ok: true, found: true, ...this.found(hit, false, c.camera as string | undefined) } : { ok: true, found: false };
+      }
+      case 'components':
+        if (!f.node) return { ok: false, error: `켜진 오브젝트 중에 ${c.target as string} 이 없습니다` };
+        return { ok: true, components: (f.node.components ?? []).map((t) => ({ name: short(t), type: t })) };
+      case 'members': {
+        const m = f.node?.members?.[c.component as string];
+        return m ? { ok: true, ...(m as object) } : { ok: false, error: `${c.target as string} 에 ${c.component as string} 컴포넌트가 없습니다` };
+      }
+      case 'text-set':
+        if (!f.node) return { ok: false, error: `켜진 오브젝트 중에 ${c.target as string} 이 없습니다` };
+        if (INPUTS.includes(f.node.kind ?? '')) return { ok: false, error: `${c.target as string} 은 입력칸이라 type 으로 넣습니다` };
+        if (f.node.text === undefined) return { ok: false, error: `${c.target as string} 에 글자 컴포넌트(Text · TMP_Text · UI Toolkit Label/Button)가 없습니다` };
+        f.node.text = c.text as string;
+        return { ok: true, text: f.node.text };
       case 'click':
         if (!f.node) return { ok: false, error: `켜진 오브젝트 중에 ${c.target as string} 이 없습니다` };
         this.clicks.push(f.path!);
@@ -109,6 +198,7 @@ export class FakeGame {
         f.node.text = f.node.accept ? f.node.accept(c.text as string) : (c.text as string);
         return { ok: true, text: f.node.password ? '***' : f.node.text };
       case 'get':
+        this.onGet?.();
         return f.node?.props && (c.prop as string) in f.node.props ? { ok: true, value: f.node.props[c.prop as string] } : { ok: false, error: `${c.prop as string} 칸이 없습니다` };
       case 'errors':
         return { ok: true, last: 0, errors: [] };
@@ -213,22 +303,36 @@ export const keyFilter = (limit: number) => (text: string) => text.replace(/[^A-
 export function standardScreen(idAccept = keyFilter(8)): FakeGame {
   const game = new FakeGame([], 'Sample');
   const build = (): FakeNode[] => {
-    const status = node('StatusText', { text: '', set: (p, v) => (p === 'Text.text' ? (status.text = v) : undefined) });
+    const status: FakeNode = node('StatusText', {
+      text: '',
+      set: (p, v) => (p === 'Text.text' ? (status.text = v) : undefined),
+      props: {
+        get 'Text.text'() {
+          return status.text;
+        },
+      },
+    });
     const tmpStatus = node('TmpStatusText', { text: '' });
     const uitkStatus = node('UitkStatusText', { text: '' });
     const touch = node('TouchText', { text: '' });
     const id = node('IdInput', { kind: 'InputField', interactable: true, text: '', accept: idAccept });
     const tmpId = node('TmpIdInput', { kind: 'TMP_InputField', interactable: true, text: '', accept: keyFilter(8) });
     const uitkId = node('UitkIdInput', { kind: 'TextField', interactable: true, text: '', accept: (t) => t.slice(0, 8) });
-    const login = (name: string, label: string, out: FakeNode, from: FakeNode) => {
+    const login = (name: string, label: string, out: FakeNode, from: FakeNode, extra: Partial<FakeNode>) => {
       let presses = 0;
-      return node(name, { kind: 'Button', interactable: true, onClick: () => (out.text = `${label} ${from.text} ${++presses}`) });
+      return node(name, { kind: 'Button', interactable: true, onClick: () => (out.text = `${label} ${from.text} ${++presses}`), ...extra });
     };
+    const uguiButton = (at: [number, number]): Partial<FakeNode> => ({ components: ['UnityEngine.RectTransform', 'UnityEngine.UI.Image', 'UnityEngine.UI.Button'], at });
     let cubes = 0;
     const position = [0, 0, 5];
     game.onKey = (key) => (touch.text = `key ${key}`);
     return [
       node('WorldCube', {
+        tag: 'Player',
+        layer: 'Water',
+        components: ['UnityEngine.Transform', 'UnityEngine.MeshFilter', 'UnityEngine.BoxCollider', 'UnityEngine.MeshRenderer'],
+        at: [540, 600],
+        atBy: { SideCamera: [400, 600] },
         onClick: () => (touch.text = `cube ${++cubes}`),
         props: {
           get 'Transform.position'() {
@@ -243,20 +347,47 @@ export function standardScreen(idAccept = keyFilter(8)): FakeGame {
           return p === 'Transform.position' ? [...position] : position[1];
         },
       }),
-      node('SampleCanvas', { methods: { 'TouchProbe.Say': (word, times) => (touch.text = `${word} ${times}`) } }, [
-        status,
-        id,
-        login('LoginButton', 'login', status, id),
-        touch,
-        tmpStatus,
-        tmpId,
-        login('TmpLoginButton', 'tmp login', tmpStatus, tmpId),
-        node('Bag', {}, [node('Slot', {}, [node('Item', { movable: true })]), node('Slot'), node('Slot'), node('Slot')]),
+      // 화면을 덮지 않게 끈 옆 카메라 — camera 칸이 Camera.main 과 다른 자리를 셈하는지(WorldCube 의 atBy).
+      node('SideCamera', { components: ['UnityEngine.Transform', 'UnityEngine.Camera'] }),
+      node(
+        'SampleCanvas',
+        {
+          methods: { 'TouchProbe.Say': (word, times) => (touch.text = `${word} ${times}`) },
+          components: ['UnityEngine.RectTransform', 'UnityEngine.Canvas', 'UnityEngine.UI.CanvasScaler', 'UnityEngine.UI.GraphicRaycaster', 'Sample.TouchProbe'],
+          members: {
+            TouchProbe: {
+              fields: [{ name: 'Output', type: 'Text', value: 'TouchText (UnityEngine.UI.Text)' }],
+              properties: [{ name: 'Note', type: 'String', static: true }],
+              methods: [
+                { name: 'Say', args: ['String', 'Int32'], returns: 'String' },
+                { name: 'Add', args: ['Int32', 'Int32'], returns: 'Int32', static: true },
+              ],
+            },
+          },
+        },
+        [
+          status,
+          id,
+          login('LoginButton', 'login', status, id, uguiButton([270, 1500])),
+          touch,
+          tmpStatus,
+          tmpId,
+          login('TmpLoginButton', 'tmp login', tmpStatus, tmpId, uguiButton([810, 1500])),
+          node('Bag', {}, [node('Slot', {}, [node('Item', { movable: true })]), node('Slot'), node('Slot'), node('Slot')]),
+          node('HiddenText', { active: false, text: 'hidden', props: { 'Text.text': 'hidden' } }),
+        ],
+      ),
+      node('UitkDocument', {}, [
+        node('UitkPanel', { props: { 'layout.height': 200 } }, [
+          uitkStatus,
+          uitkId,
+          login('UitkLoginButton', 'uitk login', uitkStatus, uitkId, { components: ['UnityEngine.UIElements.Button'], at: [540, 200], text: 'UITK Login', props: { text: 'UITK Login' } }),
+        ]),
       ]),
-      node('UitkDocument', {}, [node('UitkPanel', {}, [uitkStatus, uitkId, login('UitkLoginButton', 'uitk login', uitkStatus, uitkId)])]),
     ];
   };
-  game.sceneRoots = { Sample: build, Second: () => [node('SecondMarker')] };
+  // SecondSaved 는 장면에 저장된 오브젝트 흉내 — 영구 id 가 다시 열어도 같다. SecondMarker 는 실행 중에 만들어 열 때마다 새 id.
+  game.sceneRoots = { Sample: build, Second: () => [node('SecondMarker'), node('SecondSaved', { id: 'saved-1' })] };
   game.roots = build();
   game.loaded = [{ name: 'Sample', nodes: game.roots }];
   game.statics = { 'Sample.TouchProbe.Note': null };
