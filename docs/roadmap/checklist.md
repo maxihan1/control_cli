@@ -2,7 +2,9 @@
 
 ## ▶ 다음 세션은 여기부터 (2026-11-04)
 
-- P2-D Unity 알림 — 설계부터(superpowers:brainstorming → writing-plans). 첫 일은 plan.md 1절 AltTester 셈을 명령 목록으로 다시 세기(P2-C 뒤 어림 셈이 68.5/68 로 넘침 — checklist P2-D 첫 줄). 브랜치 `p2d` 는 `p2c` 위(PR #19 가 `roadmap` 에 합쳐지면 `origin/roadmap` 에서), PR 은 `roadmap` 으로. 끝 기준은 `conform` D 줄까지 초록(Android 넷 · macOS 둘)
+- P2 끝 — 다음은 P2 묶음을 main 으로. PR #17~#18 은 `roadmap` 에 합쳐졌고, #19(`p2c` → `roadmap`) · #20(`p2d` → `p2c`, #19 가 합쳐지면 base 를 `roadmap` 으로)이 남았다. 그다음 `roadmap` → `unity-u8` … → main(PR #5~#14) 합치기 전 아래 「main 에 합치기 전에 정할 것」(instrument 기본 ref)을 사용자와 정한다. 그 뒤 P3~P10 병행(트랙마다 세션 · worktree · main 에서 브랜치 · 팜 폰 하나 — plan.md 「순차와 병행」)
+- P2-D 끝 — draft PR #20 · sdk-compile run 41806656486 초록(meta · 2021.3 · 2022.3 · 6000.0) · sample run 41806656652 9개 잡 초록(macOS 옛 Input · Windows 잡은 러너 Docker 층 쓰기 실패로 한 번 다시). 팜 RF9R408GKRR 의 APK 넷(6000.0 옛 Input · 6000.0 Input System · 2022.3 둘 다 · 2021.3 옛 Input) 「통과 52 · 실패 0 · 미실행 0」, 이 맥 macOS 앱 둘(6000.0 옛 Input · Input System) 「통과 51 · 실패 0 · 미실행 1」(일시정지 줄 — PC 는 일시정지가 안 난다). AltTester 명령 목록 기준 68/68. 알림 이름 · 시각 칸 · 토큰 가리기는 Issue Bunker 정책과 맞췄다(context-notes 「P2-D 설계」)
+- PR 만들기 — 자동 권한 판정이 PR 본문(다른 저장소 정책 문서 이름)을 「Data Exfiltration」으로 막은 적이 있다. 막히면 사용자가 `! gh pr create …` 로 만든다(P2-D)
 - 팜 폰 — RF9R408GKRR 을 다시 써도 된다(사용자 「RF9R408GKRR 써도 됨」, 2026-11-04 P2-C 실기기 때). 세션마다 사용자가 정한 폰만 쓰고, 다 쓰면 `release`
 - C# 컴파일 검사 — `.cache` 는 p2b worktree 에 받아 둔 것을 쓴다: `UNITY_REF_DIR=/Users/maxi.moff/Projects/control_cli/.claude/worktrees/p2b/tools/unity-compile-check/.cache python3 tools/unity-compile-check/check.py 6000.0`(없으면 `check.py fetch 6000.0`)
 - P2-C 끝 — draft PR #19(`p2c` → `roadmap`) · sdk-compile run 41793375881 초록(meta · 2021.3 · 2022.3 · 6000.0) · sample run 41793375943 9개 잡 초록. 팜 RF9R408GKRR 의 APK 넷(6000.0 옛 Input · 6000.0 Input System · 2021.3 옛 Input · 2022.3 둘 다)과 이 맥 macOS 앱 둘(6000.0 옛 Input · Input System) 모두 conform 「통과 48 · 실패 0 · 건너뜀 0」(C 줄 15개 포함). 길게 누르기 명령은 `long-press`(세션 `hold` 와 겹쳐)
@@ -63,10 +65,10 @@
 - [x] 옛 Input · Input System · UI Toolkit 직접 길 모두 · `conform` C 줄 초록(Android · macOS)(Task 10) — sample run 41793375943(27feaef · 2021.3 Android 잡은 Docker 층 쓰기 실패로 한 번 다시)의 팜 RF9R408GKRR 6000.0 옛 Input · 6000.0 Input System · 2021.3 옛 Input · 2022.3 둘 다, 이 맥 macOS 6000.0 옛 Input · Input System 모두 「통과 48 · 실패 0 · 건너뜀 0」. 빌드 로그 「축 18개」. 샘플 SecondScroll 을 두 번 고침(테마 없는 panel — context-notes 「P2-C 실기기」)
 
 ## P2-D. Unity 알림
-- [ ] 설계 · 구현 계획 — plan.md 1절 AltTester 셈을 명령 목록으로 다시 센다(P2-C 뒤 어림 셈이 68.5/68 로 넘침)
-- [ ] 장면 열림 · 닫힘 · 로그 · 일시정지 알림(번호 뒤만 가져가기)
-- [ ] SDK 로그 켜고 끄기
-- [ ] `conform` D 줄 초록
+- [x] 설계 · 구현 계획 — [p2d-plan.md](p2d-plan.md). AltTester 셈 다시 — 명령 64 + 알림 4 = 68, P2-C 뒤 63/68. `logs` · `events` · `sdk-log` 셋, Issue Bunker 정책과 맞춤(알림 이름 `scene.loaded` 꼴 · `occurredAt` · 토큰 `***` · conform 「미실행」), conform D 4줄 → 52줄, 0.7.0
+- [x] 장면 열림 · 닫힘 · 로그 · 일시정지 알림(번호 뒤만 가져가기) — `events` · `logs`, `errors` 에 `occurredAt` · 가리기(88140b5 · f1a5fef)
+- [x] SDK 로그 켜고 끄기 — `sdk-log on|off`(팜 손 확인 — 비밀번호 `text=***` · 실패 글 속 값 `「***」은 int 가 아닙니다`)
+- [x] `conform` D 줄 초록 — sample run 41806656652 의 팜 RF9R408GKRR APK 넷 「통과 52 · 실패 0 · 미실행 0」 · 이 맥 macOS 둘 「통과 51 · 실패 0 · 미실행 1」(PC 는 일시정지가 안 난다)
 
 ## P3. 연결 · 플랫폼
 - [ ] 설계 · 구현 계획
@@ -115,6 +117,7 @@
 
 ### test_platform 다음 줄 (이 저장소에서는 고치지 않는다)
 - 단계마다 새 명령의 `game.*` 함수를 kit(`packages/kit/src/runtime/game.ts`)에 같은 이름으로 더한다 — 안 그러면 `Ran:` 줄이 케이스에서 안 돈다
+- P2-D — `logs(since)` · `events(since)` · `sdkLog(on)`(꼴은 control_cli `src/game.ts` 의 `GameLogs` · `GameEvents`). 게임 증적 `game-errors.txt` 는 `e.time` 대신 `e.occurredAt ?? e.time` 으로 옮긴다(SDK 0.7.0 이 둘 다 준다 — `time` 은 나중에 뗀다). 같은 자리에 `game-logs.txt`(`logs(since)` — Warning 까지, 케이스 실패 때 앞뒤 사정) · 알림 줄을 남기는 안. 증적 머리의 「들고 있는 수(200)」는 logs 면 500
 - P2-C — `touchDown` · `touchMove` · `touchUp` · `swipe` · `longPress` · `mouseMove` · `scroll` · `keyDown` · `keyUp` · `tilt` · `pointer` · `resetInput`, `click` · `tap` 의 `{ count?, interval? }` · `drag` 의 `{ via?, duration? }` · `key` 의 `{ duration?, power? }` · `key` 의 `A+LeftShift`(꼴은 control_cli `src/game.ts`). `at` 은 주소 글자 또는 `{x, y}`, 시간은 초. 모두 SDK 한 명령이라 되풀이는 없다
 - P2-B — `findAll` · `findAt` · `parent` · `waitForProp` · `components` · `members` · `setText`, `find` · `get` · `set` · `callMethod` · `click` · `drag` 의 마지막 옵션 `{ inactive?, camera? }`, `screenshot(format)`(꼴은 control_cli `src/game.ts`). `parent` · `waitForProp` 은 바깥 되풀이라 kit 에도 같은 되풀이가 든다. 선택자는 SDK 가 풀어 kit 은 글자를 그대로 넘긴다
 - P2-A — `callMethod` · `set` · `callStatic` · `getStatic` · `setStatic` · `pref` · `setPref` · `deletePref` · `clearPrefs` · `timeScale` · `setTimeScale` · `scenes` · `loadScene` · `unloadScene` · `waitForScene`(꼴은 control_cli `src/game.ts`). `loadScene` · `unloadScene` · `waitForScene` 은 `scenes` 를 되풀이하는 바깥 기다리기라 kit 에도 같은 되풀이가 든다

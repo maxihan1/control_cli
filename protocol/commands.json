@@ -312,6 +312,21 @@
         "event": { "type": "string", "required": true, "enum": ["down", "up", "enter", "exit"], "summary": "down · up · enter · exit" }
       }
     },
-    { "name": "input-reset", "summary": "가짜 입력을 다 거둔다 — 눌러 둔 손가락 · 키 · 가짜 마우스 · 기울기", "args": {} }
+    { "name": "input-reset", "summary": "가짜 입력을 다 거둔다 — 눌러 둔 손가락 · 키 · 가짜 마우스 · 기울기", "args": {} },
+    {
+      "name": "logs",
+      "summary": "게임 로그 전부(Log · Warning · Error · Assert · Exception, 최근 500개) — 40자 넘는 영숫자 토막(토큰)은 ***",
+      "args": { "since": { "type": "number", "required": false, "summary": "받아 둔 last — 그 번호 뒤만" } }
+    },
+    {
+      "name": "events",
+      "summary": "게임 알림(최근 200개) — scene.loaded · scene.unloaded · game.paused · game.resumed",
+      "args": { "since": { "type": "number", "required": false, "summary": "받아 둔 last — 그 번호 뒤만" } }
+    },
+    {
+      "name": "sdk-log",
+      "summary": "켜면 SDK 가 받은 명령마다 「[ControlCli] click LoginButton — 성공」 한 줄을 게임 로그에 적는다(입력 글자 · 값은 ***). 기본 꺼짐 · 게임을 다시 켜면 꺼짐",
+      "args": { "on": { "type": "boolean", "required": true, "summary": "true 켜기 · false 끄기" } }
+    }
   ]
 }

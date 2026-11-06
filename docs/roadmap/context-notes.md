@@ -166,3 +166,25 @@
 - 팜 conform 은 APK 하나에 1~2분(48줄)
 - 끝(sample run 41793375943 · 27feaef) — 2021.3 Android 잡이 러너 Docker 층 쓰기 실패(`failed to register layer: write …/NDK/…`)로 한 번 떨어져 그 잡만 다시 돌려 초록. 팜 RF9R408GKRR 의 6000.0 옛 Input · 6000.0 Input System · 2021.3 옛 Input · 2022.3 둘 다 APK, 이 맥 macOS 6000.0 옛 Input · Input System 앱 모두 「통과 48 · 실패 0 · 건너뜀 0」. 팜 폰은 기다리는 동안 놓았다가 다시 잡았고 끝에 `release`, 이 맥 caffeinate 는 건 것만 껐다
 - 사용자가 취소한 중복 CI 를 「다시 돌려봐」라 해 다시 돌렸다 — PR 의 마지막 commit 에 CI 가 초록으로 남기를 바란다고 보고, 문서만 바꾼 push 의 run 도 취소하지 않는다
+
+## 2026-11-04 — P2-D 설계 ([p2d-plan.md](p2d-plan.md))
+
+- 브랜치 — PR #19(`p2c`)가 아직 `roadmap` 에 안 합쳐져 `p2d` 는 `origin/p2c` 위, PR 은 `roadmap` 으로
+- plan.md 1절 셈을 AltTester [명령 목록](https://alttester.com/docs/sdk/latest/pages/commands.html)으로 다시 셌다 — 설정(AltDriver) 5개 · `PlayerPrefKeyType`(꼴 이름)을 빼면 명령 64(찾기 9 · 입력 16 · 스크린샷 1 · Unity 15 · Other 1 · 오브젝트 19 · 역방향 포트 3) + 알림 4 = 68. P2-C 뒤 63/68(역방향 포트 셋은 게임이 서버라 adb forward 로 대신), 남은 다섯이 알림 넷과 `SetServerLogging`. 앞 셈(22.5 → 37.5 → 52.5 + 16)은 반 개 셈과 겹침으로 68.5 가 됐다
+- 알림은 가져가기(사용자 — `logs` + `events` 둘). 우리 통신은 요청-답 한 줄이라 AltTester 처럼 밀어 줄 길이 없다. 로그를 따로 둔 까닭 — 게임이 로그를 쏟아내도 드문 장면 · 일시정지 알림이 고리에서 밀려나지 않는다
+- `SetServerLogging` 은 `sdk-log on|off` 로(사용자). 우리 SDK 는 켤 때 한 줄만 적어 끌 것이 없어, 켜면 받은 명령마다 한 줄을 Unity 로그에 적는 것으로 뜻을 옮겼다 — 게임 예외 바로 앞에 무슨 명령이 왔는지 logcat · Player.log · `logs` 에서 보인다
+- Issue Bunker 정책과 통일(사용자 「bunker에서의 정책까지 다 읽고 최대한 통일하자」) — `~/projects/bts` 의 알림(notification-policy · inapp-channel · transition-event-outbox · webhook · subscription · Slack), cursor envelope(FR-API-01), 로그(frontend-logging · auth-audit-log · nginx 토큰 가리기 · DEVELOPMENT.md · code-checklists), QA Hub 공통 UI 정책 §8 을 읽었다
+  - 맞춘 것 — 알림 종류 `scene.loaded` · `scene.unloaded` · `game.paused` · `game.resumed`(Bunker `issue.<과거분사>`, 사실 하나에 이벤트 하나) · 시각 칸 `occurredAt`(UTC ms 3자리) · `logs` · `errors` 의 40자 넘는 `[A-Za-z0-9_-]` 토막을 `***` 로(nginx 규칙 — SDK 안에서) · `sdk-log` 줄 「[ControlCli] type IdInput text=*** — 성공」(프론트 `[모듈] 설명 — 결과 key=값`, 값은 `passwordHash=***` 꼴) · conform 「건너뜀」 → 「미실행」(공통 UI §8 QA 표준 용어)
+  - `errors` 는 `occurredAt` 을 더하고 `time` 을 남긴다(사용자 — Bunker 의 「nullable 칸을 더해 하위호환」). test_platform kit 증적 `game-errors.txt` 가 `e.time` 을 읽는다. 가리기도 `errors` 에 같이 건다
+  - 안 맞춘 것 — 껍데기 `{ok, last, logs|events, restarted?, dropped?}` · `since` · `seq`. Bunker `{data, meta.page.next}` 는 최신순 페이지 넘기기라 오래된 것부터 따라가는 우리 쓰임과 다르다. `dropped` 는 Bunker 의 「조용히 잘라내지 않는다」와 같은 뜻. 목록 키 `items` 도 안 바꿨다(Bunker 안에서도 `data` · `items` 가 섞임, `errors` 와 같은 꼴을 지킴). 로그 `type` 은 Unity LogType 그대로(Bunker 에 로그 항목 스키마가 없다). `sdk-log` 의 실행 중 켜고 끄기는 Bunker 선례(빌드 때 DEV 가드)와 다르지만 사용자가 고른 것
+- 일시정지 conform 줄 — 팜 · USB 는 Appium `mobile: backgroundApp {seconds: 2}`(팜 Appium 3.8 · UiAutomator2 8.7, `execute/sync` 를 넘긴다 — Devicefarm `scripts/device-check/used-apps-check.ts` 가 `mobile: startActivity` 를 같은 길로). PC 는 SDK 가 `runInBackground = true` 로 켜 일시정지가 아예 안 나 「미실행」, iPhone 도 길이 없어 「미실행」. 그래서 끝 기준이 팜 52/0/0 · macOS 51/0/1
+- 듣기 시작은 `SubsystemRegistration` — 지금 `GameState.Watch`(AfterSceneLoad)는 첫 장면의 `sceneLoaded` 를 놓친다. `loads` 셈은 건드리지 않고 알림만 일찍 듣는다
+
+## 2026-11-04 — P2-D 실기기 (팜 RF9R408GKRR · sample run 41806656652 · 커밋 4a86b0d)
+
+- CI — sdk-compile run 41806656486 초록(meta · 2021.3 · 2022.3 · 6000.0). sample run 9개 잡 중 macOS 옛 Input · Windows 가 러너 Docker 층 쓰기 실패(`docker: failed to register layer: write /opt/unity/…/libcache/…` — P2-C 2021.3 잡과 같은 러너 문제)로 떨어져 그 둘만 다시 돌려 초록(attempt 2)
+- 팜 — 잡이 하나씩 끝날 때마다 결과물을 받아 `hold --udid RF9R408GKRR` → `open --app <APK>` → `conform` → `close` → `release`(기다리는 동안은 놓았다). 6000.0 옛 Input · 6000.0 Input System · 2022.3 둘 다 · 2021.3 옛 Input 모두 「통과 52 · 실패 0 · 미실행 0」, `open` 줄 「SDK 0.7.0」. 일시정지 줄은 팜 Appium(3.8 · UiAutomator2 8.7)의 `mobile: backgroundApp {seconds: 2}` 가 `execute/sync` 로 넘어가 `game.paused` · `game.resumed` 둘이 잡혔다 — IL2CPP · 2021.3 에서도 `OnApplicationPause` 가 온다
+- 이 맥 — `caffeinate -d -u -t 900` 을 건 채 macOS 앱 둘(Input System · 옛 Input) 「통과 51 · 실패 0 · 미실행 1」(일시정지 줄 미실행 — PC 는 SDK 가 `runInBackground` 를 켜 일시정지가 안 난다). 띄운 caffeinate 는 PID 로만 껐다
+- 켤 때 알림 — `SubsystemRegistration` 에서 들어 첫 장면 `scene.loaded Sample single` 과 SDK 시작 줄 「[ControlCli] 127.0.0.1:13100 에서 명령을 받습니다」가 `events` · `logs` 1번부터 있다. 새로 안 것 — Unity 가 켤 때 이름 없는 빈 장면을 닫아 `scene.unloaded`(`scene: ""`)가 첫 장면보다 먼저 하나 온다. Unity 가 부른 그대로라 거르지 않고 README 에 적었다(AltTester 도 `sceneUnloaded` 를 그대로 넘긴다)
+- 손 확인(팜 6000.0 옛 Input) — `sdk-log on` 뒤 `click LoginButton` · `type PasswordInput` · 틀린 `pref-set` 이 「[ControlCli] click LoginButton — 성공」 · 「[ControlCli] type PasswordInput text=*** — 성공」 · 「[ControlCli] pref-set lv value=*** — 실패: 「***」은 int 가 아닙니다」. CLI 가 액션 뒤 찍는 `tree` 도 명령이라 「[ControlCli] tree — 성공」이 함께 적힌다
+- PR — `gh pr create` 를 자동 권한 판정이 「Data Exfiltration」으로 막았다(본문에 Issue Bunker 정책 문서 이름). control_cli · BTS 둘 다 공개 저장소이고 비밀값은 없었다 — 사용자가 「제가 직접 PR 만들기」를 골라 `! gh pr create` 로 #20 을 만들었다. #19 가 아직 안 합쳐져 base 는 `p2c`

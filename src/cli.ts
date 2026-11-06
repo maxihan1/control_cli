@@ -6,7 +6,7 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { parseArgs } from 'node:util';
 
-import { back, call, connect, farmOf, openSession, screenshot, type Conn } from './appium.js';
+import { back, backgroundApp, call, connect, farmOf, openSession, screenshot, type Conn } from './appium.js';
 import { conform, report } from './conform.js';
 import { crawl, CRAWL } from './crawl.js';
 import { installAndLaunch, terminate } from './devicectl.js';
@@ -71,7 +71,8 @@ export const HELP = `control-cli [-s=<세션>] <명령>
   scenes · scene-load <장면> [--add] · scene-unload <장면> · scene-wait <장면> [--timeout <초>]   장면 — 다 열리고 닫힐 때까지 기다린다(기본 30초)
   wait <ref|주소> [--text <글자>] [--gone] [--timeout <초>]
   layout [ref|주소]                                안전 영역 밖 · 겹침
-  errors [번호]                                    게임 예외 · 에러 로그(이 번호 뒤만)
+  errors [번호] · logs [번호] · events [번호]       게임 예외 · 로그 전부 · 알림(장면 열림 · 닫힘 · 일시정지) — 이 번호 뒤만
+  sdk-log on|off                                   SDK 가 받은 명령마다 게임 로그에 한 줄(입력 글자 · 값은 ***)
   key <키[+키…]> [--duration <초>] [--power <-1~1>]   키(KeyCode 이름 — Escape · Space · Return · I · Alpha1 · Mouse0). Escape 는 폰 뒤로 키와 같다
   tap <x> <y> [--count <n>] [--interval <초>]      좌표 누르기(살펴볼 때만 — Ran 줄 없음)
   touch-down <ref|주소>|<x> <y> · touch-move <번호> <ref|주소>|<x> <y> · touch-up <번호>   손가락 눌러 두기 · 옮기기 · 떼기(번호 10~19)
@@ -467,9 +468,17 @@ export async function run(argv: string[], o: Options): Promise<string> {
       const problems = r.problems.map((p) => (p.kind === 'outside' ? `- 안전 영역 밖: ${p.path}` : `- 겹침: ${p.path} ↔ ${p.otherPath}`));
       return [ran('layout', ...(a === undefined ? [] : [quote(a)])), `- 검사 ${r.checked}개 · 문제 ${r.problems.length}개`, ...problems].join('\n');
     }
-    case 'errors': {
-      if (args[0] !== undefined && !/^\d+$/.test(args[0])) throw new Error('errors [이 번호 뒤부터] 꼴이어야 합니다');
-      return JSON.stringify(await game.errors(Number(args[0] ?? 0)));
+    case 'errors':
+    case 'logs':
+    case 'events': {
+      if (args[0] !== undefined && !/^\d+$/.test(args[0])) throw new Error(`${name} [이 번호 뒤부터] 꼴이어야 합니다`);
+      const since = Number(args[0] ?? 0);
+      return JSON.stringify(await (name === 'errors' ? game.errors(since) : name === 'logs' ? game.logs(since) : game.events(since)));
+    }
+    case 'sdk-log': {
+      if (args[0] !== 'on' && args[0] !== 'off') throw new Error('sdk-log on|off 꼴이어야 합니다');
+      await game.sdkLog(args[0] === 'on');
+      return ran('sdkLog', String(args[0] === 'on'));
     }
     case 'key': {
       if (args[0] === undefined) throw new Error('key <키[+키…]> 꼴이어야 합니다 — KeyCode 이름(Escape · Space · Return · I · Alpha1 · Mouse0)');
@@ -628,7 +637,8 @@ export async function run(argv: string[], o: Options): Promise<string> {
       return after(ran(name === 'scene-unload' ? 'unloadScene' : 'waitForScene', quote(args[0]), ...opts(t.shown)));
     }
     case 'conform': {
-      const r = await conform(game);
+      // 일시정지 줄은 Appium 세션이 있을 때(팜 · USB --app)만 앱을 뒤로 보낸다.
+      const r = await conform(game, { background: s.appium ? async () => void (await backgroundApp(appium, s.appium!, 2)) : undefined });
       s.caps = game.caps;
       await save(file, s);
       const out = report(r);

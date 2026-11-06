@@ -103,9 +103,10 @@ test('open 전에는 게임 도구가 실패로 답하고, 인자 꼴이 틀리�
   assert.match((await call('pref-get', { key: 'k', type: 'bool' })).content[0].text!, /^pref-get 의 type 는 string · int · float 중 하나여야 합니다/);
   assert.match((await call('find', { target: 'X', inactive: 'yes' })).content[0].text!, /^find 의 inactive 는 true · false 여야 합니다/);
   assert.match((await call('screenshot', { format: 'gif' })).content[0].text!, /^screenshot 의 format 는 jpg · png 중 하나여야 합니다/);
+  assert.match((await call('sdk-log', { on: 'yes' })).content[0].text!, /^sdk-log 의 on 는 true · false 여야 합니다/);
 });
 
-test('PC 게임을 open 하면 표준 화면 conform 48줄이 MCP 도구로 모두 통과하고 screenshot 은 그림으로 온다', async (t) => {
+test('PC 게임을 open 하면 표준 화면 conform 이 MCP 도구로 일시정지 줄(PC 는 안 남) 말고 모두 통과하고 screenshot 은 그림으로 온다', async (t) => {
   const { port, server: tcp } = await fakeTcp(standardScreen());
   t.after(() => tcp.close());
   const { call, home } = await server(`--port=${port}`);
@@ -113,7 +114,7 @@ test('PC 게임을 open 하면 표준 화면 conform 48줄이 MCP 도구로 모�
   assert.ok(existsSync(join(home, '.control-cli', 'default.json')), '세션 파일은 홈 폴더에');
 
   const r = await conform(new Game(mcpLink(call)));
-  assert.deepEqual([r.passed, r.failed, r.skipped], [48, 0, 0], report(r));
+  assert.deepEqual([r.passed, r.failed, r.skipped], [51, 0, 1], report(r));
   assert.deepEqual((await call('screenshot')).content, [{ type: 'image', data: Buffer.from('jpg').toString('base64'), mimeType: 'image/jpeg' }]);
   const png = (await call('screenshot', { format: 'png' })).content[0];
   assert.deepEqual([png.type, png.mimeType, Buffer.from(png.data!, 'base64').subarray(1, 4).toString()], ['image', 'image/png', 'PNG']);
