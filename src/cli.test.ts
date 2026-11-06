@@ -5,12 +5,15 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, before, test } from 'node:test';
 
+import { capabilities } from './appium.js';
 import { run, TIMING } from './cli.js';
-import { button, fakeFarm, FakeGame, fakeTcp, fakeUsbmux, node } from './fake-game.js';
+import { CONFORM } from './conform.js';
+import { button, fakeFarm, FakeGame, fakeTcp, fakeUsbmux, node, standardScreen } from './fake-game.js';
 import { SETTLE, WAIT } from './game.js';
 
 Object.assign(SETTLE, { maxMs: 30, stepMs: 5 });
 Object.assign(WAIT, { intervalMs: 5 });
+Object.assign(CONFORM, { waitMs: 50, holdS: 0.1, dragS: 0, keyS: 0 });
 Object.assign(TIMING, { openWaitMs: 200, openStepMs: 5, cleanWaitMs: 100, cleanStepMs: 5 });
 
 const status = node('StatusText', { text: '' });
@@ -35,6 +38,10 @@ before(async () => {
   dir = await mkdtemp(join(tmpdir(), 'control-cli-'));
 });
 after(() => farm.server.close());
+
+test('versionCode 가 같은 새 QA 빌드도 늘 다시 깐다', () => {
+  assert.equal(capabilities('qa.apk')['appium:enforceAppInstall'], true);
+});
 
 test('잡기 전에는 열지 않는다', async () => {
   await assert.rejects(cli('open'), /hold 부터/);
@@ -162,6 +169,183 @@ test('PC — 띄운 게임에 adb 없이 붙고, 스크린샷은 게임이 찍�
   }
 });
 
+test('게임 SDK 의 caps 에 없는 명령은 보내지 않고 미리 거절한다 · open 줄에 엔진 · SDK 판', async () => {
+  const g = new FakeGame([node('Boot', {}, [node('A', { text: 'a' })])]);
+  g.caps = g.caps.filter((c) => c !== 'layout');
+  const pc = await fakeTcp(g);
+  const port = String(pc.port);
+  try {
+    assert.match(await cli('-s=caps', 'open', '--pc', '--port', port), /\(PC\) · fake 0 · SDK 0\.3\.0/);
+    await assert.rejects(cli('-s=caps', 'layout', '--port', port), /이 게임의 SDK 는 layout 를 못 합니다/);
+    assert.ok(!g.commands.some((c) => c.cmd === 'layout'), 'layout 이 게임에 갔습니다');
+    // 게임을 새 SDK 로 다시 띄운 뒤 — ping 이 세션의 caps 를 새로 적는다
+    g.caps.push('layout');
+    await cli('-s=caps', 'ping', '--port', port);
+    assert.match(await cli('-s=caps', 'layout', '--port', port), /Ran: await game\.layout\(\)/);
+    await cli('-s=caps', 'close');
+    // 배열이 아닌 caps 는 믿지 않는다 — 글자 일부로 맞춰 거절하지 않고 옛 SDK 처럼 다 보낸다
+    (g as unknown as { caps: unknown }).caps = 'ping tree';
+    await cli('-s=caps', 'open', '--pc', '--port', port);
+    assert.match(await cli('-s=caps', 'layout', '--port', port), /Ran: await game\.layout\(\)/);
+    await cli('-s=caps', 'close');
+  } finally {
+    pc.server.close();
+  }
+});
+
+test('conform — 표준 화면이면 PC 는 일시정지 줄만 미실행, 다르면 종료 코드로 알린다', async () => {
+  const ok = await fakeTcp(standardScreen());
+  const bad = await fakeTcp(new FakeGame([node('Boot')]));
+  try {
+    await cli('-s=cf', 'open', '--pc', '--port', String(ok.port));
+    assert.match(await cli('-s=cf', 'conform', '--port', String(ok.port)), /통과 51 · 실패 0 · 미실행 1$/);
+    await cli('-s=cf', 'close');
+    await cli('-s=cf2', 'open', '--pc', '--port', String(bad.port));
+    await assert.rejects(cli('-s=cf2', 'conform', '--port', String(bad.port)), /통과 \d+ · 실패 [1-9]/);
+    await cli('-s=cf2', 'close');
+  } finally {
+    ok.server.close();
+    bad.server.close();
+  }
+});
+
+test('conform — 팜은 Appium 으로 앱을 뒤로 보내 일시정지 줄까지 52줄 통과', async () => {
+  const f = await fakeFarm(standardScreen());
+  const own = await mkdtemp(join(tmpdir(), 'control-cli-'));
+  const fc = (...argv: string[]) => run(argv, { env: { PLATFORM_APPIUM_URL: f.url, PLATFORM_APP: 'http://builds/qa.apk' }, dir: own });
+  try {
+    await fc('hold');
+    await fc('-s=fc', 'open');
+    assert.match(await fc('-s=fc', 'conform'), /통과 52 · 실패 0 · 미실행 0$/);
+    assert.ok(f.seen.includes('POST /wd/hub/session/S1/execute/sync'));
+    await fc('-s=fc', 'close');
+    await fc('release');
+  } finally {
+    f.server.close();
+  }
+});
+
+test('알림 명령 — logs · events 는 번호 뒤만 JSON 으로, sdk-log 는 Ran 줄', async () => {
+  const pc = await fakeTcp(standardScreen());
+  const nt = (...argv: string[]) => cli('-s=nt', ...argv, '--port', String(pc.port));
+  try {
+    await nt('open', '--pc');
+    assert.equal(await nt('sdk-log', 'on'), 'Ran: await game.sdkLog(true)');
+    await nt('scene-load', 'Second', '--add');
+    assert.equal(await nt('sdk-log', 'off'), 'Ran: await game.sdkLog(false)');
+    const logs = JSON.parse(await nt('logs')) as { last: number; logs: { message: string }[] };
+    assert.ok(logs.logs.some((l) => l.message === '[ControlCli] scene-load Second — 성공'), JSON.stringify(logs));
+    await nt('scene-unload', 'Second');
+    const events = JSON.parse(await nt('events', '1')) as { last: number; events: { seq: number; type: string; scene: string }[] };
+    assert.deepEqual(events.events.map((e) => [e.seq, e.type, e.scene]), [[2, 'scene.unloaded', 'Second']]);
+    await assert.rejects(nt('logs', 'x'), /logs \[이 번호 뒤부터\] 꼴이어야 합니다/);
+    await assert.rejects(nt('sdk-log', 'yes'), /sdk-log on\|off 꼴이어야 합니다/);
+    await nt('close');
+  } finally {
+    pc.server.close();
+  }
+});
+
+test('게임 상태 명령 — Ran 줄이 kit 의 game.* 이름 · 인자 꼴로 찍힌다', async () => {
+  const pc = await fakeTcp(standardScreen());
+  const gs = (...argv: string[]) => cli('-s=gs', ...argv, '--port', String(pc.port));
+  try {
+    await gs('open', '--pc');
+    assert.match(await gs('call', 'SampleCanvas', 'TouchProbe.Say', 'hi', '3'), /^Ran: await game\.callMethod\('SampleCanvas', 'TouchProbe\.Say', \['hi', '3'\]\)\n- 값: "hi 3"\n- Snapshot:/);
+    assert.match(await gs('set', 'StatusText', 'Text.text', 'x'), /^Ran: await game\.set\('StatusText', 'Text\.text', 'x'\)\n- 값: "x"/);
+    assert.match(await gs('static-call', 'Sample.TouchProbe.Add', '2', '3'), /^Ran: await game\.callStatic\('Sample\.TouchProbe\.Add', \['2', '3'\]\)\n- 값: 5/);
+    assert.match(await gs('static-set', 'Sample.TouchProbe.Note', 'n'), /^Ran: await game\.setStatic\('Sample\.TouchProbe\.Note', 'n'\)\n- 값: "n"/);
+    assert.equal(await gs('static-get', 'Sample.TouchProbe.Note'), "Ran: await game.getStatic('Sample.TouchProbe.Note')\n- 값: \"n\"");
+    assert.equal(await gs('pref-set', 'lv', '3', '--type', 'int'), "Ran: await game.setPref('lv', '3', 'int')");
+    assert.equal(await gs('pref-get', 'lv', '--type', 'int'), "Ran: await game.pref('lv', 'int')\n- 값: 3");
+    assert.equal(await gs('pref-get', 'nope'), "Ran: await game.pref('nope')\n- 값: null");
+    assert.equal(await gs('pref-delete', 'lv'), "Ran: await game.deletePref('lv')");
+    assert.equal(await gs('pref-clear'), 'Ran: await game.clearPrefs()');
+    assert.equal(await gs('timescale-set', '0.5'), 'Ran: await game.setTimeScale(0.5)');
+    assert.equal(await gs('timescale-get'), 'Ran: await game.timeScale()\n- 값: 0.5');
+    assert.match(await gs('scene-load', 'Second', '--add'), /^Ran: await game\.loadScene\('Second', \{ add: true \}\)\n- Snapshot:/);
+    assert.match(await gs('scenes'), /^Ran: await game\.scenes\(\)\n- 값: \{"active":"Sample","loaded":\["Sample","Second"\]/);
+    assert.match(await gs('scene-unload', 'Second'), /^Ran: await game\.unloadScene\('Second'\)\n- Snapshot:/);
+    assert.match(await gs('scene-wait', 'Sample', '--timeout', '5'), /^Ran: await game\.waitForScene\('Sample', \{ timeoutMs: 5000 \}\)/);
+    await assert.rejects(gs('timescale-set', 'fast'), /timescale-set <배율> 꼴이어야 합니다/);
+    await assert.rejects(gs('call', 'SampleCanvas'), /call <ref\|주소> <컴포넌트\.메서드> \[인자…\] 꼴이어야 합니다/);
+    await assert.rejects(gs('pref-get', 'lv', '--type', 'bool'), /--type 은 string · int · float 중 하나입니다/);
+    await gs('close');
+  } finally {
+    pc.server.close();
+  }
+});
+
+test('찾기 · 설정 명령 — Ran 줄이 kit 의 game.* 이름 · 인자 꼴로 찍힌다', async () => {
+  const pc = await fakeTcp(standardScreen());
+  const fs = (...argv: string[]) => cli('-s=fs', ...argv, '--port', String(pc.port));
+  try {
+    await fs('open', '--pc');
+    assert.match(await fs('find', '//*[@tag=Player]'), /^Ran: await game\.find\('\/\/\*\[@tag=Player\]'\)\n- 값: \{"path":"\/WorldCube"/);
+    assert.match(await fs('find', 'HiddenText', '--inactive'), /^Ran: await game\.find\('HiddenText', \{ inactive: true \}\)\n- 값: .*"active":false/);
+    assert.match(await fs('find-all', '//Bag/Slot'), /^Ran: await game\.findAll\('\/\/Bag\/Slot'\)\n- 값: \[\{"path":"\/SampleCanvas\/Bag\/Slot\[0\]"/);
+    assert.match(await fs('find', 'WorldCube', '--camera', 'SideCamera'), /^Ran: await game\.find\('WorldCube', \{ camera: 'SideCamera' \}\)\n- 값: .*"x":400/);
+    assert.equal(await fs('find-at', '540', '600'), '- 좌표 (540, 600) 의 맨 위: /WorldCube — 케이스에는 주소로 씁니다');
+    assert.equal(await fs('find-at', '1', '1'), '- 좌표 (1, 1) 에 맞는 것이 없습니다');
+    assert.match(await fs('parent', 'Item'), /^Ran: await game\.parent\('Item'\)\n- 값: \{"path":"\/SampleCanvas\/Bag\/Slot\[0\]"/);
+    assert.match(await fs('wait-prop', 'UitkLoginButton', 'text', 'UITK Login', '--timeout', '5'), /^Ran: await game\.waitForProp\('UitkLoginButton', 'text', 'UITK Login', \{ timeoutMs: 5000 \}\)/);
+    assert.match(await fs('components', 'SampleCanvas'), /^Ran: await game\.components\('SampleCanvas'\)\n- 값: .*"TouchProbe"/);
+    assert.match(await fs('members', 'SampleCanvas', 'TouchProbe'), /^Ran: await game\.members\('SampleCanvas', 'TouchProbe'\)\n- 값: .*"Say"/);
+    assert.match(await fs('text-set', 'StatusText', 'hi'), /^Ran: await game\.setText\('StatusText', 'hi'\)\n- 칸 글자: "hi"\n- Snapshot:/);
+    assert.match(await fs('get', 'HiddenText', 'Text.text', '--inactive'), /^Ran: await game\.get\('HiddenText', 'Text\.text', \{ inactive: true \}\)\n- 값: "hidden"/);
+    assert.match(await fs('click', 'WorldCube', '--camera', 'SideCamera'), /^Ran: await game\.click\('WorldCube', \{ camera: 'SideCamera' \}\)/);
+    assert.equal(await fs('config'), '- 기본 기다림 10초 — wait · wait-prop (장면 기다림은 30초)');
+    assert.equal(await fs('config', '--wait', '20'), '- 기본 기다림 20초 — wait · wait-prop (장면 기다림은 30초)');
+    assert.equal(await fs('config'), '- 기본 기다림 20초 — wait · wait-prop (장면 기다림은 30초)');
+    assert.match(await fs('snapshot', '--png'), /- Screenshot: .*\.png/);
+    await assert.rejects(fs('wait-prop', 'StatusText', 'Text.text'), /wait-prop <ref\|주소> <컴포넌트\.칸> <값> \[--timeout <초>\] \[--inactive\] 꼴이어야 합니다/);
+    await assert.rejects(fs('config', '--wait', '0'), /--wait 은 0 보다 큰 초입니다/);
+    await assert.rejects(fs('find-at', '1'), /find-at <x> <y> \[--camera <주소>\] 꼴이어야 합니다/);
+    await fs('close');
+  } finally {
+    pc.server.close();
+  }
+});
+
+test('입력 명령 — Ran 줄이 kit 의 game.* 이름 · 인자 꼴로 찍히고, 좌표는 Ran 줄이 없고, 음수도 읽는다', async () => {
+  const pc = await fakeTcp(standardScreen());
+  const io = (...argv: string[]) => cli('-s=io', ...argv, '--port', String(pc.port));
+  try {
+    await io('open', '--pc');
+    assert.match(await io('click', 'LoginButton', '--count', '2', '--interval', '0.2'), /^Ran: await game\.click\('LoginButton', \{ count: 2, interval: 0\.2 \}\)/);
+    assert.match(await io('touch-down', 'Item'), /^Ran: await game\.touchDown\('Item'\)\n- 손가락 10\n/);
+    assert.match(await io('touch-move', '10', '/SampleCanvas/Bag/Slot[1]'), /^Ran: await game\.touchMove\(10, '\/SampleCanvas\/Bag\/Slot\[1\]'\)/);
+    assert.match(await io('touch-up', '10'), /^Ran: await game\.touchUp\(10\)/);
+    assert.match(await io('touch-down', '100', '200'), /^- 좌표 \(100, 200\) 누름 — 케이스에는 주소로 씁니다\n- 손가락 10\n/);
+    assert.match(await io('drag', 'Item', '/SampleCanvas/Bag/Slot[3]', '--via', '/SampleCanvas/Bag/Slot[2]', '--duration', '0.5'), /^Ran: await game\.drag\('Item', '\/SampleCanvas\/Bag\/Slot\[3\]', \{ via: \['\/SampleCanvas\/Bag\/Slot\[2\]'\], duration: 0\.5 \}\)/);
+    assert.match(await io('swipe', '810,550', '810,850', '--duration', '0.3'), /^- 좌표 810,550 → 810,850 끎 — 케이스에는 drag 로 씁니다/);
+    assert.match(await io('long-press', 'HoldBox', '--duration', '1'), /^Ran: await game\.longPress\('HoldBox', \{ duration: 1 \}\)/);
+    assert.match(await io('mouse-move', 'HoldBox'), /^Ran: await game\.mouseMove\('HoldBox'\)/);
+    assert.match(await io('scroll', 'ScrollList', '-10'), /^Ran: await game\.scroll\(-10, \{ at: 'ScrollList' \}\)/);
+    assert.match(await io('scroll', '3', '--dx', '1'), /^Ran: await game\.scroll\(3, \{ dx: 1 \}\)/);
+    assert.match(await io('key', 'A+LeftShift', '--duration', '0.5'), /^Ran: await game\.key\('A\+LeftShift', \{ duration: 0\.5 \}\)/);
+    assert.match(await io('key-down', 'JoystickButton16', '--power', '-1'), /^Ran: await game\.keyDown\('JoystickButton16', \{ power: -1 \}\)/);
+    assert.match(await io('key-up', 'JoystickButton16'), /^Ran: await game\.keyUp\('JoystickButton16'\)/);
+    assert.match(await io('tilt', '0', '-5', '0', '--duration', '1'), /^Ran: await game\.tilt\(\[0, -5, 0\], \{ duration: 1 \}\)/);
+    assert.match(await io('pointer', 'HoldBox', 'enter'), /^Ran: await game\.pointer\('HoldBox', 'enter'\)/);
+    assert.match(await io('input-reset'), /^Ran: await game\.resetInput\(\)/);
+    await assert.rejects(io('pointer', 'HoldBox', 'press'), /pointer <ref\|주소> <down\|up\|enter\|exit> 꼴이어야 합니다/);
+    await assert.rejects(io('long-press', 'HoldBox', '--duration', '9'), /long-press 은 8초 안이어야 합니다/);
+    await assert.rejects(io('touch-up', 'x'), /touch-up <손가락 번호> 꼴이어야 합니다/);
+    await assert.rejects(io('swipe', '1,1'), /swipe <x,y> <x,y> \[x,y…\] \[--duration <초>\] 꼴이어야 합니다/);
+    await assert.rejects(io('click', 'LoginButton', '--count', 'two'), /--count 은 수입니다/);
+    // -.5 도 음수 · 빈 글자는 0 이 아니다 · 수가 아닌 좌표는 SDK 로 안 간다
+    assert.match(await io('tilt', '0', '-.5', '0'), /^Ran: await game\.tilt\(\[0, -0\.5, 0\]\)/);
+    await assert.rejects(io('scroll', ''), /scroll \[<ref\|주소> \| <x> <y>\] <dy>/);
+    await assert.rejects(io('tilt', '', '0', '0'), /tilt <x> <y> <z>/);
+    await assert.rejects(io('click', 'LoginButton', '--count', ''), /--count 은 수입니다/);
+    await assert.rejects(io('swipe', '1.2.3,4', '5,6'), /swipe <x,y> <x,y>/);
+    await io('close');
+  } finally {
+    pc.server.close();
+  }
+});
+
 test('iPhone — usbmuxd 로 USB 폰(Wi-Fi 쪽 말고)의 13100 에 붙고, 스크린샷은 게임이 찍는다', async () => {
   const path = join(dir, 'usbmuxd.sock');
   const mux = await fakeUsbmux(game, path);
@@ -190,4 +374,14 @@ test('--usb · --pc · --ios 는 하나만 쓰고, PC 는 팜용 PLATFORM_APP �
   } finally {
     pc.server.close();
   }
+});
+
+test('instrument 는 --ref 가 없으면 이 CLI 판 tag 로 SDK 를 고정한다', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'instrument-cli-'));
+  await mkdir(join(root, 'Packages'));
+  await mkdir(join(root, 'Assets'));
+  await writeFile(join(root, 'Packages', 'manifest.json'), JSON.stringify({ dependencies: {} }));
+  const { version } = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8')) as { version: string };
+  assert.match(await cli('instrument', root), new RegExp(`^SDK\\(v${version.replaceAll('.', '\\.')}\\) 를`));
+  assert.ok((await readFile(join(root, 'Packages', 'manifest.json'), 'utf8')).includes(`?path=/sdk/unity#v${version}"`));
 });

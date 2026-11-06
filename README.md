@@ -2,11 +2,24 @@
 
 Unity 게임을 자동화 테스트로 조작하는 SDK 와 CLI.
 
-- **SDK** (Unity UPM 패키지) — QA 빌드에서만 폰 안 `127.0.0.1` 에 포트를 열고, 오브젝트 트리 읽기 · 찾기 · 누르기 · 끌기 · 글자 넣기 · 속성 읽기를 받는다. 터치는 빌드 때 이름이 같은 가짜 `Input` 으로 바꿔치기한다
-- **CLI** — appium-cli 꼴. snapshot(줄인 트리 + 스크린샷) → ref → 액션, 액션마다 케이스에 붙일 코드 한 줄(`Ran:`)을 찍는다. 폰은 디바이스 팜 게임 명령 주소 또는 USB `adb forward` 로 잇는다
-- **라이브러리** — CLI 와 같은 드라이버(`Game`)와 두 길(`farmLink` · `usbLink`). test_platform kit 이 CLI 를 띄우지 않고 쓴다
+- **SDK** (Unity UPM 패키지) — QA 빌드에서만 게임 안 `127.0.0.1` 에 포트를 열고, 오브젝트 트리 읽기 · 찾기 · 누르기 · 끌기 · 글자 넣기 · 키 · 속성 읽기 · 스크린샷을 받는다. 터치는 빌드 때 이름이 같은 가짜 `Input` 으로 바꿔치기하고, 새 Input System 게임에는 장치 이벤트로 넣는다
+- **CLI** — appium-cli 꼴. snapshot(줄인 트리 + 스크린샷) → ref → 액션, 액션마다 케이스에 붙일 코드 한 줄(`Ran:`)을 찍는다. 디바이스 팜 게임 명령 주소 · USB `adb forward` · PC(TCP) · USB iPhone(usbmuxd) 로 잇는다
+- **MCP** — `control-cli mcp`. AI 앱(Claude Desktop · Claude Code)이 띄우는 stdio MCP 서버로, 같은 명령을 도구로 내준다 — 셸 없는 AI 앱도 게임을 조작한다
+- **라이브러리** — CLI 와 같은 드라이버(`Game`)와 연결 길(`farmLink` · `usbLink` · `tcpLink` · `iosLink`). test_platform kit 이 CLI 를 띄우지 않고 쓴다
 
-0단계 실측 결과는 [docs/step0.md](docs/step0.md).
+0단계 실측 결과는 [docs/step0.md](docs/step0.md). Unity 지원 넓히기의 결정 기록은 [docs/unity/](docs/unity/context-notes.md).
+
+## 지원
+
+| 무엇 | 받는 것 | 실기기로 확인 | 컴파일만 확인 |
+|---|---|---|---|
+| Unity 판 | 2021.3 · 2022.3 · 6000.0 | 6000.0 (Ashveil) | 2021.3 · 2022.3 |
+| UI | uGUI · TextMeshPro · UI Toolkit(UIDocument) | uGUI | TMP · UI Toolkit (`layout` 은 uGUI 만) |
+| 입력 | 옛 Input · 새 Input System · 둘 다 | 옛 Input | Input System(Touchscreen · Mouse · Keyboard) |
+| 플랫폼 | Android(팜 · USB) · PC(Windows · macOS) · iOS(USB, 17+) | Android | PC · iOS (CLI 는 가짜 게임 · 가짜 usbmuxd 로 테스트) |
+
+「컴파일만 확인」은 `tools/unity-compile-check` 9개 구성과 CLI 테스트까지다 — 샘플 Unity 프로젝트(`sample/`)를 CI 가 판 · 입력 · 플랫폼마다 구워(`.github/workflows/sample.yml`, Unity 라이선스 Secret 필요) 실기기에서 돌려 봐야 「실기기로 확인」으로 옮긴다.
+못 가로채는 것 — 게임 코드가 `UnityEngine.Input` 을 전체 이름으로 부르는 곳 · DLL plugin 안의 입력. 디바이스 팜은 Android 만 받는다.
 
 ## 게임에 넣기 (QA 빌드만)
 
@@ -23,20 +36,20 @@ node /tmp/control_cli/dist/main.js instrument <Unity 프로젝트 폴더> --ref 
 
 `npx github:maxihan1/control_cli` 는 쓰지 않는다 — npm 10 이 git 패키지를 npx 로 받을 때 「GitFetcher requires an Arborist constructor」로 멈춘다(GitHub Actions 에서 확인).
 
-1. `Packages/manifest.json` 에 SDK 패키지를 `--ref` 로 고정해 더한다(없으면 `main`)
+1. `Packages/manifest.json` 에 SDK 패키지를 `--ref` 로 고정해 더한다(없으면 이 CLI 판 tag — 0.7.0 이면 `v0.7.0`. SDK 경로 `?path=/sdk/unity` 와 SDK 판이 CLI 와 늘 맞는다)
 2. `Assets/` · `Packages/`(내장 패키지) 아래 asmdef 의 `references` 에 `ControlCli.Input` 을 더한다 — 에디터 전용 · `noEngineReferences` 는 건너뛴다. asmdef 없는 스크립트(Assembly-CSharp)는 자동으로 참조한다
 3. `namespace` 안에 `using UnityEngine;` 을 둔 파일 · `namespace UnityEngine.*` 안의 파일은 `UnityEngine.Input` 이 먼저 잡혀 가짜 터치를 못 본다 — 경고로 알려 준다
 4. 깨진 asmdef 가 있으면 파일 이름을 알리고 아무것도 바꾸지 않는다
 
 그리고 **QA 빌드 스크립트가 정의 심볼 `CONTROL_CLI` 를 더한다** — 없으면 SDK 코드가 빌드에 아예 안 들어간다. Release 빌드는 손대지 않으면 된다.
 
-가짜 `Input` 은 `UnityEngine.Input` 의 멤버를 다 감싼다(펜 · `mousePositionDelta` 는 빠짐). 터치만 가짜를 섞고(진짜 폰처럼 `simulateMouseWithTouches` 가 켜져 있으면 마우스 왼쪽 단추에도 비춘다) 나머지는 그대로 넘긴다. 새 Input System 을 쓰는 게임에는 같은 터치를 `Touchscreen` 장치 이벤트로 넣는다 — `InputSystemUIInputModule` · EnhancedTouch · `Touchscreen.current` 가 같이 본다. UI Toolkit 화면은 EventSystem 이 있으면 그 입력 모듈로 같은 터치가 닿고, 없으면(옛 Input) UI Toolkit 이 `UnityEngine.Input` 을 바로 읽어 SDK 가 panel 에 Pointer 이벤트를 보낸다. `touchSupported` 는 늘 `true` 다.
+가짜 `Input` 은 `UnityEngine.Input` 의 멤버를 다 감싼다(펜 · `mousePositionDelta` · `location` 은 빠짐 — `location` 은 적기만 해도 Android 에 위치 권한이 붙고 iOS 빌드가 위치 사용 문구를 요구해서다. 쓰는 게임은 `UnityEngine.Input.location` 으로 적는다). 터치만 가짜를 섞고(진짜 폰처럼 `simulateMouseWithTouches` 가 켜져 있으면 마우스 왼쪽 단추에도 비춘다) 나머지는 그대로 넘긴다. 새 Input System 을 쓰는 게임에는 같은 터치를 `Touchscreen` 장치 이벤트로 넣는다 — `InputSystemUIInputModule` · EnhancedTouch · `Touchscreen.current` 가 같이 본다. UI Toolkit 화면은 EventSystem 이 있으면 그 입력 모듈로 같은 터치가 닿고, 없으면(옛 Input) UI Toolkit 이 `UnityEngine.Input` 을 바로 읽어 SDK 가 panel 에 Pointer 이벤트를 보낸다. `touchSupported` 는 늘 `true` 다.
 알려진 한계 — `Assets/Plugins` 의 스크립트(Assembly-CSharp-firstpass)도 가짜 `Input` 을 보게 되어, 빠진 멤버를 쓰면 QA 빌드에서만 컴파일이 깨진다. 그런 게임이 오면 그 멤버를 더한다.
 
 ## CLI
 
 ```bash
-npm i -D github:maxihan1/control_cli#v0.1.1
+npm i -D github:maxihan1/control_cli#v0.7.0
 npx control-cli help
 ```
 
@@ -85,7 +98,7 @@ npx control-cli open --pc                          # 이미 켜 둔 게임에 �
 npx control-cli key I                              # Ran: await game.key('I')
 ```
 
-PC 게임의 SDK 는 이 컴퓨터의 `127.0.0.1:13100` 에 열려 adb 없이 TCP 로 바로 붙는다. 스크린샷은 게임이 프레임 끝에서 찍고, 창 훑기의 뒤로 키는 `Escape` 다. QA 빌드는 창 초점이 없어도 돈다(SDK 가 `runInBackground` · Input System `IgnoreFocus` 를 켜고 uGUI 에 초점을 다시 알린다). `PLATFORM_APP` 은 팜 · USB 의 APK 라 PC 는 `--app` 만 본다.
+PC 게임의 SDK 는 이 컴퓨터의 `127.0.0.1:13100` 에 열려 adb 없이 TCP 로 바로 붙는다. 스크린샷은 게임이 프레임 끝에서 찍고, 창 훑기의 뒤로 키는 `Escape` 다. QA 빌드는 창 초점이 없어도 돈다(SDK 가 `runInBackground` · Input System `IgnoreFocus` 를 켜고 uGUI 에 초점을 다시 알린다). 다만 화면은 켜져 있어야 한다 — macOS 는 디스플레이가 꺼지면 Metal 이 프레임을 못 내보내 게임이 멈추고 명령이 「멈췄거나 일시정지」로 실패한다. `PLATFORM_APP` 은 팜 · USB 의 APK 라 PC 는 `--app` 만 본다.
 
 ### 루프 — iOS (USB)
 
@@ -100,21 +113,79 @@ macOS 의 usbmuxd 로 폰의 `127.0.0.1:13100` 에 명령마다 바로 잇는다
 
 | 명령 | 하는 일 | Ran 줄 |
 |---|---|---|
-| `click <ref\|주소>` | 가운데를 가짜 터치로 누른다. 월드 오브젝트는 주 카메라로 비춘 자리 | `game.click('LoginButton')` |
-| `drag <ref\|주소> <ref\|주소>` | 앞 자리에서 뒤 자리로 10프레임에 걸쳐 끈다 | `game.drag('/Hud/Bag/Slot[0]', '/Hud/Bag/Slot[3]')` |
-| `type <ref\|주소> <글자>` | InputField · TMP_InputField · UI Toolkit TextField 에 바로 넣는다(화면 키보드 없이). 글자 수 제한 · 거르기는 그 칸 규칙대로다 — TMP 는 넣을 때 안 거르므로 SDK 가 키로 칠 때와 같은 거르개를 부른다. 비밀번호 칸이면 Ran 줄에 글자 대신 `'***'` | `game.type('IdInput', 'qa_user01')` |
+| `click <ref\|주소> [--count <n>] [--interval <초>]` | 가운데를 가짜 터치로 누른다. 월드 오브젝트는 주 카메라로 비춘 자리. `--count 2` 면 `--interval`(기본 0.1초) 간격으로 두 번(SDK 0.6.0) | `game.click('LoginButton')` · `game.click('Slot', { count: 2 })` |
+| `drag <ref\|주소> <ref\|주소> [--via <주소>]… [--duration <초>]` | 앞 자리에서 뒤 자리로 끈다 — 마디마다 적어도 10프레임. `--via` 는 지날 자리(여러 번 줄 수 있다), `--duration` 은 처음부터 끝까지 초(SDK 0.6.0) | `game.drag('/Hud/Bag/Slot[0]', '/Hud/Bag/Slot[3]')` · `game.drag('A', 'C', { via: ['B'] })` |
+| `type <ref\|주소> <글자>` | InputField · TMP_InputField · UI Toolkit TextField 에 바로 넣는다(화면 키보드 없이). 글자 수 제한 · 거르기는 그 칸 규칙대로, 키로 칠 때의 차례(글자마다 거르고 거른 결과로 자름)다 — 글자 수 8 · 영숫자 칸에 `qa_user01!` 면 `qauser01`. uGUI · TMP 는 SDK 가 그 칸의 거르개를 글자마다 부른다. 비밀번호 칸이면 Ran 줄에 글자 대신 `'***'` | `game.type('IdInput', 'qa_user01')` |
 | `text <ref\|주소>` | 글자 읽기 | `game.text('StatusText')` |
-| `get <ref\|주소> <컴포넌트.칸>` | 속성 읽기 — 게임이 폰에서 셈하는 값. `material` · `materials` · `mesh` 는 읽기만 해도 사본을 만들어 거절한다(`shared…` 를 읽는다). UI Toolkit 요소는 컴포넌트가 없어 거절한다 | `game.get('Player', 'PlayerController.moveSpeed')` |
-| `find <ref\|주소>` | 있으면 `{path, text, interactable}`, 없으면 `null` | `game.find('ShopPanel')` |
-| `wait <ref\|주소> [--text 글자] [--gone] [--timeout 초]` | 뜰 때까지 · 글자가 들 때까지 · 사라질 때까지(기본 10초) | `game.waitFor('ShopPanel', { gone: true })` |
+| `get <ref\|주소> <컴포넌트.칸> [--inactive]` | 속성 읽기 — 게임이 폰에서 셈하는 값. `material` · `materials` · `mesh` 는 읽기만 해도 사본을 만들어 거절한다(`shared…` 를 읽는다). UI Toolkit 요소는 요소 칸을 바로(`value` · `text` · `layout.height`) | `game.get('Player', 'PlayerController.moveSpeed')` |
+| `find <ref\|주소> [--inactive] [--camera 주소]` | 있으면 `{path, text?, interactable?, id?, x?, y?, active?}`(`x` · `y` 는 화면 가운데 · 왼쪽 아래 0,0), 없으면 `null` | `game.find('//*[@tag=Boss]')` |
+| `find-all <주소> [--inactive] [--camera 주소]` | 맞는 것 전부 — 없으면 빈 목록 | `game.findAll('//Inventory/Slot')` |
+| `find-at <x> <y> [--camera 주소]` | 좌표의 맨 위(UI Toolkit → uGUI → 3D · 2D 물리) — 살펴볼 때만. 버튼 속 글자가 맞을 수 있다 | 없음 |
+| `parent <ref\|주소>` | 부모(`<경로>/..`) — 뿌리면 `null` | `game.parent('Item')` |
+| `components <ref\|주소>` · `members <ref\|주소> <컴포넌트>` | 붙은 컴포넌트 `{name, type}` · 그 스크립트가 선언한 필드 · 속성(타입 · 값) · 메서드(인자 타입). Unity 부모(MonoBehaviour …) 칸은 뺀다 | `game.components('Player')` · `game.members('Player', 'PlayerController')` |
+| `text-set <ref\|주소> <글자>` | 글자 컴포넌트(Text · TMP_Text · UI Toolkit Label/Button)의 글자를 바꾼다. 입력칸은 거절(`type`) | `game.setText('Title', '테스트')` |
+| `wait <ref\|주소> [--text 글자] [--gone] [--timeout 초]` | 뜰 때까지 · 글자가 들 때까지 · 사라질 때까지(기본 10초 — `config --wait`) | `game.waitFor('ShopPanel', { gone: true })` |
+| `wait-prop <ref\|주소> <칸> <값> [--timeout 초] [--inactive]` | 칸 값이 될 때까지 `get` 을 되풀이(UI Toolkit 요소도). `'10'` · `10` · `'[0, 1, 0]'` 을 같게 본다 | `game.waitForProp('Score', 'Text.text', '10')` |
+| `config [--wait 초]` | 이 세션의 `wait` · `wait-prop` 기본 한도(장면 기다림 30초는 그대로) | 없음 |
 | `layout [ref\|주소]` | 누를 수 있는 UI 가 안전 영역 밖이거나 서로 겹치는지(팝업에 가린 것은 뺀다) | `game.layout('LoginView')` |
+| `call <ref\|주소> <컴포넌트.메서드> [인자…]` | 컴포넌트 메서드를 부르고 돌려준 값을 찍는다. 인자는 글자로 보내고 SDK 가 메서드 칸 타입(숫자 · 참거짓 · 열거 이름 · `[x,y,z]` 벡터 · 색)으로 바꾼다 — 같은 이름 꼴이 여럿이면 인자 수가 맞고 다 바꿀 수 있는 첫 꼴 | `game.callMethod('Player', 'PlayerController.Jump', ['2'])` |
+| `set <ref\|주소> <컴포넌트.칸> <값>` | 칸 쓰기 — 값은 `get` 이 주는 꼴. `Transform.position.y` 처럼 값 타입 칸도 바꾼 사본을 다시 써 넣는다. 다시 읽은 값을 찍는다 | `game.set('Player', 'PlayerController.moveSpeed', '9')` |
+| `static-call <타입.메서드> [인자…]` · `static-get <타입.칸>` · `static-set <타입.칸> <값>` | static 메서드 · 칸 — 타입은 전체 이름(`UnityEngine.Time`) 또는 하나뿐인 짧은 이름 | `game.callStatic('Game.Cheats.AddGold', ['100'])` · `game.getStatic('UnityEngine.Time.timeScale')` |
+| `pref-get <키>` · `pref-set <키> <값>` · `pref-delete <키>` · `pref-clear` | 저장 값(PlayerPrefs) — `--type string\|int\|float`(기본 string). 넣은 타입으로 읽는다. 쓰면 바로 디스크에 | `game.setPref('tutorial_done', '1', 'int')` · `game.pref('tutorial_done', 'int')` |
+| `timescale-get` · `timescale-set <배율>` | 시간 배율 — 1 보통 · 0 멈춤 · 2 두 배(0~100) | `game.setTimeScale(0)` |
+| `scenes` · `scene-load <장면> [--add]` · `scene-unload <장면>` · `scene-wait <장면> [--timeout 초]` | 지금 장면 · 열린 장면, 빌드에 넣은 장면 열기(`--add` 는 위에 더한다) · 닫기 — 다 열리고 닫힐 때까지 기다린다(기본 30초). `scene-wait` 는 게임이 스스로 장면을 바꿀 때 | `game.loadScene('Shop', { add: true })` · `game.waitForScene('Lobby')` |
 | `errors [번호]` | 게임 예외 · 에러 로그(최근 200개). 답의 `last` 를 받아 두고 다음에 그 번호 뒤만 받는다 | 없음 |
-| `key <키>` | 키 한 번(한 프레임 누르고 다음 프레임 뗀다). KeyCode 이름 — `Escape` · `Space` · `Return` · `I` · `Alpha1` · `F1`. 옛 Input `GetKey*(KeyCode)` · Input System 키보드가 본다. `Escape` 는 Unity 에서 폰 뒤로 키와 같다 | `game.key('Escape')` |
-| `tap <x> <y>` | 좌표 누르기(왼쪽 아래가 0,0) — 살펴볼 때만. 케이스는 좌표를 쓰지 않는다 | 없음 |
+| `logs [번호]` | 게임 로그 전부(Log · Warning · Error · Assert · Exception, 최근 500개) — `errors` 와 같이 번호 뒤만. 영숫자 · `_` · `-` 가 40자 넘게 이어진 토막(토큰)은 SDK 가 `***` 로 가린다(SDK 0.7.0) | 없음 |
+| `events [번호]` | 게임 알림(최근 200개) — `scene.loaded`(장면 · `single`/`add`) · `scene.unloaded` · `game.paused` · `game.resumed`. 멈춘 동안은 게임이 답하지 않으니 돌아온 뒤 읽는다. PC 는 SDK 가 `runInBackground` 를 켜 일시정지가 안 난다. 켤 때 Unity 가 이름 없는 빈 장면을 닫아 `scene.unloaded`(`scene: ""`)가 첫 장면보다 먼저 하나 온다(SDK 0.7.0) | 없음 |
+| `sdk-log on\|off` | 켜면 SDK 가 받은 명령마다 `[ControlCli] click LoginButton — 성공` 한 줄을 게임 로그(logcat · Player.log · `logs`)에 적는다. 입력 글자 · 값은 `text=***` 처럼 가리고 실패 글 속 값도 가린다. 기본 꺼짐 · 게임을 다시 켜면 꺼짐(SDK 0.7.0) | `game.sdkLog(true)` |
+| `key <키[+키…]> [--duration <초>] [--power <-1~1>]` | 키 한 번(기본은 한 프레임 누르고 다음 프레임 뗀다). KeyCode 이름 — `Escape` · `Space` · `Return` · `I` · `Alpha1` · `F1` · `Mouse0` · `JoystickButton0`. `A+LeftShift` 처럼 `+` 로 여럿을 함께. 옛 Input `GetKey*(KeyCode)` · `GetAxis` · `GetButton*` · Input System 키보드 · 게임패드가 본다. `Escape` 는 Unity 에서 폰 뒤로 키와 같다(`duration`·`power` 는 SDK 0.6.0) | `game.key('Escape')` · `game.key('A+LeftShift', { duration: 0.5 })` |
+| `tap <x> <y> [--count <n>] [--interval <초>]` | 좌표 누르기(왼쪽 아래가 0,0) — 살펴볼 때만. 케이스는 좌표를 쓰지 않는다 | 없음 |
+| `touch-down <ref\|주소>` · `touch-down <x> <y>` | 손가락 하나를 눌러 둔다 — 답의 번호(10~19)를 `touch-move` · `touch-up` 에 쓴다. 눌러 둔 손가락은 명령 사이에도 그대로다 | `game.touchDown('Slot')` |
+| `touch-move <번호> <ref\|주소>` · `touch-move <번호> <x> <y>` | 눌러 둔 손가락을 한 프레임에 옮긴다 | `game.touchMove(10, 'Slot[3]')` |
+| `touch-up <번호>` | 손가락을 뗀다 | `game.touchUp(10)` |
+| `swipe <x,y> <x,y>… [--duration <초>]` | 좌표로 끌기 — 한 손가락이 점을 차례로 지난다. 살펴볼 때만, 케이스는 `drag` | 없음 |
+| `long-press <ref\|주소>` · `long-press <x> <y>` `[--duration <초>]` | 길게 누른다(기본 1초) | `game.longPress('Slot', { duration: 2 })` |
+| `mouse-move <ref\|주소>` · `mouse-move <x> <y>` `[--duration <초>]` | 가짜 마우스를 옮긴다 — hover(Pointer Enter/Exit). 단추는 `key Mouse0`~`Mouse4`, 끄기는 `input-reset` | `game.mouseMove('Tooltip')` |
+| `scroll [<ref\|주소> \| <x> <y>] <dy> [--dx <칸>] [--duration <초>]` | 마우스 바퀴 — 위가 +, 옛 Input `mouseScrollDelta` 꼴(바퀴 칸). 자리를 주면 먼저 그리로 옮기고, 없으면 지금 마우스 자리(폰은 자리를 준다) | `game.scroll(-3, { at: 'ScrollList' })` |
+| `key-down <키[+키…]> [--power <-1~1>]` · `key-up <키[+키…]>` | 키를 눌러 두기 · 떼기. `power` 는 세기(`GetAxis` 값) — `JoystickButton16`~`19` 는 스틱 값 | `game.keyDown('W', { power: 0.5 })` · `game.keyUp('W')` |
+| `tilt <x> <y> <z> [--duration <초>]` | 기울이기 — `duration`(기본 한 프레임) 동안 가속도(`Input.acceleration` · Accelerometer)를 대신하고 끝나면 놓는다 | `game.tilt([0, -1, 0], { duration: 1 })` |
+| `pointer <ref\|주소> <down\|up\|enter\|exit>` | GameObject 하나에 Pointer 이벤트를 바로 보낸다(EventSystem 처리기 — 부모로 안 올리고 `OnMouse*` 도 안 보낸다). UI Toolkit 요소는 거절 | `game.pointer('HoldBox', 'down')` |
+| `input-reset` | 가짜 입력을 다 거둔다 — 눌러 둔 손가락(취소) · 키 · 가짜 마우스 · 기울기 | `game.resetInput()` |
 | `ping` · `tree` | 게임 답 · 켜진 오브젝트 트리 JSON | 없음 |
+| `snapshot [--png]` | 줄인 목록 + 스크린샷 파일 — `--png` 은 Appium 이 없는 길(PC · iOS · USB)에서 게임이 PNG 로 찍는다(SDK 0.5.0) | 없음 |
+| `conform` | 표준 화면(샘플)에 명령을 차례로 보내 기대값과 견준다 — `open` 바로 뒤에. 게임 SDK 의 `caps` 에 없는 명령 줄과 앱을 뒤로 보낼 길이 없는 일시정지 줄(PC · iPhone)은 미실행, 실패가 있으면 종료 코드 1. 결과 줄은 「통과 N · 실패 N · 미실행 N」 | 없음 |
 
-**주소**는 오브젝트 이름(켜진 것 중 하나뿐일 때) 또는 `/` 로 시작하는 경로다. 같은 이름 형제는 경로 칸에 `[순번]`(0부터)을 붙인다 — `/HudCanvas/Inventory/Grid/Slot[2]`. 이름이 겹치면 고르지 않고 실패한다. UI Toolkit 요소는 UIDocument 오브젝트 아래 자식으로 이어진다(이름이 없으면 타입 이름) — `/UitkDocument/UitkPanel/UitkLoginButton`.
+**주소**는 오브젝트 이름(켜진 것 중 하나뿐일 때) · `/` 로 시작하는 경로 · 선택자(AltTester PATH 꼴의 일부 — SDK 0.5.0)다. 같은 이름 형제는 경로 칸에 `[순번]`(0부터)을 붙인다 — `/HudCanvas/Inventory/Grid/Slot[2]`. 여럿이 맞으면 고르지 않고 실패한다(`find-all` 로 경로를 본다). UI Toolkit 요소는 UIDocument 오브젝트 아래 자식으로 이어진다(이름이 없으면 타입 이름) — `/UitkDocument/UitkPanel/UitkLoginButton`.
+
+| 선택자 | 뜻 | 예 |
+|---|---|---|
+| `/` · `//` | 바로 아래 · 아래 어디서나 | `//Bag/Slot` |
+| `*` | 아무 이름 | `/Canvas/*` |
+| `..` | 부모 | `//*[@text=확인]/..` — 글자의 버튼 |
+| `[@칸=값]` | 칸이 값과 같다 — `name` · `tag` · `layer`(이름 · 번호) · `component`(붙은 컴포넌트 · UI Toolkit 요소 타입) · `text` · `id` | `//*[@tag=Player]` · `//*[@component=Button]` |
+| `[contains(@칸,값)]` | 값이 들어 있다 | `//*[contains(@name,Slot)]` |
+| `[…][…]` | 조건을 모두 | `//*[@tag=Enemy][@layer=Water]` |
+| `[n]` · `[-1]` | 그 단계에 맞은 형제 중 n번째(0부터) · 마지막 | `//Bag/Slot[-1]` |
+
+값 양끝 공백은 떼고 `'…'` · `"…"` 는 벗긴다. `id` 는 QA 빌드가 장면 오브젝트에 붙인 **영구 id**(장면 파일 속 번호 — 빌드마다 같다) 또는 instance id(실행 중 만든 오브젝트 — 켤 때마다 바뀐다)다. 읽기 · 쓰기 명령(`find` · `get` · `set` · `call` · `components` · `members` · `text-set`)은 `--inactive` 로 꺼진 오브젝트도 찾는다 — 그때 경로 순번은 꺼진 형제까지 센다. 월드 오브젝트의 화면 자리는 `--camera <카메라 오브젝트 주소>` 로 고른 카메라로 셈한다(기본 주 카메라).
 액션 뒤에는 트리가 두 번 같을 때까지(3초 상한) 기다렸다 화면을 찍는다. **기다리기**는 0.3초마다 짧은 `find` 를 되풀이한다 — 명령 하나가 팜 15초 · SDK 10초 한도에 안 걸린다.
+
+### 가짜 입력
+
+`touch-down` 부터 `input-reset` 까지와 `click` · `tap` · `drag` · `key` 의 새 칸은 SDK 0.6.0 부터다. 가짜 입력은 손가락 · 키 · 가짜 마우스 · 기울기 상태 한 벌을 프레임마다 바꾸고, 그 상태를 세 길로 내보낸다.
+
+| 길 | 닿는 곳 |
+|---|---|
+| 옛 Input 감싸기 | `Input.touches` · `GetKey*` · `GetMouseButton*` · `mousePosition` · `mouseScrollDelta` · `acceleration` · uGUI 입력. 마우스는 `simulateMouseWithTouches` 가 켜져 있으면 가장 작은 번호 손가락을 따르고, 아니면 가짜 마우스다. `GetAxis` · `GetButton*` 은 QA 빌드 훅이 `ProjectSettings/InputManager.asset` 의 축을 장면에 구워 넣은 표로 가짜 키를 따른다 — 마우스 축은 가짜 마우스 이동량이고, 조이스틱 축(type 2)은 흉내 내지 않는다 |
+| Input System 장치 | Touchscreen(손가락마다) · Mouse · Keyboard(누른 키 전부) · Gamepad · Accelerometer 에 상태 이벤트. PC 는 마우스 손가락(처음 누른 손가락 — 뗄 때까지 그대로)을 Mouse 왼 단추로, 나머지 손가락은 Touchscreen 으로 넣는다 |
+| UI Toolkit 직접 | EventSystem 이 없는 옛 Input 게임의 panel 에 손가락마다 터치 이벤트, 가짜 마우스는 PointerMove · Down · Up · Wheel |
+
+- 손가락 번호는 10~19(진짜 0~9 와 안 겹친다) — 비어 있는 가장 작은 번호를 주고, 10개가 다 눌려 있으면 `touch-up` · `input-reset` 으로 거절한다
+- 명령 하나는 8초 안 — `duration` · `count` × `interval` 이 넘으면 거절한다(더 길게는 `touch-down` · `key-down` 뒤 `touch-up` · `key-up`). 시간은 `timeScale` 0 에서도 흐른다
+- 진짜 입력은 끄지 않고 섞는다 — 팜 폰은 아무도 안 만지고, PC 에서 시험할 때는 마우스를 건드리지 않는다
+- 키 `Mouse0`~`Mouse4` 는 가짜 마우스 단추다. `JoystickButton0`~`15` 는 게임패드 A · B · X · Y · LB · RB · LT · RT · Select · Start · LS · RS · 십자 위 · 아래 · 왼 · 오른, `16`~`19` 는 왼 스틱 x · y · 오른 스틱 x · y 이고 값은 `power` 다
+- `key` · `key-down` · `key-up` 의 `power` 는 -1~1(기본 1) — 옛 Input `GetAxis` 값이다
+- 옛 SDK(caps 에 `touch-down` 이 없는)에 새 칸(`count` · `interval` · `via` · `duration` · `power` · `key` 의 `+`)을 보내면 Game 이 보내기 전에 「SDK 0.6.0 이상」으로 거절한다
 
 ### 창 훑기
 
@@ -133,12 +204,38 @@ npx control-cli crawl --max 30 --minutes 5 --exclude '/설정|settings/i' --excl
 | `list.json` | `[{주소, 이름, 틀, 파일, 지문, 글자지문, 연곳: {창, 버튼, 글자} \| null}]` — 첫 줄은 시작 화면 `scene:<장면>`. 지문은 순번을 뗀 구조, 글자지문은 글자 |
 | `summary.json` | `{멈춘까닭, 창, 누름, 초}` |
 
+### MCP — AI 앱에서
+
+`control-cli mcp` 는 stdio MCP 서버다 — 따로 띄워 두는 프로그램이 아니라 AI 앱이 이 명령을 실행해 붙는다.
+
+```bash
+npm i -g github:maxihan1/control_cli#v0.7.0      # control-cli 를 PATH 에
+claude mcp add control-cli -- control-cli mcp     # Claude Code
+```
+
+Claude Desktop — `claude_desktop_config.json`(macOS `~/Library/Application Support/Claude/` · Windows `%APPDATA%\Claude\`)의 `mcpServers` 에 한 줄. 팜을 안 쓰면 `env` 는 뺀다.
+
+```json
+"control-cli": { "command": "control-cli", "args": ["mcp"], "env": { "PLATFORM_APPIUM_URL": "http://<팜>:4723/wd/hub", "PLATFORM_APPIUM_TOKEN": "pat_…" } }
+```
+
+Desktop 은 셸의 PATH 를 안 볼 수 있다 — `control-cli` · `node` 를 못 찾으면 `"command": "<which node 의 경로>", "args": ["<npm root -g 의 경로>/control-cli/dist/main.js", "mcp"]` 로 쓴다.
+
+| 도구 | 하는 일 |
+|---|---|
+| `hold` · `open` · `close` · `release` | 세션 — CLI 의 같은 명령. `open` 의 `via` 는 `farm`(기본 · `hold` 먼저) · `usb` · `pc` · `ios` |
+| `ping` · `tree` · `find` · `click` · `drag` · `type` · `get` · `tap` · `key` · `touch-down` · `touch-move` · `touch-up` · `swipe` · `long-press` · `mouse-move` · `scroll` · `key-down` · `key-up` · `tilt` · `pointer` · `input-reset` · `screenshot` · `errors` · `layout` · `call` · `set` · `static-call` · `static-get` · `static-set` · `pref-get` · `pref-set` · `pref-delete` · `pref-clear` · `timescale-get` · `timescale-set` · `scenes` · `scene-load` · `scene-unload` · `find-all` · `find-at` · `components` · `members` · `text-set` · `logs` · `events` · `sdk-log` | `protocol/commands.json` 의 명령 그대로 — 인자는 그 칸, 답은 SDK 답 JSON(`ok` 뺌). `screenshot` 은 그림으로 준다(`format: png` 면 PNG). `scene-load` 는 열기 시작만 하니 `scenes` 로 다 열렸는지 본다. 부모는 `find` 에 `<경로>/..` |
+
+- 명령을 `protocol/commands.json` 에 더하면 도구도 따라 는다(`src/mcp.test.ts` 가 잡는다)
+- 세션 파일은 `~/.control-cli/` — Claude Desktop 은 MCP 서버를 쓸 수 없는 `/` 에서 띄운다. 셸 CLI 의 `./.control-cli/` 와 따로다. `-s <세션>` · `--port` · `--url` · `--token` 은 `control-cli … mcp` 로 띄울 때 준다
+- 셸 CLI 의 `snapshot` ref · `Ran:` 줄 · `wait` · `text` 는 MCP 에 없다 — `tree` · `find` 로 본다
+
 ### 연결
 
 | 값 | 옵션 | 환경값 |
 |---|---|---|
 | Appium · 팜 입구 | `--url` | `PLATFORM_APPIUM_URL` (없으면 `http://127.0.0.1:4723`) — 잡기 · 게임 명령 주소는 여기서 `/wd/hub` 를 뗀 곳 |
-| 팜 토큰 (Bearer) | `--token` | `PLATFORM_APPIUM_TOKEN` |
+| 팜 토큰 (Bearer) | `--token` | `PLATFORM_APPIUM_TOKEN` — 둘 다 없으면 macOS Keychain 의 `control-cli-farm`. 한 번 넣는다: QA Hub `/account` 에서 발급한 PAT 를 복사한 채로 `security add-generic-password -U -a <맥 사용자> -s control-cli-farm -w "$(pbpaste)"` |
 | 게임 APK | `--app` | `PLATFORM_APP` |
 | 폰 | `--udid` | `PLATFORM_DEVICE_UDID` |
 | USB · PC · iOS 게임 포트 | `--port` | — (기본 13100) |
@@ -152,18 +249,59 @@ npx control-cli crawl --max 30 --minutes 5 --exclude '/설정|settings/i' --excl
 
 | `cmd` | 칸 | 답 |
 |---|---|---|
-| `ping` | | `{ok, app, version}` |
+| `ping` | | `{ok, app, version, engine, engineVersion, sdkVersion, protocol, caps}` — `engine` 부터는 protocol 2(SDK 0.3.0)부터. CLI 는 `open` 때 받은 `caps` 밖 명령을 보내지 않고 거절한다. 명령 정의는 `protocol/commands.json` |
 | `tree` | | `{ok, scene, screen:[w,h], tree:[{name, text?, kind?, interactable?, children?}]}` — 켜진 오브젝트만. `kind` 는 Selectable 종류(Button · Toggle · InputField · TMP_InputField …) 또는 UI Toolkit 컨트롤(Button · Toggle · RadioButton · TextField · DropdownField · Slider). `text` 는 Text · InputField · TextMeshPro(TMP_Text · TMP_InputField) · UI Toolkit(TextElement · TextField). UI Toolkit 은 숨은 요소(display none · 안 보임)를 빼고 컨트롤 속은 내보내지 않는다. 비밀번호 칸 글자는 `***` |
-| `find` | `target` | `{ok, found:false}` 또는 `{ok, found:true, path, text?, interactable?}` — 이름이 겹치면 실패 |
-| `click` | `target` | `{ok, x, y}` — 가짜 터치가 다 나가고 게임이 처리한 뒤 답한다 |
-| `drag` | `target` · `to` | `{ok, x, y}` — 위와 같다 |
+| `find` | `target` · `inactive`? · `camera`? | `{ok, found:false}` 또는 `{ok, found:true, path, text?, interactable?, id?, x?, y?, active?}` — 여럿이 맞거나 꼴이 틀리면 실패. `id` 는 게임 오브젝트만, `x` · `y` 는 켜지고 화면에 비친 것만, `active:false` 는 `inactive` 로 찾은 꺼진 것. 선택자 · `inactive` · `camera` 는 SDK 0.5.0 부터 |
+| `find-all` | `target` · `inactive`? · `camera`? | `{ok, found:[…]}` — `find` 의 칸 목록, 없으면 빈 목록 |
+| `find-at` | `x` · `y` · `camera`? | `find` 와 같은 답 — UI Toolkit(맨 앞 panel) → uGUI(EventSystem raycast) → 3D · 2D 물리 차례, 트리에 없는 속 칸은 트리에 있는 조상으로 |
+| `click` | `target` · `camera`? · `count`? · `interval`? | `{ok, x, y}` — 가짜 터치가 다 나가고 게임이 처리한 뒤 답한다. 켜진 것만. `count`(기본 1) · `interval`(초, 기본 0.1)은 SDK 0.6.0 부터 |
+| `drag` | `target` · `to` · `camera`? · `via`? · `duration`? | `{ok, x, y}` — 위와 같다. `via` 는 지날 자리 주소 배열, `duration` 은 0~8초(기본 0 — 마디마다 10프레임). SDK 0.6.0 부터 |
 | `type` | `target` · `text` | `{ok, text}` — 넣은 뒤 칸 글자. 잠긴 칸은 실패 |
-| `get` | `target` · `prop`(`컴포넌트.칸[.칸…]`) | `{ok, value}` — 숫자 · 글자 · 참거짓 · 열거(이름) · 벡터 · 색은 배열, 그 밖은 글자 |
-| `tap` | `x` · `y` | `{ok, x, y}` |
-| `key` | `key`(KeyCode 이름, 대소문자 무시) | `{ok, key}` — 누르고 뗀 것을 게임이 처리한 뒤 답한다. 모르는 이름은 실패 |
-| `screenshot` | | `{ok, jpg}` — 프레임 끝에서 찍은 화면(JPEG base64). 수 MB 라 팜은 Appium 스크린샷을 쓴다. ImageConversion 모듈을 뺀 게임은 실패 |
-| `errors` | `since` | `{ok, last, errors:[{seq, time, type, message, stack}], dropped?, restarted?}` |
+| `get` | `target` · `prop`(`컴포넌트.칸[.칸…]`, UI Toolkit 요소는 `칸[.칸…]`) · `inactive`? | `{ok, value}` — 숫자 · 글자 · 참거짓 · 열거(이름) · 벡터 · 색은 배열, 그 밖은 글자 |
+| `tap` | `x` · `y` · `count`? · `interval`? | `{ok, x, y}` |
+| `key` | `key`(KeyCode 이름, 대소문자 무시 — `A+LeftShift` 처럼 `+` 로 여럿) · `duration`? · `power`? | `{ok, key}` — 누르고 뗀 것을 게임이 처리한 뒤 답한다. 모르는 이름은 실패. `duration` 0~8초(기본 0 — 한 프레임) · `power` -1~1(기본 1)은 SDK 0.6.0 부터 |
+| `touch-down` | `target`? 또는 `x` · `y`, `camera`? | `{ok, finger, x, y}` — 손가락 번호 10~19. 둘 다 없으면 실패 · 10개가 다 눌려 있으면 실패. SDK 0.6.0 부터(아래 입력 명령 모두) |
+| `touch-move` | `finger` · `target`? 또는 `x` · `y`, `camera`? | `{ok, x, y}` — 눌러 둔 손가락을 한 프레임에 옮긴다 |
+| `touch-up` | `finger` | `{ok}` |
+| `swipe` | `points`(`"x,y"` 글자 둘 이상) · `duration`? | `{ok, x, y}` — 한 손가락이 점을 차례로 지난다. 끝 점 |
+| `long-press` | `target`? 또는 `x` · `y`, `camera`? · `duration`?(0~8초, 기본 1) | `{ok, x, y}` — 눌렀다 떼고 처리한 뒤 답한다 |
+| `mouse-move` | `target`? 또는 `x` · `y`, `camera`? · `duration`? | `{ok, x, y}` — 가짜 마우스를 켜고 옮긴다 |
+| `scroll` | `dy` · `dx`? · `target`? 또는 `x` · `y`, `camera`? · `duration`? | `{ok}` — 바퀴 칸(위가 +)을 `duration` 동안 나눠 넣는다. 자리를 주면 먼저 그리로 옮긴다 |
+| `key-down` · `key-up` | `key` · `power`?(down) | `{ok}` — `key-down` 은 `key-up` · `input-reset` 까지 눌러 둔다 |
+| `tilt` | `x` · `y` · `z` · `duration`? | `{ok}` — `duration`(기본 한 프레임) 동안 가속도를 대신하고 끝에 0 을 한 번 보낸다 |
+| `pointer` | `target` · `event`(`down` · `up` · `enter` · `exit`) | `{ok}` — GameObject 하나의 EventSystem 처리기. UI Toolkit 요소는 실패 |
+| `input-reset` | | `{ok}` — 일을 멈추고 손가락 취소 · 키 뗌 · 가짜 마우스 끔 · 기울기 끔 |
+| `screenshot` | `format`?(`jpg` · `png`) | `{ok, jpg}` 또는 `{ok, png}` — 프레임 끝에서 찍은 화면(base64). 수 MB 라 팜은 Appium 스크린샷을 쓴다. ImageConversion 모듈을 뺀 게임은 실패. `png` 는 SDK 0.5.0 부터 |
+| `errors` | `since` | `{ok, last, errors:[{seq, time, occurredAt, type, message, stack}], dropped?, restarted?}` — `occurredAt`(UTC ms 3자리) · 토큰 가리기는 SDK 0.7.0 부터, `time` 은 옛 꼴 그대로 |
+| `logs` | `since` | `{ok, last, logs:[{seq, occurredAt, type, message, stack}], dropped?, restarted?}` — 로그 전부, 최근 500개. 40자 넘는 영숫자 토막은 `***`. SDK 0.7.0 부터(아래 둘도) |
+| `events` | `since` | `{ok, last, events:[{seq, occurredAt, type, …}], dropped?, restarted?}` — `scene.loaded {scene, mode}` · `scene.unloaded {scene}` · `game.paused` · `game.resumed`, 최근 200개. 이름 · 시각 칸은 Issue Bunker 이벤트 꼴 |
+| `sdk-log` | `on` | `{ok, on}` — 켜면 명령마다 `[ControlCli] <cmd> <이름 칸> <값 칸>=*** — 성공` 또는 `— 실패: <글>` 을 `Debug.Log`. 알림 읽기 · `sdk-log` 자신은 안 적는다 |
 | `layout` | `target`? | `{ok, screen, safeArea, checked, problems:[{kind:'outside'\|'overlap', name, path, rect?, other?, otherPath?}]}` |
+| `call` | `target` · `method`(`컴포넌트.메서드`) · `args`?(글자 배열) | `{ok, value}` — void 는 `null`. 맞는 꼴이 없으면 있는 꼴을 실패 글에. 게임이 던지면 그 까닭 |
+| `set` | `target` · `prop` · `value`(글자) | `{ok, value}` — 다시 읽은 값. 읽기 전용 칸 · 바꿀 수 없는 타입은 실패 |
+| `static-call` | `method`(`타입.메서드`) · `args`? | `call` 과 같다 — SDK 0.4.0 부터 |
+| `static-get` · `static-set` | `prop`(`타입.칸[.칸…]`) · `value`(set) | `{ok, value}` — 타입 이름이 겹치면 실패 |
+| `pref-get` | `key` · `type`?(`string` · `int` · `float`) | `{ok, found:false}` 또는 `{ok, found:true, value}` |
+| `pref-set` · `pref-delete` · `pref-clear` | `key` · `value` · `type`? / `key` / | `{ok}` — 쓴 뒤 `PlayerPrefs.Save()` |
+| `timescale-get` · `timescale-set` | / `scale`(0~100) | `{ok, timeScale}` |
+| `scenes` | | `{ok, active, loaded:[이름], loads, unloads}` — 다 열린 장면만. `loads` · `unloads` 는 게임이 켜진 뒤 열리고 닫힌 수 |
+| `scene-load` | `name`(이름 · 경로) · `mode`?(`single` · `add`) | `{ok, loads}` — 열기 전 수를 주고 바로 답한다. `scenes` 의 `loads` 가 이보다 커지면 다 열렸다. 빌드에 없는 장면은 실패 |
+| `scene-unload` | `name` | `{ok, unloads}` — 위와 같다. 마지막 장면은 실패 |
+| `components` | `target` · `inactive`? | `{ok, components:[{name, type}]}` — SDK 0.5.0 부터(아래도) |
+| `members` | `target` · `component` · `inactive`? | `{ok, fields:[{name, type, value?, readOnly?, static?}], properties:[…], methods:[{name, args, returns, static?}]}` — 그 타입에서 Unity 부모 앞까지 선언한 것. 값은 읽다 던지거나 사본 속성이면 없다 |
+| `text-set` | `target` · `text` · `inactive`? | `{ok, text}` — 다시 읽은 글자. 입력칸 · 글자 컴포넌트가 없는 것은 실패 |
+
+## 개발
+
+```bash
+npm test                                            # CLI 테스트 — 가짜 게임 · 가짜 팜 · 가짜 PC 게임 · 가짜 usbmuxd
+python3 tools/unity-compile-check/check.py fetch    # Unity 판마다 관리 DLL · 내장 패키지 · TMP · Input System 받기(판마다 수 GB 를 받아 일부만 푼다)
+python3 tools/unity-compile-check/check.py 6000.0   # SDK · 샘플을 입력 설정 셋(옛 Input · 둘 다 · Input System)으로 컴파일 — Docker 필요
+```
+
+컴파일 검사는 Unity 라이선스 없이 PR 마다 돈다(`.github/workflows/sdk-compile.yml`). 로그의 `== <판> · <입력>` 줄에 SDK 에 켜진 정의(`CONTROL_CLI_TMP` · `CONTROL_CLI_INPUTSYSTEM` …)가 찍힌다.
+`sdk/unity/` 에 파일을 더하면 `.meta` 도 같이 넣는다 — git 으로 받은 UPM 패키지는 Unity 가 `.meta` 를 못 만든다(`src/sdk-meta.test.ts` 가 잡는다).
+명령을 더하거나 바꾸면 `protocol/commands.json` 과 Unity SDK 의 `Caps`(`sdk/unity/Runtime/ControlServer.cs`)를 같이 고친다 — `src/protocol.test.ts` 가 잡는다.
 
 ## License
 
