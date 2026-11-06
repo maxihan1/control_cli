@@ -73,12 +73,26 @@ jobs:
             input: 0
             inputsystem: ''
             target: StandaloneOSX
+          # PC 의 Input System Mouse 길(마우스 손가락 · mouse-move · scroll · Mouse 단추) — 이 맥에서 open --pc 로 실측.
+          - unity: 6000.0.84f1
+            ugui: 2.0.0
+            tmp: ''
+            input: 1
+            inputsystem: 1.11.2
+            target: StandaloneOSX
           - unity: 6000.0.84f1
             ugui: 2.0.0
             tmp: ''
             input: 1
             inputsystem: 1.11.2
             target: StandaloneWindows64
+          # iOS — 리눅스는 Xcode 프로젝트까지만 굽는다. 서명 · 빌드는 맥 Xcode 에서 하고 open --ios 로 실측.
+          - unity: 6000.0.84f1
+            ugui: 2.0.0
+            tmp: ''
+            input: 0
+            inputsystem: ''
+            target: iOS
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7

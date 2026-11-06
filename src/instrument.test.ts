@@ -9,7 +9,7 @@ import { addInputReference, addPackage, instrument, packageUrl, shadowsFakeInput
 test('패키지는 다른 의존을 남기고 고른 ref 로 더한다', () => {
   const out = addPackage({ dependencies: { 'com.unity.ugui': '2.0.0' } }, 'abc123');
   assert.deepEqual(out.dependencies, { 'com.unity.ugui': '2.0.0', [PACKAGE]: packageUrl('abc123') });
-  assert.match(packageUrl('abc123'), /\?path=\/sdk#abc123$/);
+  assert.match(packageUrl('abc123'), /\?path=\/sdk\/unity#abc123$/);
 });
 
 test('게임 어셈블리에만 참조를 한 번 더한다', () => {
