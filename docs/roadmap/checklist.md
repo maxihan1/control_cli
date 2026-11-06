@@ -2,7 +2,7 @@
 
 ## ▶ 다음 세션은 여기부터 (2026-11-04)
 
-- P2 끝 — 다음은 P2 묶음을 main 으로. PR #17~#18 은 `roadmap` 에 합쳐졌고, #19(`p2c` → `roadmap`) · #20(`p2d` → `p2c`, #19 가 합쳐지면 base 를 `roadmap` 으로)이 남았다. 그다음 `roadmap` → `unity-u8` … → main(PR #5~#14) 합치기 전 아래 「main 에 합치기 전에 정할 것」(instrument 기본 ref)을 사용자와 정한다. 그 뒤 P3~P10 병행(트랙마다 세션 · worktree · main 에서 브랜치 · 팜 폰 하나 — plan.md 「순차와 병행」)
+- P2 끝 — 다음은 P2 묶음을 main 으로. PR #15~#20 은 모두 `roadmap` 에 합쳐졌다(#19 `75f7e1b` · #20 `0749367`, 2026-11-06 — 둘 다 러너 사정으로 떨어진 잡(Unity 라이선스 토큰 · 디스크 꽉 참)을 다시 돌려 초록 뒤 merge commit). instrument 기본 ref 는 정했다(아래 줄 · 브랜치 `p2-ref` → `roadmap` PR). 남은 차례 — `p2-ref` PR 합치기 → `roadmap` → `unity-u8` … → main(PR #14 → #13 … → #5 를 위에서부터) → main 커밋에 `v0.7.0` tag. 그 뒤 P3~P10 병행(트랙마다 세션 · worktree · main 에서 브랜치 · 팜 폰 하나 — plan.md 「순차와 병행」)
 - P2-D 끝 — draft PR #20 · sdk-compile run 41806656486 초록(meta · 2021.3 · 2022.3 · 6000.0) · sample run 41806656652 9개 잡 초록(macOS 옛 Input · Windows 잡은 러너 Docker 층 쓰기 실패로 한 번 다시). 팜 RF9R408GKRR 의 APK 넷(6000.0 옛 Input · 6000.0 Input System · 2022.3 둘 다 · 2021.3 옛 Input) 「통과 52 · 실패 0 · 미실행 0」, 이 맥 macOS 앱 둘(6000.0 옛 Input · Input System) 「통과 51 · 실패 0 · 미실행 1」(일시정지 줄 — PC 는 일시정지가 안 난다). AltTester 명령 목록 기준 68/68. 알림 이름 · 시각 칸 · 토큰 가리기는 Issue Bunker 정책과 맞췄다(context-notes 「P2-D 설계」)
 - PR 만들기 — 자동 권한 판정이 PR 본문(다른 저장소 정책 문서 이름)을 「Data Exfiltration」으로 막은 적이 있다. 막히면 사용자가 `! gh pr create …` 로 만든다(P2-D)
 - 팜 폰 — RF9R408GKRR 을 다시 써도 된다(사용자 「RF9R408GKRR 써도 됨」, 2026-11-04 P2-C 실기기 때). 세션마다 사용자가 정한 폰만 쓰고, 다 쓰면 `release`
