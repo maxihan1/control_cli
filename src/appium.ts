@@ -42,6 +42,8 @@ export function capabilities(app: string, udid?: string): Record<string, unknown
     ...(udid ? { 'appium:udid': udid } : {}),
     // 기본 60초면 AI 가 다음 명령을 고르는 사이 세션이 끊긴다
     'appium:newCommandTimeout': 300,
+    // 기본은 깔린 앱과 versionCode 가 같으면 안 깐다 — QA 빌드는 versionCode 를 안 올려 새 빌드가 조용히 무시된다(팜 실측).
+    'appium:enforceAppInstall': true,
   };
 }
 
@@ -56,6 +58,10 @@ export async function screenshot(c: Conn, sessionId: string): Promise<Buffer> {
   if (typeof b64 !== 'string') throw new Error('Appium 이 스크린샷을 주지 않았습니다');
   return Buffer.from(b64, 'base64');
 }
+
+/** 앱을 seconds 초 뒤로 보냈다가 다시 앞으로 — 게임 일시정지 알림(conform D) */
+export const backgroundApp = (c: Conn, sessionId: string, seconds: number) =>
+  call(c, 'POST', `/session/${sessionId}/execute/sync`, { script: 'mobile: backgroundApp', args: [{ seconds }] });
 
 /** 폰의 뒤로 키 — 닫기 버튼이 없는 창을 닫을 때 */
 export const back = (c: Conn, sessionId: string) => call(c, 'POST', `/session/${sessionId}/back`, {});
