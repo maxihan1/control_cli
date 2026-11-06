@@ -1,18 +1,14 @@
 {
-    "name": "ControlCli.Runtime",
+    "name": "ControlCli.Id",
     "rootNamespace": "ControlCli",
-    "references": [
-        "UnityEngine.UI"
-    ],
+    "references": [],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
     "overrideReferences": false,
     "precompiledReferences": [],
     "autoReferenced": false,
-    "defineConstraints": [
-        "CONTROL_CLI"
-    ],
+    "defineConstraints": [],
     "versionDefines": [],
     "noEngineReferences": false
 }

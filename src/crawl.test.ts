@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 
-import { connect } from './appium.js';
+import { back, connect } from './appium.js';
 import { crawl, type WindowRecord } from './crawl.js';
 import { button, fakeFarm, FakeGame, node, type FakeNode } from './fake-game.js';
 import { Game, SETTLE } from './game.js';
@@ -46,7 +46,7 @@ test('버튼을 하나씩 눌러 새 창을 찍고 닫는다 — 창 안은 한 
   const farm = await fakeFarm(fake);
   const out = await mkdtemp(join(tmpdir(), 'crawl-'));
   try {
-    const summary = await crawl(gameOf(fake), { back: { conn: connect(farm.url), sessionId: 'S1' }, out, exclude: [] });
+    const summary = await crawl(gameOf(fake), { back: () => back(connect(farm.url), 'S1'), out, exclude: [] });
     assert.match(summary, /- 창 5개 · 누른 버튼 5개/);
     assert.match(summary, /- 멈춘 까닭: 끝까지 훑음/);
     const list = JSON.parse(await readFile(join(out, 'list.json'), 'utf8')) as WindowRecord[];

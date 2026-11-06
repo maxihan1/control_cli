@@ -9,7 +9,7 @@ asmdef 를 읽어 만든 csproj 를 Docker 의 .NET SDK 로 빌드한다. Unity 
   python3 tools/unity-compile-check/check.py [판 ...]         판마다 입력 설정 셋으로 컴파일
 판은 2021.3 · 2022.3 · 6000.0, 없으면 셋 다.
 
-SDK(sdk/)와 게임 쪽 확인 어셈블리(probe/)는 asmdef 에 적힌 참조만 본다 — 검사 대상이다.
+SDK(sdk/unity/)와 게임 쪽 확인 어셈블리(probe/)는 asmdef 에 적힌 참조만 본다 — 검사 대상이다.
 남의 패키지는 적힌 참조가 실제와 달라(TMP 3.0.9 는 references 가 비었는데 UnityEngine.UI 를 쓴다) UnityEngine.UI 를 늘 더한다.
 """
 import io
@@ -48,7 +48,7 @@ PLAYER = ["UNITY_ANDROID", "ENABLE_IL2CPP", "DEVELOPMENT_BUILD", "CONTROL_CLI", 
 # UNITY_<판>_OR_NEWER 를 셀 판 목록 (Unity 6 도 UNITY_2023_3_OR_NEWER 를 정의한다)
 LINES = ["5.3", "5.4", "5.5", "5.6"] + [f"{y}.{m}" for y in range(2017, 2024) for m in ((1, 2, 3, 4) if y < 2020 else (1, 2, 3))] + ["6000.0"]
 # 샘플 런타임 코드도 판마다 본다 — Unity 빌드(수십 분)에 앞서 컴파일 오류를 잡는다. 빌드 스크립트(Assets/Editor)는 asmdef 가 없어 빠진다.
-OURS = [ROOT / "sdk", HERE / "probe", ROOT / "sample" / "Assets"]
+OURS = [ROOT / "sdk" / "unity", HERE / "probe", ROOT / "sample" / "Assets"]
 NOWARN = "CS0618;CS0649;CS0414;CS0169;CS0067;CS1701;CS1702;CS0436;MSB3277;CS8632;NU1701"
 
 
@@ -186,6 +186,7 @@ def configure(line, inp):
         guids.update(g)
     for a in every.values():
         a["defines"] = defines_of(a, line, pkgs, base)
+        a["extra"] = [d for d in a["defines"] if d not in base]
     for a in every.values():
         # 없는 이름 · GUID 참조는 Unity 처럼 조용히 버린다.
         refs = [guids.get(r[5:]) if r.startswith("GUID:") else r for r in a["def"].get("references", [])]
@@ -261,7 +262,9 @@ def main():
             for name, a in assemblies.items():
                 write_csproj(out, name, a, assemblies, dlls)
             ours = [n for n, a in assemblies.items() if a["ours"]]
-            print(f"== {line} · {inp}: {', '.join(sorted(assemblies))}", flush=True)
+            # SDK · 샘플은 켜진 versionDefines 를 같이 찍는다 — #if 로 감싼 코드가 정말 컴파일됐는지 로그로 보인다.
+            shown = [f"{n}[+{','.join(a['extra'])}]" if a["ours"] and a["extra"] else n for n, a in sorted(assemblies.items())]
+            print(f"== {line} · {inp}: {', '.join(shown)}", flush=True)
             builds.append((out.name, ours))
     # 구성마다 SDK · 확인 어셈블리를 빌드하면 참조한 패키지 어셈블리가 따라 빌드된다. 컨테이너는 하나만 띄운다.
     script = ["fail=0"]
