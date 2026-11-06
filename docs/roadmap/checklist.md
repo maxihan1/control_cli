@@ -2,7 +2,7 @@
 
 ## ▶ 다음 세션은 여기부터 (2026-11-04)
 
-- P2 끝 — 다음은 P2 묶음을 main 으로. PR #17~#18 은 `roadmap` 에 합쳐졌고, #19(`p2c` → `roadmap`) · #20(`p2d` → `p2c`, #19 가 합쳐지면 base 를 `roadmap` 으로)이 남았다. 그다음 `roadmap` → `unity-u8` … → main(PR #5~#14) 합치기 전 아래 「main 에 합치기 전에 정할 것」(instrument 기본 ref)을 사용자와 정한다. 그 뒤 P3~P10 병행(트랙마다 세션 · worktree · main 에서 브랜치 · 팜 폰 하나 — plan.md 「순차와 병행」)
+- P2 끝 — 다음은 P2 묶음을 main 으로. PR #15~#20 은 모두 `roadmap` 에 합쳐졌다(#19 `75f7e1b` · #20 `0749367`, 2026-11-06 — 둘 다 러너 사정으로 떨어진 잡(Unity 라이선스 토큰 · 디스크 꽉 참)을 다시 돌려 초록 뒤 merge commit). instrument 기본 ref 는 정했다(아래 줄 · 브랜치 `p2-ref` → `roadmap` PR). 남은 차례 — `p2-ref` PR 합치기 → `roadmap` → `unity-u8` … → main(PR #14 → #13 … → #5 를 위에서부터) → main 커밋에 `v0.7.0` tag. 그 뒤 P3~P10 병행(트랙마다 세션 · worktree · main 에서 브랜치 · 팜 폰 하나 — plan.md 「순차와 병행」)
 - P2-D 끝 — draft PR #20 · sdk-compile run 41806656486 초록(meta · 2021.3 · 2022.3 · 6000.0) · sample run 41806656652 9개 잡 초록(macOS 옛 Input · Windows 잡은 러너 Docker 층 쓰기 실패로 한 번 다시). 팜 RF9R408GKRR 의 APK 넷(6000.0 옛 Input · 6000.0 Input System · 2022.3 둘 다 · 2021.3 옛 Input) 「통과 52 · 실패 0 · 미실행 0」, 이 맥 macOS 앱 둘(6000.0 옛 Input · Input System) 「통과 51 · 실패 0 · 미실행 1」(일시정지 줄 — PC 는 일시정지가 안 난다). AltTester 명령 목록 기준 68/68. 알림 이름 · 시각 칸 · 토큰 가리기는 Issue Bunker 정책과 맞췄다(context-notes 「P2-D 설계」)
 - PR 만들기 — 자동 권한 판정이 PR 본문(다른 저장소 정책 문서 이름)을 「Data Exfiltration」으로 막은 적이 있다. 막히면 사용자가 `! gh pr create …` 로 만든다(P2-D)
 - 팜 폰 — RF9R408GKRR 을 다시 써도 된다(사용자 「RF9R408GKRR 써도 됨」, 2026-11-04 P2-C 실기기 때). 세션마다 사용자가 정한 폰만 쓰고, 다 쓰면 `release`
@@ -11,7 +11,7 @@
 - P2-B 끝 — draft PR #18(`p2b` → `roadmap`) · sdk-compile run 41759126717 초록(meta · 2021.3 · 2022.3 · 6000.0). 팜 RF9R408GKRR 에서 sample run 41759126839 의 6000.0 옛 Input APK · 6000.0 Input System APK · 2021.3 옛 Input APK 모두, 이 맥 macOS 앱(같은 run 의 StandaloneOSX · Mono)도 conform 「통과 33 · 실패 0 · 건너뜀 0」(B 줄 10개 포함). sample run 8개 잡 모두 초록. 영구 id 빌드 훅은 sample 로그에 「Assets/Second.unity 오브젝트 1/1개에 영구 id」 — `GlobalObjectId` 가 장면을 굽는 중에도 번호를 준다. 이 맥에서도 Docker 로 C# 컴파일 검사가 된다(`tools/unity-compile-check/check.py fetch 6000.0` 뒤 `check.py 6000.0`)
 - 팜 연결 — 팜은 이 맥에서 돈다(`http://127.0.0.1:4723/wd/hub`, 밖에서는 `https://farm.maxihan.com/wd/hub`). **토큰은 묻지 않는다** — control-cli 가 `--token` · `PLATFORM_APPIUM_TOKEN` 이 없으면 macOS Keychain `control-cli-farm`(사용자 maxi 의 PAT, 2026-11-04 넣음)을 읽는다. 401 이면 사용자가 새 PAT 를 복사해 두고 세션이 pbpaste → whoami 200 → Keychain 에 넣는다(context-notes 「P2-B 구현」)
 - macOS 시험은 `caffeinate -d -u -t 900` — 잠금 화면은 `-d` 만으로는 13초 만에 화면을 꺼 Unity 가 멈춘다(context-notes 「P1 실기기」)
-- main 에 합치기 전에 정할 것 — `instrument` 의 기본 ref `main` 과 UPM 경로 `?path=/sdk/unity` 가 엇갈린다(main 에 `sdk/unity/` 가 생기기 전엔 새 CLI 가, 생긴 뒤엔 옛 CLI 의 `?path=/sdk#main` 이 깨진다). 기본 ref 를 CLI 판 tag(`v0.3.0`)로 두는 안 — context-notes 「P0 코드 리뷰」. README MCP 절의 `npm i -g …#<태그>` 도 그때 정한 tag 로
+- instrument 기본 ref — 정함(2026-11-06 사용자): `--ref` 가 없으면 CLI 판 tag `v<package.json 판>`(지금 `v0.7.0`). **main 에 P2 묶음을 합친 뒤 그 main 커밋에 `v0.7.0` tag 를 먼저 찍어야** 새 CLI 의 기본값이 닿는다. README 의 `npm i -D …#v0.7.0` · MCP 절 `npm i -g …#v0.7.0` 도 같은 tag(context-notes 「instrument 기본 ref」)
 - 차례 — P0 바탕 → P1 MCP → P2 Unity 를 AltTester 와 똑같이 → P3 relay · WebGL · Linux → P4 드라이버 → P5 인스펙터 · Recorder → P6~P10 엔진(맨 뒤 — 사용자 결정)
 - P0 → P1 → P2 는 순차, P3~P10 은 P2 가 main 에 합쳐진 뒤 병행(트랙마다 세션 · worktree · 팜 폰 하나 — plan.md 「순차와 병행」)
 - 브랜치 — `roadmap`(`unity-u8` 위). P0~P2 는 단계마다 브랜치 하나 · PR 하나(`p0` · `p1` · `p2a` …)를 앞 단계 위에 쌓고, P3 부터는 main 에서 트랙마다 따로

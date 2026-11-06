@@ -36,7 +36,7 @@ node /tmp/control_cli/dist/main.js instrument <Unity 프로젝트 폴더> --ref 
 
 `npx github:maxihan1/control_cli` 는 쓰지 않는다 — npm 10 이 git 패키지를 npx 로 받을 때 「GitFetcher requires an Arborist constructor」로 멈춘다(GitHub Actions 에서 확인).
 
-1. `Packages/manifest.json` 에 SDK 패키지를 `--ref` 로 고정해 더한다(없으면 `main`)
+1. `Packages/manifest.json` 에 SDK 패키지를 `--ref` 로 고정해 더한다(없으면 이 CLI 판 tag — 0.7.0 이면 `v0.7.0`. SDK 경로 `?path=/sdk/unity` 와 SDK 판이 CLI 와 늘 맞는다)
 2. `Assets/` · `Packages/`(내장 패키지) 아래 asmdef 의 `references` 에 `ControlCli.Input` 을 더한다 — 에디터 전용 · `noEngineReferences` 는 건너뛴다. asmdef 없는 스크립트(Assembly-CSharp)는 자동으로 참조한다
 3. `namespace` 안에 `using UnityEngine;` 을 둔 파일 · `namespace UnityEngine.*` 안의 파일은 `UnityEngine.Input` 이 먼저 잡혀 가짜 터치를 못 본다 — 경고로 알려 준다
 4. 깨진 asmdef 가 있으면 파일 이름을 알리고 아무것도 바꾸지 않는다
@@ -49,7 +49,7 @@ node /tmp/control_cli/dist/main.js instrument <Unity 프로젝트 폴더> --ref 
 ## CLI
 
 ```bash
-npm i -D github:maxihan1/control_cli#v0.2.0
+npm i -D github:maxihan1/control_cli#v0.7.0
 npx control-cli help
 ```
 
@@ -209,7 +209,7 @@ npx control-cli crawl --max 30 --minutes 5 --exclude '/설정|settings/i' --excl
 `control-cli mcp` 는 stdio MCP 서버다 — 따로 띄워 두는 프로그램이 아니라 AI 앱이 이 명령을 실행해 붙는다.
 
 ```bash
-npm i -g github:maxihan1/control_cli#<태그>      # control-cli 를 PATH 에
+npm i -g github:maxihan1/control_cli#v0.7.0      # control-cli 를 PATH 에
 claude mcp add control-cli -- control-cli mcp     # Claude Code
 ```
 

@@ -375,3 +375,13 @@ test('--usb · --pc · --ios 는 하나만 쓰고, PC 는 팜용 PLATFORM_APP �
     pc.server.close();
   }
 });
+
+test('instrument 는 --ref 가 없으면 이 CLI 판 tag 로 SDK 를 고정한다', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'instrument-cli-'));
+  await mkdir(join(root, 'Packages'));
+  await mkdir(join(root, 'Assets'));
+  await writeFile(join(root, 'Packages', 'manifest.json'), JSON.stringify({ dependencies: {} }));
+  const { version } = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8')) as { version: string };
+  assert.match(await cli('instrument', root), new RegExp(`^SDK\\(v${version.replaceAll('.', '\\.')}\\) 를`));
+  assert.ok((await readFile(join(root, 'Packages', 'manifest.json'), 'utf8')).includes(`?path=/sdk/unity#v${version}"`));
+});

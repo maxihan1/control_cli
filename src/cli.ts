@@ -13,7 +13,7 @@ import { installAndLaunch, terminate } from './devicectl.js';
 import { Game, settled, WAIT, type At, type FindOptions, type PingReply, type PrefType, type WaitOptions } from './game.js';
 import { instrument } from './instrument.js';
 import { farmLink, GAME_PORT, iosLink, tcpLink, usbLink, type Command, type Reply } from './link.js';
-import { serve } from './mcp.js';
+import { serve, VERSION } from './mcp.js';
 import { snapshot } from './snapshot.js';
 import { phone } from './usbmux.js';
 
@@ -173,7 +173,8 @@ export async function run(argv: string[], o: Options): Promise<string> {
 
   // 폰이 아니라 Unity 프로젝트 파일을 고치는 명령이다.
   if (name === 'instrument') {
-    const ref = values.ref ?? 'main';
+    // 기본은 이 CLI 판 tag — CLI 가 아는 SDK 경로(?path=/sdk/unity)와 SDK 판이 늘 맞는다(그 tag 를 먼저 찍는다).
+    const ref = values.ref ?? `v${VERSION}`;
     if (args.length !== 1) throw new Error('instrument <Unity 프로젝트 폴더> [--ref <태그 · 커밋>] 꼴이어야 합니다');
     const { asmdefs, warnings } = instrument(args[0], ref);
     return [
