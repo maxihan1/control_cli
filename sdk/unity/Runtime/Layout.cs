@@ -18,12 +18,14 @@ namespace ControlCli
             if (under.Length > 0)
             {
                 var root = Tree.Find(under, out var problem);
-                if (root == null) return "{\"ok\":false,\"error\":" + Json.Str(problem) + "}";
-                scope = root.transform;
+                if (!root.Exists) return "{\"ok\":false,\"error\":" + Json.Str(problem) + "}";
+                // 화면 잘림 검사는 uGUI 만 본다 — UI Toolkit 요소 아래는 범위로 받지 않는다.
+                if (root.Go == null) return "{\"ok\":false,\"error\":" + Json.Str(under + " 은 UI Toolkit 요소라 layout 이 보지 않습니다 — uGUI 만 검사합니다") + "}";
+                scope = root.Go.transform;
             }
 
             var items = new List<(Selectable s, Rect rect)>();
-            foreach (var go in Tree.Roots())
+            foreach (var go in Tree.RootObjects())
                 foreach (var s in go.GetComponentsInChildren<Selectable>(false))
                 {
                     if (!s.IsActive() || !s.IsInteractable()) continue;

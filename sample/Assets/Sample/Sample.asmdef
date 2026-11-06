@@ -3,7 +3,8 @@
     "rootNamespace": "Sample",
     "references": [
         "UnityEngine.UI",
-        "Unity.TextMeshPro"
+        "Unity.TextMeshPro",
+        "Unity.InputSystem"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
@@ -22,6 +23,11 @@
             "name": "com.unity.ugui",
             "expression": "2.0",
             "define": "SAMPLE_TMP"
+        },
+        {
+            "name": "com.unity.inputsystem",
+            "expression": "1.0",
+            "define": "SAMPLE_INPUTSYSTEM"
         }
     ],
     "noEngineReferences": false

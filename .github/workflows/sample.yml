@@ -41,18 +41,58 @@ jobs:
       matrix:
         include:
           # Unity 6 의 TMP 는 ugui 2.0 안에 있다. 옛 판은 textmeshpro 패키지를 따로 넣는다.
+          # input 은 Active Input Handling — 0 옛 Input(Ashveil 모양) · 1 Input System 만 · 2 둘 다.
           - unity: 6000.0.84f1
             ugui: 2.0.0
             tmp: ''
+            input: 0
+            inputsystem: ''
+            target: Android
+          - unity: 6000.0.84f1
+            ugui: 2.0.0
+            tmp: ''
+            input: 1
+            inputsystem: 1.11.2
             target: Android
           - unity: 2022.3.62f1
             ugui: 1.0.0
             tmp: 3.0.9
+            input: 2
+            inputsystem: 1.11.2
             target: Android
           - unity: 2021.3.45f1
             ugui: 1.0.0
             tmp: 3.0.9
+            input: 0
+            inputsystem: ''
             target: Android
+          # PC — macOS 빌드는 이 맥에서 open --pc 로 실측, Windows 는 빌드만 확인. 둘 다 Mono.
+          - unity: 6000.0.84f1
+            ugui: 2.0.0
+            tmp: ''
+            input: 0
+            inputsystem: ''
+            target: StandaloneOSX
+          # PC 의 Input System Mouse 길(마우스 손가락 · mouse-move · scroll · Mouse 단추) — 이 맥에서 open --pc 로 실측.
+          - unity: 6000.0.84f1
+            ugui: 2.0.0
+            tmp: ''
+            input: 1
+            inputsystem: 1.11.2
+            target: StandaloneOSX
+          - unity: 6000.0.84f1
+            ugui: 2.0.0
+            tmp: ''
+            input: 1
+            inputsystem: 1.11.2
+            target: StandaloneWindows64
+          # iOS — 리눅스는 Xcode 프로젝트까지만 굽는다. 서명 · 빌드는 맥 Xcode 에서 하고 open --ios 로 실측.
+          - unity: 6000.0.84f1
+            ugui: 2.0.0
+            tmp: ''
+            input: 0
+            inputsystem: ''
+            target: iOS
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -62,14 +102,14 @@ jobs:
       # 판마다 프로젝트를 그 판으로 연다 — 낮은 판이 높은 판 프로젝트를 여는 「내려가기」를 피하고, ugui 는 판에 묶인 core 패키지다.
       - run: |
           printf 'm_EditorVersion: %s\n' '${{ matrix.unity }}' > sample/ProjectSettings/ProjectVersion.txt
-          node -e 'const f="sample/Packages/manifest.json",m=JSON.parse(require("fs").readFileSync(f)),[ugui,tmp]=process.argv.slice(1);m.dependencies["com.unity.ugui"]=ugui;if(tmp)m.dependencies["com.unity.textmeshpro"]=tmp;require("fs").writeFileSync(f,JSON.stringify(m,null,2))' '${{ matrix.ugui }}' '${{ matrix.tmp }}'
+          node -e 'const f="sample/Packages/manifest.json",m=JSON.parse(require("fs").readFileSync(f)),[ugui,tmp,is]=process.argv.slice(1);m.dependencies["com.unity.ugui"]=ugui;if(tmp)m.dependencies["com.unity.textmeshpro"]=tmp;if(is)m.dependencies["com.unity.inputsystem"]=is;require("fs").writeFileSync(f,JSON.stringify(m,null,2))' '${{ matrix.ugui }}' '${{ matrix.tmp }}' '${{ matrix.inputsystem }}'
       # PR 이면 브랜치 머리 커밋을 받는다 — 합침 커밋은 UPM 이 git 으로 못 받을 수 있다.
       - run: node dist/main.js instrument sample --ref ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions/cache@v6
         with:
           path: sample/Library
-          key: sample-library-${{ matrix.unity }}-${{ matrix.target }}-${{ hashFiles('sample/Packages/manifest.json') }}
-          restore-keys: sample-library-${{ matrix.unity }}-${{ matrix.target }}-
+          key: sample-library-${{ matrix.unity }}-${{ matrix.target }}-${{ matrix.input }}-${{ hashFiles('sample/Packages/manifest.json') }}
+          restore-keys: sample-library-${{ matrix.unity }}-${{ matrix.target }}-${{ matrix.input }}-
       - uses: game-ci/unity-builder@v6
         env:
           UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
@@ -83,8 +123,9 @@ jobs:
           buildMethod: SampleBuild.Build
           versioning: None
           allowDirtyBuild: true
+          customParameters: -activeInputHandler ${{ matrix.input }}
       - uses: actions/upload-artifact@v7
         with:
-          name: sample-${{ matrix.unity }}-${{ matrix.target }}
+          name: sample-${{ matrix.unity }}-${{ matrix.target }}-input${{ matrix.input }}
           path: build/${{ matrix.target }}
           retention-days: 14

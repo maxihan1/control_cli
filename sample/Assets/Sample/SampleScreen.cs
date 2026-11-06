@@ -1,6 +1,7 @@
 // 샘플 화면을 코드로 만든다 — 장면 YAML 없이 Unity 판마다 같은 화면. 왼쪽 칸은 uGUI(글자 · 입력칸 · 버튼 · 끌기 슬롯), 오른쪽 칸은 TextMeshPro
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 #if SAMPLE_TMP
 using TMPro;
@@ -13,14 +14,44 @@ namespace Sample
         private const float Left = -270, Right = 270;
         private static readonly DefaultControls.Resources Look = new DefaultControls.Resources();
 
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+        // 장면이 열릴 때마다 채운다 — conform 이 한 장면 열기로 Second 에 갔다 Sample 로 돌아오면 표준 화면을 다시 만든다. 첫 장면의 sceneLoaded 도 받으려고 장면을 열기 전에 건다.
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+        private static void Watch() => SceneManager.sceneLoaded += (scene, mode) =>
+        {
+            if (scene.name == "Sample")
+            {
+                // 새 오브젝트는 지금 장면에 생긴다.
+                SceneManager.SetActiveScene(scene);
+                Build();
+            }
+            // 더해 열면 지금 장면이 Sample 그대로라 표시를 Second 로 옮긴다 — scene-unload 하면 같이 사라진다.
+            else if (scene.name == "Second")
+            {
+                SceneManager.MoveGameObjectToScene(new GameObject("SecondMarker"), scene);
+                // 한 장면으로 열면 EventSystem 이 없다 — UI Toolkit 이 입력을 스스로 읽는 길(SDK 의 UI Toolkit 직접)을 conform C 가 본다.
+                if (mode == LoadSceneMode.Single) SampleUitk.BuildSecond();
+            }
+        };
+
         private static void Build()
         {
+            // Input System 을 켠 게임은 그 UI 입력 모듈을 쓴다 — SDK 의 Touchscreen 이벤트 길을 본다.
+#if SAMPLE_INPUTSYSTEM && ENABLE_INPUT_SYSTEM
+            new GameObject("EventSystem", typeof(EventSystem), typeof(UnityEngine.InputSystem.UI.InputSystemUIInputModule));
+#else
             new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
+#endif
             new GameObject("Main Camera", typeof(Camera)) { tag = "MainCamera" }.transform.position = new Vector3(0, 0, -10);
             var cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
             cube.name = "WorldCube";
             cube.transform.position = new Vector3(0, -2.5f, 0);
+            // conform B — 내장 태그 · 레이어(프로젝트 설정 없이)로 선택자를 본다.
+            cube.tag = "Player";
+            cube.layer = 4; // Water
+            // 화면을 덮지 않게 끈 옆 카메라 — camera 칸이 Camera.main 과 다른 자리를 셈하는지. 세로 화면 반 폭(거리 10 에서 약 2.6)보다 덜 비켜 큐브가 시야 안이다.
+            var side = new GameObject("SideCamera", typeof(Camera));
+            side.GetComponent<Camera>().enabled = false;
+            side.transform.position = new Vector3(1.5f, 0, -10);
 
             var canvas = new GameObject("SampleCanvas", typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
             canvas.GetComponent<Canvas>().renderMode = RenderMode.ScreenSpaceOverlay;
@@ -48,9 +79,26 @@ namespace Sample
             item.transform.SetParent(bag.GetChild(0), false);
 
             canvas.AddComponent<TouchProbe>().Output = Label(root, "TouchText", Left, 5);
+            // 꺼진 글자 — inactive 로만 찾는다.
+            var hidden = Label(root, "HiddenText", Right, 5);
+            hidden.text = "hidden";
+            hidden.gameObject.SetActive(false);
+            // C — 입력 탐침(손가락 · 키 · 축 · 단추 · 기울기)과 Pointer 칸 · 세로 목록.
+            var input = Label(root, "InputText", Left, 6);
+            input.fontSize = 28;
+            canvas.AddComponent<InputProbe>().Output = input;
+            var pointerText = Label(root, "PointerText", Right, 4);
+            pointerText.fontSize = 28;
+            var holdBox = Place(DefaultControls.CreateImage(Look), root, "HoldBox", Right, 4);
+            holdBox.GetComponent<Image>().color = new Color(0.6f, 0.8f, 1f);
+            holdBox.AddComponent<PointerBox>().Output = pointerText;
+            Half((RectTransform)holdBox.transform, -1);
+            Half((RectTransform)pointerText.transform, 1);
+            BuildList(root);
 #if SAMPLE_TMP
             BuildTmp(root);
 #endif
+            SampleUitk.Build();
         }
 
 #if SAMPLE_TMP
@@ -92,6 +140,38 @@ namespace Sample
             rect.anchoredPosition = new Vector2(x, -100 - row * 200);
             rect.sizeDelta = new Vector2(500, 140);
             return go;
+        }
+
+        // 한 칸(넓이 500)의 반 — side -1 왼쪽 · 1 오른쪽
+        private static void Half(RectTransform rect, int side)
+        {
+            rect.sizeDelta = new Vector2(240, rect.sizeDelta.y);
+            rect.anchoredPosition += new Vector2(side * 130, 0);
+        }
+
+        // 세로 목록 — swipe · scroll 이 ScrollRect 를 움직이는지. 바퀴 한 칸이 30 픽셀.
+        private static void BuildList(Transform root)
+        {
+            var list = Place(new GameObject("ScrollList", typeof(RectTransform), typeof(Image), typeof(RectMask2D), typeof(ScrollRect)), root, "ScrollList", Right, 6);
+            var content = new GameObject("Content", typeof(RectTransform), typeof(VerticalLayoutGroup)).GetComponent<RectTransform>();
+            content.SetParent(list.transform, false);
+            content.anchorMin = new Vector2(0, 1);
+            content.anchorMax = Vector2.one;
+            content.pivot = new Vector2(0.5f, 1);
+            content.sizeDelta = new Vector2(0, 1000);
+            var layout = content.GetComponent<VerticalLayoutGroup>();
+            layout.childControlHeight = layout.childForceExpandHeight = true;
+            for (var i = 0; i < 10; i++)
+            {
+                var row = DefaultControls.CreateText(Look).GetComponent<Text>();
+                row.text = "row " + i;
+                row.fontSize = 40;
+                row.transform.SetParent(content, false);
+            }
+            var scroll = list.GetComponent<ScrollRect>();
+            scroll.content = content;
+            scroll.horizontal = false;
+            scroll.scrollSensitivity = 30;
         }
 
         private static Text Label(Transform parent, string name, float x, int row)
