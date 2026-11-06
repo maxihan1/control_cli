@@ -195,3 +195,14 @@
 - 까닭 — 기본 `main` 이면 CLI 가 아는 SDK 경로(`?path=/sdk/unity`)와 main 의 SDK 자리가 어긋나는 때가 생긴다(옛 CLI `?path=/sdk#main`). tag 면 CLI 판과 SDK 판 · 경로가 늘 같은 커밋이다
 - 대가 — tag 를 찍기 전의 CLI(손으로 받은 개발판)는 기본값이 아직 없는 tag 를 가리켜 UPM 이 못 받는다. 그때는 `--ref <커밋>`. CI(`sample.yml`)는 늘 `--ref <커밋>` 을 넘겨 상관없다
 - 할 일 — P2 묶음을 main 에 합친 뒤 그 커밋에 `v0.7.0` tag. 판을 올릴 때마다 tag 도 같이 찍는다
+
+## 2026-11-06 — P3-A 설계 ([p3a-plan.md](p3a-plan.md))
+
+- P3 을 셋으로 — P3-A relay → P3-B Unity WebGL → P3-C Linux(사용자 「A → B → C 순서」). WebGL 은 relay 위에 서고, Linux 는 작아서 맨 뒤
+- relay 범위 — 로컬 기본 + `--token` 이면 밖 공개(사용자). 같은 프로그램 하나
+- 주소 전달 — 빌드 때 굽기(`instrument --relay`), WebGL 은 URL `?controlcli=` 가 먼저(사용자). 실행 때 인자(intent extra · devicectl 인자)는 플랫폼마다 길이 달라 뺐다
+- 게임 → relay 는 모두 WebSocket(사용자 「A」) — 밖 공개를 고른 순간 HTTP 터널(cloudflared 꼴)을 지나야 해서 TCP 는 안 된다. 대가는 IL2CPP `wss` TLS 를 실기기로 확인할 것
+- relay 켜기 — 사용자 「사용자가 키는거면 너무 불편」 · 「mcp없이 자동으로 여는걸로」. `open --relay` 가 없으면 따로 도는 백그라운드 프로세스로 띄우고, 게임이 2초마다 다시 걸어 누가 먼저 켜져도 된다. MCP 서버 안에서 돌리면 AI 앱을 닫을 때 relay 가 같이 죽어 뺐다
+- 권한 — 토큰 없는 relay 는 명령 입구를 루프백만, `--token` relay 는 늘 토큰(터널은 요청을 127.0.0.1 로 넘겨 루프백 규칙이 뚫린다). 게임 쪽엔 토큰을 굽지 않는다 — APK 에서 다 보인다
+- 팜 화면 relay 표시 — 사용자 「다음에 하자」. `GET /games` · `relay status` 는 `open` 이 게임을 고르는 데 어차피 필요해 P3-A 에
+- iPhone 「USB 없이」는 사용자 실측 항목(팜에 iPhone 없음, U7 과 같음)
