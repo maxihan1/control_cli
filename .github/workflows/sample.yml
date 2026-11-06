@@ -73,6 +73,13 @@ jobs:
             input: 0
             inputsystem: ''
             target: StandaloneOSX
+          # PC 의 Input System Mouse 길(마우스 손가락 · mouse-move · scroll · Mouse 단추) — 이 맥에서 open --pc 로 실측.
+          - unity: 6000.0.84f1
+            ugui: 2.0.0
+            tmp: ''
+            input: 1
+            inputsystem: 1.11.2
+            target: StandaloneOSX
           - unity: 6000.0.84f1
             ugui: 2.0.0
             tmp: ''

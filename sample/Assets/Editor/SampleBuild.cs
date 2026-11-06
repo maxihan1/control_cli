@@ -12,6 +12,8 @@ using UnityEditor.SceneManagement;
 public static class SampleBuild
 {
     private const string Scene = "Assets/Sample.unity";
+    // conform A 장면 줄이 여는 두 번째 장면 — 저장 오브젝트 SecondSaved(B 영구 id)만 있고 샘플 코드가 열릴 때 SecondMarker 를 둔다.
+    private const string SecondScene = "Assets/Second.unity";
 
     // buildMethod: SampleBuild.Build — 대상은 game-ci 가 켠 빌드 대상, 출력 자리는 -customBuildPath.
     public static void Build()
@@ -21,6 +23,10 @@ public static class SampleBuild
         var named = NamedBuildTarget.FromBuildTargetGroup(group);
         ImportTmpResources();
         SetInputHandler(Arg("activeInputHandler"));
+        // conform B 영구 id — 장면에 저장된 오브젝트라야 빌드 훅이 fileID 를 붙인다(SecondMarker 는 실행 중에 만든다).
+        var second = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+        new UnityEngine.GameObject("SecondSaved");
+        EditorSceneManager.SaveScene(second, SecondScene);
         EditorSceneManager.SaveScene(EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single), Scene);
         PlayerSettings.productName = "control_cli sample";
         PlayerSettings.SetApplicationIdentifier(named, "com.maxihan1.controlcli.sample");
@@ -43,7 +49,7 @@ public static class SampleBuild
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(output)) ?? ".");
         var report = BuildPipeline.BuildPlayer(new BuildPlayerOptions
         {
-            scenes = new[] { Scene },
+            scenes = new[] { Scene, SecondScene },
             target = target,
             targetGroup = group,
             locationPathName = output,
