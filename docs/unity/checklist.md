@@ -1,8 +1,8 @@
 # Unity 지원 넓히기 — 체크리스트
 
-## ▶ 다음 세션은 여기부터 (2026-11-03 두 번째 세션 끝)
+## ▶ 다음 세션은 여기부터 (2026-11-06)
 
-- 코드 · PR — U0~U8 이 draft PR #5~#13 으로 쌓여 있다(브랜치 `unity-u0` … `unity-u8`, 맨 위 `unity-u8` 에서 이어 일한다). 맨 위에만 넣은 고침(TMP 리소스 직접 풀기 · 손가락 19 · 샘플 고침 · 가짜 Input 에서 `location` 뺌 · uGUI `type` 키 입력 차례 · `open` 다시 깔기 · 샘플 PC 세로 창)은 차례로 합치면 main 에 들어간다
+- 코드 · PR — U0~U8(PR #5~#13)은 P0~P2 와 함께 main 에 합쳐졌다(2026-11-06, main `b4bdb10` · tag `v0.7.0`). 이어지는 일은 [로드맵 체크리스트](../roadmap/checklist.md) 맨 위
 - 실측 끝 — 팜 RF9R408GKRR 에서 APK 넷 · 이 맥 macOS 앱(세로 창) 모두 체크리스트 차례 통과, iOS 빌드 초록. 결과 · 원인은 [context-notes](context-notes.md) 「두 번째 실기기 시험」
 - 남은 것 — ① 새 샘플 PC 빌드(세로 창 · run 41619067888 의 StandaloneOSX)로 loop 전체 — 이 맥 디스플레이가 켜져 있을 때(U6) ② iPhone 실측(U7, 사용자) ③ 합친 뒤 `v0.2.0` 태그(U8, 사용자) ④ test_platform 다음 줄 1~6
 - 실측 차례 — 팜 `hold --udid <폰>` → `open --app <APK 경로>` → `type IdInput/TmpIdInput/UitkIdInput 'qa_user01!'` → `click LoginButton/TmpLoginButton/UitkLoginButton` → `drag Item /SampleCanvas/Bag/Slot[3]` → `click WorldCube`(`cube 1`) → `key I`(`key I`) → `errors` → `close` · `release`. 기대값 — uGUI · TMP `qauser01`, UI Toolkit `qa_user0`. 결과물은 `gh run download <run> -R maxihan1/control_cli`
