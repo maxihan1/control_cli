@@ -188,3 +188,10 @@
 - 켤 때 알림 — `SubsystemRegistration` 에서 들어 첫 장면 `scene.loaded Sample single` 과 SDK 시작 줄 「[ControlCli] 127.0.0.1:13100 에서 명령을 받습니다」가 `events` · `logs` 1번부터 있다. 새로 안 것 — Unity 가 켤 때 이름 없는 빈 장면을 닫아 `scene.unloaded`(`scene: ""`)가 첫 장면보다 먼저 하나 온다. Unity 가 부른 그대로라 거르지 않고 README 에 적었다(AltTester 도 `sceneUnloaded` 를 그대로 넘긴다)
 - 손 확인(팜 6000.0 옛 Input) — `sdk-log on` 뒤 `click LoginButton` · `type PasswordInput` · 틀린 `pref-set` 이 「[ControlCli] click LoginButton — 성공」 · 「[ControlCli] type PasswordInput text=*** — 성공」 · 「[ControlCli] pref-set lv value=*** — 실패: 「***」은 int 가 아닙니다」. CLI 가 액션 뒤 찍는 `tree` 도 명령이라 「[ControlCli] tree — 성공」이 함께 적힌다
 - PR — `gh pr create` 를 자동 권한 판정이 「Data Exfiltration」으로 막았다(본문에 Issue Bunker 정책 문서 이름). control_cli · BTS 둘 다 공개 저장소이고 비밀값은 없었다 — 사용자가 「제가 직접 PR 만들기」를 골라 `! gh pr create` 로 #20 을 만들었다. #19 가 아직 안 합쳐져 base 는 `p2c`
+
+## 2026-11-06 — instrument 기본 ref (브랜치 `p2-ref`)
+
+- 정함(사용자 「instrument 기본 ref 결정(v0.3.0 tag 안)을 진행」) — `--ref` 가 없으면 `v${package.json 판}`. P0 때 적은 `v0.3.0` 은 그때 판이었을 뿐이라 숫자를 박지 않고 판에서 읽는다(지금 `v0.7.0`). 판은 `src/mcp.ts` 가 이미 읽던 `VERSION` 을 내보내 같이 쓴다
+- 까닭 — 기본 `main` 이면 CLI 가 아는 SDK 경로(`?path=/sdk/unity`)와 main 의 SDK 자리가 어긋나는 때가 생긴다(옛 CLI `?path=/sdk#main`). tag 면 CLI 판과 SDK 판 · 경로가 늘 같은 커밋이다
+- 대가 — tag 를 찍기 전의 CLI(손으로 받은 개발판)는 기본값이 아직 없는 tag 를 가리켜 UPM 이 못 받는다. 그때는 `--ref <커밋>`. CI(`sample.yml`)는 늘 `--ref <커밋>` 을 넘겨 상관없다
+- 할 일 — P2 묶음을 main 에 합친 뒤 그 커밋에 `v0.7.0` tag. 판을 올릴 때마다 tag 도 같이 찍는다

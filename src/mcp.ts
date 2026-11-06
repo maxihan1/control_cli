@@ -33,7 +33,7 @@ interface Tool {
 
 // 받는 판 — 쓰는 것(도구 · 글 · 그림)은 2024-11-05 부터 같다. 모르는 판을 달라면 맨 앞 판으로 답하고 클라이언트가 고른다.
 export const VERSIONS = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05'];
-const VERSION = (JSON.parse(readFileSync(join(import.meta.dirname, '..', 'package.json'), 'utf8')) as { version: string }).version;
+export const VERSION = (JSON.parse(readFileSync(join(import.meta.dirname, '..', 'package.json'), 'utf8')) as { version: string }).version;
 
 const INSTRUCTIONS = [
   'QA 빌드 게임(control_cli SDK)을 조작한다.',
