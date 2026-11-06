@@ -5,7 +5,7 @@
 
 ## 1. 기준 — AltTester 기능 목록
 
-기준은 AltTester 문서 [명령 목록](https://alttester.com/docs/sdk/latest/pages/commands.html)(설정 명령 5개를 뺀 68개)과 [Desktop 개요](https://alttester.com/docs/desktop/latest/pages/overview.html)다. 2026-11-03 지금 control_cli 는 명령 기준 22.5/68(약 33%), P2-A 뒤 37.5/68(약 55%), P2-B 뒤 약 52.5/68(약 77% — 찾기 5 · 오브젝트 9.5 · PNG 0.5).
+기준은 AltTester 문서 [명령 목록](https://alttester.com/docs/sdk/latest/pages/commands.html)(설정 명령 5개를 뺀 68개)과 [Desktop 개요](https://alttester.com/docs/desktop/latest/pages/overview.html)다. 2026-11-03 지금 control_cli 는 명령 기준 22.5/68(약 33%), P2-A 뒤 37.5/68(약 55%), P2-B 뒤 약 52.5/68(약 77% — 찾기 5 · 오브젝트 9.5 · PNG 0.5), P2-C 뒤에는 표의 명령 갈래 중 알림(P2-D)만 남는다. 어림 셈으로는 입력 16개(아래 입력 줄의 12 + Pointer 넷)를 더해 68.5 가 되어 68 을 넘으니 앞 셈이 겹쳐 셌다 — P2-D 설계 때 AltTester 명령 목록으로 다시 센다.
 ✓ 는 지금 있음, 단계는 넣을 곳.
 
 | AltTester 갈래 | 명령 · 기능 | 지금 | 단계 |
@@ -14,7 +14,7 @@
 | 찾기 | FindObjects · FindObjectWhichContains · FindObjectsWhichContain · WaitForObjectWhichContains · FindObjectAtCoordinates · 선택자(By NAME · PATH · TAG · LAYER · COMPONENT · TEXT · ID) · 꺼진 오브젝트(`enabled: false`) · 카메라(`cameraBy`) | ✓ `find-all` · `//*[contains(@name,…)]` · `wait` 에 선택자 · `find-at` · AltTester PATH 꼴 선택자(`@tag` · `@layer` · `@component` · `@text` · `@id` 영구 id) · `inactive` · `camera` | P2-B |
 | 설정 | SetCommandResponseTimeout · Get/SetDelayAfterCommand · Get/SetImplicitTimeout | ✓ `config --wait`(ImplicitTimeout). 명령 시간 초과 · 명령 뒤 쉼은 필요 없음 — 기다리기를 CLI 가 짧은 명령 되풀이로 해 명령 하나가 1초 안팎(사용자) | P2-B |
 | 입력 | PressKey · Click · Tap(좌표) · Swipe | ✓ `key` · `tap` · `drag` | — |
-| 입력 | KeyDown · KeyUp · HoldButton · PressKeys · MoveMouse · Scroll · MultipointSwipe · BeginTouch · MoveTouch · EndTouch · Tilt · ResetInput · 조이스틱 · Pointer Down/Up/Enter/Exit | | P2-C |
+| 입력 | KeyDown · KeyUp · HoldButton · PressKeys · MoveMouse · Scroll · MultipointSwipe · BeginTouch · MoveTouch · EndTouch · Tilt · ResetInput · 조이스틱 · Pointer Down/Up/Enter/Exit | ✓ `key-down` · `key-up` · `long-press` · `key A+B` · `mouse-move` · `scroll` · `swipe` · `drag --via` · `touch-down/move/up` · `tilt` · `input-reset` · 조이스틱 `JoystickButton` · `pointer` | P2-C |
 | 스크린샷 | GetPNGScreenshot | ✓ JPEG · PNG(`screenshot {format: png}` · `snapshot --png`) | P2-B |
 | 게임 상태 | GetCurrentScene · GetApplicationScreenSize | ✓ `tree` 의 `scene` · `screen` | — |
 | 게임 상태 | LoadScene · UnloadScene · GetAllLoadedScenes · WaitForCurrentSceneToBe · Get/SetTimeScale · PlayerPrefs(읽기 · 쓰기 · 키 지우기 · 다 지우기) · CallStaticMethod · Get/SetStaticProperty | ✓ `scene-load` · `scene-unload` · `scenes` · `scene-wait`(CLI) · `timescale-get/set` · `pref-get/set/delete/clear` · `static-call/get/set` | P2-A |

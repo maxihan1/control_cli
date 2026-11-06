@@ -3,12 +3,14 @@ using System;
 using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
 using UnityEngine.Scripting;
 using UnityEngine.UI;
@@ -31,9 +33,10 @@ namespace ControlCli
             "call", "set", "static-call", "static-get", "static-set", "pref-get", "pref-set", "pref-delete", "pref-clear",
             "timescale-get", "timescale-set", "scenes", "scene-load", "scene-unload",
             "find-all", "find-at", "components", "members", "text-set",
+            "touch-down", "touch-move", "touch-up", "swipe", "long-press", "mouse-move", "scroll", "key-down", "key-up", "tilt", "pointer", "input-reset",
         };
         // sdk/unity/package.json 의 version 과 같다(src/protocol.test.ts 가 본다).
-        public const string SdkVersion = "0.5.0";
+        public const string SdkVersion = "0.6.0";
 
         private sealed class Request
         {
@@ -55,8 +58,8 @@ namespace ControlCli
             public string prop;
             public string key;
             public long since;
-            public float x;
-            public float y;
+            public float x = float.NaN;
+            public float y = float.NaN;
             public string method;
             public string[] args;
             public string value;
@@ -71,6 +74,18 @@ namespace ControlCli
             public string camera;
             public string component;
             public string format;
+            // 입력(P2-C) — 0 이 뜻 있는 칸은 「칸 없음」과 갈라 둔다.
+            public int finger = -1;
+            public float duration = -1;
+            public int count = 1;
+            public float interval = 0.1f;
+            public float power = 1;
+            public string[] via;
+            public string[] points;
+            public float dx;
+            public float dy;
+            public float z = float.NaN;
+            public string @event;
         }
 
         private readonly ConcurrentQueue<Request> _requests = new ConcurrentQueue<Request>();
@@ -154,7 +169,8 @@ namespace ControlCli
             if (_waiting != null)
             {
                 // 시간 초과(3)면 답할 곳이 없다 — 남은 가짜 입력을 거두고 넘어간다.
-                if (Volatile.Read(ref _waiting.State) == 3) _cancel?.Invoke();
+                var cancelled = Volatile.Read(ref _waiting.State) == 3;
+                if (cancelled) _cancel?.Invoke();
                 else
                 {
                     var reply = _ready();
@@ -165,6 +181,8 @@ namespace ControlCli
                 _waiting = null;
                 _ready = null;
                 _cancel = null;
+                // 거둔 Canceled · 뗌은 다음 프레임에 나간다 — 같은 프레임에 다음 명령을 걸면 새 손가락의 Began 과 한 Mouse 상태로 섞여 끌기로 읽힌다.
+                if (cancelled) return;
             }
             while (_requests.TryDequeue(out var request))
             {
@@ -173,12 +191,12 @@ namespace ControlCli
                 try { reply = Handle(request.Line.Trim()); }
                 catch (Exception e) { reply = Error(e.GetType().Name + ": " + e.Message); }
                 // null 은 Handle 이 _ready 를 걸고 답을 미뤘다는 뜻이다.
-                if (reply != null && !FakeTouches.Idle)
+                if (reply != null && !FakeInput.Idle)
                 {
                     // 람다는 변수를 잡는다 — 아래에서 reply 를 비우므로 답을 따로 둔다.
                     var done = reply;
-                    _ready = () => FakeTouches.Idle ? done : null;
-                    _cancel = FakeTouches.Cancel;
+                    _ready = () => FakeInput.Idle ? done : null;
+                    _cancel = FakeInput.Reset;
                     reply = null;
                 }
                 if (reply == null)
@@ -195,6 +213,7 @@ namespace ControlCli
         {
             if (!line.StartsWith("{")) return Error("명령은 JSON 한 줄이어야 합니다 — {\"cmd\":\"ping\"}");
             var c = JsonUtility.FromJson<Command>(line);
+            if (Limits(c) is string limit) return limit;
             switch (c.cmd)
             {
                 case "ping":
@@ -209,6 +228,7 @@ namespace ControlCli
                     return FindAllReply(c.target, c.inactive, c.camera);
                 case "find-at":
                 {
+                    if (float.IsNaN(c.x) || float.IsNaN(c.y)) return Error(c.cmd + " 에 x · y 가 필요합니다");
                     if (!CameraOf(c.camera, out var cam, out var problem)) return Error(problem);
                     var hit = Select.At(new Vector2(c.x, c.y), cam);
                     var trail = hit.Exists ? Tree.TrailOf(hit, false) : null;
@@ -227,15 +247,18 @@ namespace ControlCli
                 case "text-set":
                     return SetText(c.target, c.text ?? "", c.inactive);
                 case "tap":
+                {
+                    if (float.IsNaN(c.x) || float.IsNaN(c.y)) return Error(c.cmd + " 에 x · y 가 필요합니다");
                     var point = new Vector2(c.x, c.y);
-                    FakeTouches.Tap(point);
-                    return Touched(point);
+                    return WithFinger(f => FakeInput.Tap(f, point, c.count, c.interval), Touched(point));
+                }
                 case "key":
+                {
                     // 키 이름은 KeyCode 이름(대소문자 무시) — Escape 는 폰 뒤로 키와 같다(Unity 가 뒤로 키를 Escape 로 준다).
-                    if (string.IsNullOrEmpty(c.key) || !Enum.TryParse<KeyCode>(c.key, true, out var key) || key == KeyCode.None)
-                        return Error("모르는 키입니다: " + c.key + " (KeyCode 이름 — Escape · Space · Return · A · Alpha1 · F1 · UpArrow …)");
-                    FakeKeys.Press(key);
-                    return "{\"ok\":true,\"key\":" + Json.Str(key.ToString()) + "}";
+                    if (!Keys(c.key, out var keys, out var problem)) return Error(problem);
+                    FakeInput.Run(FakeInput.Keys(keys, c.power, Mathf.Max(c.duration, 0)));
+                    return "{\"ok\":true,\"key\":" + Json.Str(string.Join("+", keys)) + "}";
+                }
                 case "screenshot":
                     if (!string.IsNullOrEmpty(c.format) && c.format != "jpg" && c.format != "png") return Error("format 은 jpg · png 중 하나입니다");
                     _shot = null;
@@ -246,17 +269,97 @@ namespace ControlCli
                 {
                     if (!CameraOf(c.camera, out var cam, out var problem)) return Error(problem);
                     if (!Point(c.target, cam, out var at, out problem)) return Error(problem);
-                    FakeTouches.Tap(at);
-                    return Touched(at);
+                    return WithFinger(f => FakeInput.Tap(f, at, c.count, c.interval), Touched(at));
                 }
                 case "drag":
                 {
                     if (!CameraOf(c.camera, out var cam, out var problem)) return Error(problem);
-                    if (!Point(c.target, cam, out var from, out problem)) return Error(problem);
-                    if (!Point(c.to, cam, out var to, out problem)) return Error(problem);
-                    FakeTouches.Drag(from, to);
-                    return Touched(to);
+                    var stops = new List<string> { c.target };
+                    if (c.via != null) stops.AddRange(c.via);
+                    stops.Add(c.to);
+                    var points = new Vector2[stops.Count];
+                    for (var i = 0; i < stops.Count; i++)
+                        if (!Point(stops[i], cam, out points[i], out problem)) return Error(problem);
+                    return WithFinger(f => FakeInput.Path(f, points, Mathf.Max(c.duration, 0)), Touched(points[points.Length - 1]));
                 }
+                case "touch-down":
+                {
+                    if (!At(c, out var p, out var problem)) return Error(problem);
+                    var f = FakeTouches.Free();
+                    if (f < 0) return Error(AllDown);
+                    FakeTouches.Press(f, p, 1);
+                    FakeInput.Run(FakeInput.Settle());
+                    return "{\"ok\":true,\"finger\":" + f + ",\"x\":" + Mathf.RoundToInt(p.x) + ",\"y\":" + Mathf.RoundToInt(p.y) + "}";
+                }
+                case "touch-move":
+                {
+                    if (!FakeTouches.IsDown(c.finger)) return Error(NotDown(c.finger));
+                    if (!At(c, out var p, out var problem)) return Error(problem);
+                    FakeTouches.Move(c.finger, p);
+                    FakeInput.Run(FakeInput.Settle());
+                    return Touched(p);
+                }
+                case "touch-up":
+                    if (!FakeTouches.IsDown(c.finger)) return Error(NotDown(c.finger));
+                    FakeTouches.Release(c.finger);
+                    FakeInput.Run(FakeInput.Settle());
+                    return "{\"ok\":true}";
+                case "swipe":
+                {
+                    var points = new List<Vector2>();
+                    foreach (var s in c.points ?? new string[0])
+                    {
+                        var xy = s.Split(',');
+                        if (xy.Length != 2 || !float.TryParse(xy[0], NumberStyles.Float, CultureInfo.InvariantCulture, out var px) || !float.TryParse(xy[1], NumberStyles.Float, CultureInfo.InvariantCulture, out var py)
+                            || float.IsNaN(px) || float.IsInfinity(px) || float.IsNaN(py) || float.IsInfinity(py)) return Error(PointsForm);
+                        points.Add(new Vector2(px, py));
+                    }
+                    if (points.Count < 2) return Error(PointsForm);
+                    return WithFinger(f => FakeInput.Path(f, points.ToArray(), Mathf.Max(c.duration, 0)), Touched(points[points.Count - 1]));
+                }
+                case "long-press":
+                {
+                    if (!At(c, out var p, out var problem)) return Error(problem);
+                    var seconds = c.duration < 0 ? 1 : c.duration;
+                    return WithFinger(f => FakeInput.Hold(f, p, seconds), Touched(p));
+                }
+                case "mouse-move":
+                {
+                    if (!At(c, out var p, out var problem)) return Error(problem);
+                    FakeInput.Run(FakeInput.MouseTo(p, Mathf.Max(c.duration, 0)));
+                    return Touched(p);
+                }
+                case "scroll":
+                {
+                    Vector2? at = null;
+                    if (!string.IsNullOrEmpty(c.target) || !float.IsNaN(c.x) || !float.IsNaN(c.y))
+                    {
+                        if (!At(c, out var p, out var problem)) return Error(problem);
+                        at = p;
+                    }
+                    FakeInput.Run(FakeInput.Scroll(at, new Vector2(c.dx, c.dy), Mathf.Max(c.duration, 0)));
+                    return "{\"ok\":true}";
+                }
+                case "key-down":
+                case "key-up":
+                {
+                    if (!Keys(c.key, out var keys, out var problem)) return Error(problem);
+                    foreach (var k in keys)
+                        if (c.cmd == "key-down") FakeKeys.Press(k, c.power);
+                        else FakeKeys.Release(k);
+                    FakeInput.Run(FakeInput.Settle());
+                    return "{\"ok\":true}";
+                }
+                case "tilt":
+                    if (float.IsNaN(c.x) || float.IsNaN(c.y) || float.IsNaN(c.z)) return Error("tilt 에 x · y · z 가 필요합니다");
+                    FakeInput.Run(FakeInput.TiltFor(new Vector3(c.x, c.y, c.z), Mathf.Max(c.duration, 0)));
+                    return "{\"ok\":true}";
+                case "pointer":
+                    return PointerReply(c);
+                case "input-reset":
+                    FakeInput.Reset();
+                    FakeInput.Run(FakeInput.Settle());
+                    return "{\"ok\":true}";
                 case "type":
                     return TypeText(c.target, c.text ?? "");
                 case "get":
@@ -534,6 +637,82 @@ namespace ControlCli
 #else
             _shot = Error("이 게임은 ImageConversion 모듈(com.unity.modules.imageconversion)을 빼서 화면을 찍을 수 없습니다");
 #endif
+        }
+
+        private const string AllDown = "손가락 10개가 다 눌려 있습니다 — touch-up · input-reset 으로 뗍니다";
+
+        // 비어 있는 손가락으로 일을 건다 — 10개가 다 눌려 있으면 실패 글.
+        private static string WithFinger(Func<int, IEnumerator> job, string reply)
+        {
+            var finger = FakeTouches.Free();
+            if (finger < 0) return Error(AllDown);
+            FakeInput.Run(job(finger));
+            return reply;
+        }
+
+        private const string PointsForm = "swipe 의 points 는 \"x,y\" 글자 둘 이상입니다 — [\"540,400\", \"540,900\"]";
+
+        // 명령 하나는 8초 안 — SDK 답 한도 10초 · 팜 15초. 더 오래 누르기는 down/up 두 명령으로. 횟수 · 세기 칸도 여기서 본다.
+        private static string Limits(Command c)
+        {
+            if (c.count < 1) return Error("count 는 1 이상입니다");
+            if (c.power < -1 || c.power > 1) return Error("power 는 -1~1 입니다");
+            // 프레임도 센다 — 누름마다 2프레임 · 끌기 한 마디에 적어도 10프레임을 30fps 로 어림(TS 가짜 SDK 와 같은 셈). 2L 은 count 가 아주 클 때 넘침을 막는다.
+            var frames = (c.cmd == "tap" || c.cmd == "click" ? c.count * 2L : 0) + (c.cmd == "drag" ? ((c.via?.Length ?? 0) + 1) * 10 : 0) + (c.cmd == "swipe" ? Math.Max((c.points?.Length ?? 0) - 1, 0) * 10 : 0);
+            var seconds = Mathf.Max(c.duration, 0) + (c.count - 1) * Mathf.Max(c.interval, 0) + frames / 30f;
+            return seconds > FakeInput.LongestSeconds ? Error(c.cmd + " 은 " + FakeInput.LongestSeconds + "초 안이어야 합니다 — 더 길게는 touch-down · key-down 뒤 touch-up · key-up") : null;
+        }
+
+        // 한 점 명령의 자리 — target 이 있으면 그 오브젝트 화면 가운데, 없으면 x · y.
+        private static bool At(Command c, out Vector2 point, out string problem)
+        {
+            point = default;
+            if (!CameraOf(c.camera, out var cam, out problem)) return false;
+            if (!string.IsNullOrEmpty(c.target)) return Point(c.target, cam, out point, out problem);
+            if (float.IsNaN(c.x) || float.IsNaN(c.y))
+            {
+                problem = c.cmd + " 에 target 또는 x · y 가 필요합니다";
+                return false;
+            }
+            point = new Vector2(c.x, c.y);
+            return true;
+        }
+
+        // A+LeftShift — KeyCode 이름을 + 로 이어 함께 누른다(대소문자 무시).
+        private static bool Keys(string text, out KeyCode[] keys, out string problem)
+        {
+            var parts = (text ?? "").Split('+');
+            keys = new KeyCode[parts.Length];
+            problem = null;
+            for (var i = 0; i < parts.Length; i++)
+            {
+                // Enum.TryParse 는 숫자(8 → Backspace) · 쉼표(A,B → 두 값을 OR)도 받는다 — 이름으로 있는 키만.
+                var name = parts[i].Trim();
+                if (!int.TryParse(name, out _) && name.IndexOf(',') < 0 && Enum.TryParse(name, true, out keys[i]) && keys[i] != KeyCode.None && Enum.IsDefined(typeof(KeyCode), keys[i])) continue;
+                problem = "모르는 키입니다: " + parts[i] + " (KeyCode 이름 — Escape · Space · Return · A · Alpha1 · F1 · UpArrow · Mouse0 · JoystickButton0 …, 여럿은 A+LeftShift)";
+                return false;
+            }
+            return true;
+        }
+
+        private static string NotDown(int finger) => "손가락 " + finger + " 은 눌려 있지 않습니다 — touch-down 이 준 번호를 씁니다";
+
+        // AltTester PointerDown/Up/Enter/Exit — 그 GameObject 하나의 EventSystem 처리기를 바로 부른다(부모로 안 올린다). position 은 그 오브젝트 화면 가운데.
+        private static string PointerReply(Command c)
+        {
+            var item = Tree.Find(c.target, out var problem);
+            if (!item.Exists) return Error(problem);
+            if (item.Go == null) return Error(c.target + " 은 UI Toolkit 요소라 pointer 를 못 보냅니다 — mouse-move · touch-down 으로");
+            var data = new PointerEventData(EventSystem.current) { position = Tree.ScreenPoint(item) ?? Vector2.zero, pointerEnter = item.Go, pointerPress = item.Go };
+            switch (c.@event)
+            {
+                case "down": ExecuteEvents.Execute(item.Go, data, ExecuteEvents.pointerDownHandler); break;
+                case "up": ExecuteEvents.Execute(item.Go, data, ExecuteEvents.pointerUpHandler); break;
+                case "enter": ExecuteEvents.Execute(item.Go, data, ExecuteEvents.pointerEnterHandler); break;
+                case "exit": ExecuteEvents.Execute(item.Go, data, ExecuteEvents.pointerExitHandler); break;
+                default: return Error("event 는 down · up · enter · exit 중 하나입니다");
+            }
+            return "{\"ok\":true}";
         }
 
         private static string Touched(Vector2 p) =>

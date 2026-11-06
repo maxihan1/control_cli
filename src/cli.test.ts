@@ -13,7 +13,7 @@ import { SETTLE, WAIT } from './game.js';
 
 Object.assign(SETTLE, { maxMs: 30, stepMs: 5 });
 Object.assign(WAIT, { intervalMs: 5 });
-Object.assign(CONFORM, { waitMs: 50 });
+Object.assign(CONFORM, { waitMs: 50, holdS: 0.1, dragS: 0, keyS: 0 });
 Object.assign(TIMING, { openWaitMs: 200, openStepMs: 5, cleanWaitMs: 100, cleanStepMs: 5 });
 
 const status = node('StatusText', { text: '' });
@@ -193,12 +193,12 @@ test('게임 SDK 의 caps 에 없는 명령은 보내지 않고 미리 거절한
   }
 });
 
-test('conform — 표준 화면이면 33줄 통과, 다르면 종료 코드로 알린다', async () => {
+test('conform — 표준 화면이면 48줄 통과, 다르면 종료 코드로 알린다', async () => {
   const ok = await fakeTcp(standardScreen());
   const bad = await fakeTcp(new FakeGame([node('Boot')]));
   try {
     await cli('-s=cf', 'open', '--pc', '--port', String(ok.port));
-    assert.match(await cli('-s=cf', 'conform', '--port', String(ok.port)), /통과 33 · 실패 0 · 건너뜀 0/);
+    assert.match(await cli('-s=cf', 'conform', '--port', String(ok.port)), /통과 48 · 실패 0 · 건너뜀 0/);
     await cli('-s=cf', 'close');
     await cli('-s=cf2', 'open', '--pc', '--port', String(bad.port));
     await assert.rejects(cli('-s=cf2', 'conform', '--port', String(bad.port)), /통과 \d+ · 실패 [1-9]/);
@@ -265,6 +265,45 @@ test('찾기 · 설정 명령 — Ran 줄이 kit 의 game.* 이름 · 인자 꼴
     await assert.rejects(fs('config', '--wait', '0'), /--wait 은 0 보다 큰 초입니다/);
     await assert.rejects(fs('find-at', '1'), /find-at <x> <y> \[--camera <주소>\] 꼴이어야 합니다/);
     await fs('close');
+  } finally {
+    pc.server.close();
+  }
+});
+
+test('입력 명령 — Ran 줄이 kit 의 game.* 이름 · 인자 꼴로 찍히고, 좌표는 Ran 줄이 없고, 음수도 읽는다', async () => {
+  const pc = await fakeTcp(standardScreen());
+  const io = (...argv: string[]) => cli('-s=io', ...argv, '--port', String(pc.port));
+  try {
+    await io('open', '--pc');
+    assert.match(await io('click', 'LoginButton', '--count', '2', '--interval', '0.2'), /^Ran: await game\.click\('LoginButton', \{ count: 2, interval: 0\.2 \}\)/);
+    assert.match(await io('touch-down', 'Item'), /^Ran: await game\.touchDown\('Item'\)\n- 손가락 10\n/);
+    assert.match(await io('touch-move', '10', '/SampleCanvas/Bag/Slot[1]'), /^Ran: await game\.touchMove\(10, '\/SampleCanvas\/Bag\/Slot\[1\]'\)/);
+    assert.match(await io('touch-up', '10'), /^Ran: await game\.touchUp\(10\)/);
+    assert.match(await io('touch-down', '100', '200'), /^- 좌표 \(100, 200\) 누름 — 케이스에는 주소로 씁니다\n- 손가락 10\n/);
+    assert.match(await io('drag', 'Item', '/SampleCanvas/Bag/Slot[3]', '--via', '/SampleCanvas/Bag/Slot[2]', '--duration', '0.5'), /^Ran: await game\.drag\('Item', '\/SampleCanvas\/Bag\/Slot\[3\]', \{ via: \['\/SampleCanvas\/Bag\/Slot\[2\]'\], duration: 0\.5 \}\)/);
+    assert.match(await io('swipe', '810,550', '810,850', '--duration', '0.3'), /^- 좌표 810,550 → 810,850 끎 — 케이스에는 drag 로 씁니다/);
+    assert.match(await io('long-press', 'HoldBox', '--duration', '1'), /^Ran: await game\.longPress\('HoldBox', \{ duration: 1 \}\)/);
+    assert.match(await io('mouse-move', 'HoldBox'), /^Ran: await game\.mouseMove\('HoldBox'\)/);
+    assert.match(await io('scroll', 'ScrollList', '-10'), /^Ran: await game\.scroll\(-10, \{ at: 'ScrollList' \}\)/);
+    assert.match(await io('scroll', '3', '--dx', '1'), /^Ran: await game\.scroll\(3, \{ dx: 1 \}\)/);
+    assert.match(await io('key', 'A+LeftShift', '--duration', '0.5'), /^Ran: await game\.key\('A\+LeftShift', \{ duration: 0\.5 \}\)/);
+    assert.match(await io('key-down', 'JoystickButton16', '--power', '-1'), /^Ran: await game\.keyDown\('JoystickButton16', \{ power: -1 \}\)/);
+    assert.match(await io('key-up', 'JoystickButton16'), /^Ran: await game\.keyUp\('JoystickButton16'\)/);
+    assert.match(await io('tilt', '0', '-5', '0', '--duration', '1'), /^Ran: await game\.tilt\(\[0, -5, 0\], \{ duration: 1 \}\)/);
+    assert.match(await io('pointer', 'HoldBox', 'enter'), /^Ran: await game\.pointer\('HoldBox', 'enter'\)/);
+    assert.match(await io('input-reset'), /^Ran: await game\.resetInput\(\)/);
+    await assert.rejects(io('pointer', 'HoldBox', 'press'), /pointer <ref\|주소> <down\|up\|enter\|exit> 꼴이어야 합니다/);
+    await assert.rejects(io('long-press', 'HoldBox', '--duration', '9'), /long-press 은 8초 안이어야 합니다/);
+    await assert.rejects(io('touch-up', 'x'), /touch-up <손가락 번호> 꼴이어야 합니다/);
+    await assert.rejects(io('swipe', '1,1'), /swipe <x,y> <x,y> \[x,y…\] \[--duration <초>\] 꼴이어야 합니다/);
+    await assert.rejects(io('click', 'LoginButton', '--count', 'two'), /--count 은 수입니다/);
+    // -.5 도 음수 · 빈 글자는 0 이 아니다 · 수가 아닌 좌표는 SDK 로 안 간다
+    assert.match(await io('tilt', '0', '-.5', '0'), /^Ran: await game\.tilt\(\[0, -0\.5, 0\]\)/);
+    await assert.rejects(io('scroll', ''), /scroll \[<ref\|주소> \| <x> <y>\] <dy>/);
+    await assert.rejects(io('tilt', '', '0', '0'), /tilt <x> <y> <z>/);
+    await assert.rejects(io('click', 'LoginButton', '--count', ''), /--count 은 수입니다/);
+    await assert.rejects(io('swipe', '1.2.3,4', '5,6'), /swipe <x,y> <x,y>/);
+    await io('close');
   } finally {
     pc.server.close();
   }
