@@ -22,6 +22,8 @@
 - Ashveil 하네스는 어셈블리 목록을 손으로 적는다. 여기서는 TMP · Input System 같은 남의 패키지 소스까지 컴파일해야 해서 asmdef 를 읽어 잡는다
 - 남의 패키지는 asmdef 참조가 실제와 다르다 — TMP 3.0.9 는 `references: []` 인데 `UnityEngine.UI` 를 쓰고, Input System 은 없는 이름 `Unity.ugui` 를 적는다. 검사 대상이 아니므로 적힌 참조에 `UnityEngine.UI` 를 늘 더해 너그럽게 둔다. SDK · 확인 어셈블리만 적힌 참조 그대로, 건너 참조도 끄고 엄격하게
 - SDK · 확인 어셈블리에서 참조로 닿는 어셈블리만 빌드한다 — U0 에서는 TMP · Input System 이 아직 안 닿아 `UnityEngine.UI` 만 함께 빌드된다. U3 · U4 가 참조를 더하면 그때 소스로 빌드된다
+- 판 — 2021.3.45f1 · 2022.3.62f1 · 6000.0.84f1(Ashveil). 주소는 Release API 에서 받는다(세 판 모두 `LinuxEditorInstaller/Unity-<판>.tar.xz` 확인)
+- 패키지 — Input System 1.11.2(`unity: 2019.4` 라 세 판 공통) · TMP 3.0.9(2021/2022 만. Unity 6 은 ugui 2.0 안에 있다)
 - CI 첫 실행(PR #5, run 41595760258) — 9개 구성 모두 성공. 받기 2~6분, 컴파일 30초 안팎
 
 ## 2026-11-03 — U1 샘플
@@ -52,5 +54,73 @@
 - 옛 Input 마우스 흉내는 `simulateMouseWithTouches`(기본 켜짐)일 때만 — PC 에서도 기본이 켜짐이라 U6 의 「옛 Input 게임 가짜 마우스」가 여기서 같이 풀린다. 뗀 프레임에는 `GetMouseButtonUp` 만 참(Unity 와 같게)
 - 샘플 입력 설정은 빌드 스크립트가 `PlayerSettings` 를 직렬화로 고친다(`activeInputHandler`) — 공개 API 가 없고 Input System 패키지 설정 창도 같은 길이다. 같은 실행 안에서 플레이어 컴파일 정의에 먹는지는 샘플 빌드로 확인한다
 - 샘플 matrix 는 4개 — 6000.0 옛 Input(Ashveil 모양) · 6000.0 Input System 만 · 2022.3 둘 다 · 2021.3 옛 Input. Personal 좌석이라 차례로 돌아 하나에 수십 분이다
-- 판 — 2021.3.45f1 · 2022.3.62f1 · 6000.0.84f1(Ashveil). 주소는 Release API 에서 받는다(세 판 모두 `LinuxEditorInstaller/Unity-<판>.tar.xz` 확인)
-- 패키지 — Input System 1.11.2(`unity: 2019.4` 라 세 판 공통) · TMP 3.0.9(2021/2022 만. Unity 6 은 ugui 2.0 안에 있다)
+
+## 2026-11-03 — U5 UI Toolkit
+
+- 게임 오브젝트와 요소를 한 `Item` 으로 담고, 트리 · 이름 찾기 · 경로 찾기 · `PathOf` 가 모두 `ChildrenOf` 하나로 내려간다 — CLI `flatten` 이 트리에서 셈한 경로와 SDK 가 받는 경로가 늘 같아야 한다
+- `PathOf` 는 위로 올라가지 않는다 — 요소의 `parent` 사슬에는 트리에 없는 속 칸(ScrollView 내용 칸)이 끼어 아래로 내려간 경로와 어긋난다
+- 컨트롤 속은 내보내지 않는다 — 안쪽 요소는 컨트롤의 일부이고, 비밀번호 TextField 속 글자 칸이 실제 글자를 드러낼 수 있다
+- 누를 자리 — 공개 `RuntimePanelUtils.ScreenToPanel` 은 내부 `screenToPanelSpace(screen) / scale` 이라(UnityCsReference 2022.3 `Panel.cs`) 위아래 뒤집은 화면 좌표의 1차식이다. 두 점으로 거꾸로 풀어 배율 · 화면 맞춤 여백까지 맞춘다
+- EventSystem 이 없는 옛 Input 게임 — 기본 이벤트 시스템은 `UnityEngine.Input` 을 바로 읽는다(`DefaultEventSystem.ProcessTouchEvents`). SDK 가 EventSystem 을 만들면 QA 빌드에서만 `EventSystem.current` 가 달라져, 같은 차례(뒤집기 → `ScreenToPanel` → `GetPooled(touch)` → `visualTree.SendEvent`)로 panel 에 직접 보낸다. 이 길은 샘플에 없어(샘플은 EventSystem 이 있다) 실제 게임에서 본다
+- 하네스가 2021.3 에서 CS0104 를 잡았다 — `UnityEngine.UI` 와 `UnityEngine.UIElements` 둘 다 `Button` · `Toggle` · `Slider` 가 있다. UI Toolkit 쪽을 전체 이름으로 쓴다
+- `layout` 은 uGUI 만 본다(범위 밖) — UI Toolkit 요소를 범위로 주면 거절한다
+
+## 2026-11-03 — U6 PC
+
+- 답 미루기를 「준비되면 답」 하나로 — `_ready`(준비 전 null) · `_cancel`(시간 초과 때). 터치 · 키 · 스크린샷이 같은 길이다. 람다가 `reply` 변수를 잡아 아래에서 비우면 영원히 null 이라 답을 따로 둔다
+- 스크린샷은 `ReadPixels` + `EncodeToJPG(80)` — ScreenCapture 모듈 없이 ImageConversion 하나만 쓴다(`versionDefines` 로 없으면 실패 답). JPEG 라 PNG 보다 몇 배 작다. 팜은 수 MB 를 HTTP 로 나르지 않게 지금처럼 Appium
+- Appium 이 없으면 CLI 가 SDK 스크린샷을 쓴다 — PC 뿐 아니라 「USB 로 이미 켠 게임」도 이제 스크린샷이 생긴다
+- 키 — 한 프레임 누름 → 한 프레임 뗌. KeyCode 이름만 받는다. `GetKey(string)` 은 KeyCode 와 이름이 일대일이 아니라 섞지 않는다. Unity 는 Android 뒤로 키를 `Escape` 로 줘서 창 훑기의 뒤로 키를 Appium 없이 `key Escape` 로 한다
+- Input System 은 standalone 에서 `Touchscreen` 대신 `Mouse` — 둘 다 넣으면 UI 입력 모듈이 두 번 누른다. 플랫폼은 `#if UNITY_STANDALONE` 이 아니라 `Application.isMobilePlatform` 으로 가른다 — 하네스에 플랫폼 축이 없어 `#if` 안은 컴파일 검사를 못 받는다
+- 창 초점 — `runInBackground` · Input System `backgroundBehavior = IgnoreFocus`(1.1.0 부터 있어 `CONTROL_CLI_INPUTSYSTEM` 조건을 1.1.0 이상으로 올렸다 · Unity 2021.3 용은 1.3 이상) · uGUI 는 `StandaloneInputModule` 이 `!isFocused` 면 입력을 버려 가짜 터치가 나가는 프레임에 EventSystem 의 `OnApplicationFocus(true)` 를 reflection 으로 부른다(SendMessage 는 같은 오브젝트의 게임 스크립트까지 부른다)
+- `open --pc` 는 팜용 `PLATFORM_APP`(APK)을 보지 않는다. macOS `.app` 은 `Contents/MacOS` 안 실행 파일을 바로 띄워야 프로세스 번호를 잡아 `close` 가 끈다
+- 샘플 PC 빌드는 Mono — 리눅스 CI 는 mac · Windows IL2CPP 를 못 굽는다
+
+## 2026-11-03 — U7 iOS
+
+- 폰 포트는 usbmuxd 로 명령마다 잇는다 — `/var/run/usbmuxd` 는 누구나 쓸 수 있는 유닉스 소켓(이 맥 확인)이고, plist `Connect`(DeviceID · network byte order 포트)가 `Result 0` 이면 그 소켓이 그대로 폰의 13100 이다. iproxy 처럼 떠 있는 프로세스를 세션마다 맡을 일이 없다
+- plist 는 다 풀지 않는다 — 기기마다 Properties 키가 알파벳 차례라 `ConnectionType → DeviceID → SerialNumber` 로 읽는다. 같은 폰이 USB · Wi-Fi 로 두 번 나와 USB 만 고른다
+- Connect 답을 읽고 소켓을 `pause()` 해 둔다 — 명시적으로 멈춘 소켓은 `data` listener 를 붙여도 안 흐르므로 `talk` 가 `resume()` 한다
+- 깔기 · 켜기 · 끄기는 `xcrun devicectl`(Xcode 15+ · iOS 17+, 이 맥 Xcode 26.3) — Appium XCUITest 의 WebDriverAgent 서명 없이 된다. `install app` 은 `.app` 묶음을 받고, bundle id 는 `plutil` 로 `Info.plist` 에서 읽는다. 결과는 표 대신 `--json-output` 파일을 읽는다(`result.process.processIdentifier`). 실기기 없이 확인 못 한 부분이다
+- `open --ios` 는 Android 용 `PLATFORM_APP` · `PLATFORM_DEVICE_UDID` 를 보지 않는다. 뒤로 키가 없어 창 훑기는 `back` 없이 돈다
+- 테스트는 libimobiledevice 와 같은 환경값 `USBMUXD_SOCKET_ADDRESS` 로 가짜 usbmuxd 를 띄운다 — Wi-Fi(7) · USB(9) 두 줄에서 9 로, 포트 13100 으로 잇는지 본다
+- PC 테스트 스크립트를 `exec sleep` 으로 — `sh` 만 끄면 `sleep` 이 고아로 남는다
+
+## 2026-11-03 — 샘플 첫 빌드 (Secret 등록 뒤, run 41604854616)
+
+- Secret 은 Ashveil 과 같은 CI 전용 Unity 계정으로 사용자가 넣었다(이 맥 Unity Hub 에 로그인된 계정과 같다). 같은 계정이라 Ashveil CI 와 동시에 돌면 좌석을 다툴 수 있다
+- 6000.0 · 옛 Input · Android 첫 빌드 초록 — Unity 로그인 · Personal 좌석 받기 · 끝에 돌려주기, instrument 가 PR 머리 커밋(16ff5bc)의 SDK 를 git UPM 으로 받음, IL2CPP 빌드에 `ControlCli.Runtime` · `ControlCli.Input` · `Sample` 이 든다, APK 28MB, SDK 경고 0
+- U2 확인 — 의존을 `1.0.0` 으로 적어도 Unity 6 에서 `com.unity.ugui@2.0.0` 이 잡힌다
+- **TMP 기본 리소스가 안 들어왔다** — 공개 `AssetDatabase.ImportPackage` 는 `DelayedImportPackageAssets`(UnityCsReference 6000.0 `PackageUtility.bindings.cs`)로 미뤄 가져오고, game-ci 가 빌드 메서드 뒤 Unity 를 꺼 끝내 안 들어온다. 빌드 스크립트가 `.unitypackage`(tar.gz · GUID 폴더마다 asset · asset.meta · pathname — TMP 3.0.9 로 모양 확인)를 직접 풀고 `Refresh(ForceSynchronousImport)` 한다. 자리는 `PackageInfo.FindForAssetPath` 의 실제 폴더로
+- 이 고침은 맨 위 U8 에만 넣었다 — U3~U8 을 차례로 올리면 PR 여섯의 샘플 빌드가 한꺼번에 돌아 Personal 좌석을 다툰다. 차례대로 합치면 main 은 맞다
+
+## 2026-11-03 — 첫 실기기 시험 (팜 SM-G996N · 6000.0 옛 Input APK · 커밋 16ff5bc)
+
+- 됨 — 팜 `hold` → 로컬 APK 경로로 `open`(팜 Appium 이 이 맥 파일을 읽는다) → SDK 답. 트리에 uGUI · TMP(`TMP_InputField`) · UI Toolkit(`TextField` · `Button`)이 다 나온다. `type` 결과 — TMP `qauser01` · UI Toolkit `qa_user0`(maxLength 8 · 거르기 없음) · TMP · UI Toolkit 비밀번호 칸 `***` · Ran 줄도 `'***'`. 게임 코드(`TouchProbe`)는 가짜 터치를 받는다
+- **SDK 버그 — 가짜 손가락 번호 99** — UI Toolkit 은 터치 손가락을 0~19 만 받아(`PointerId.touchPointerCount`) EventSystem 의 `PanelRaycaster.Raycast` → `PointerDispatchState.GetCapturingElement` 가 `IndexOutOfRangeException` 을 던진다. 그 터치의 EventSystem 처리가 통째로 깨져 **uGUI · UI Toolkit 버튼이 다 안 눌렸다**. Ashveil(0단계)은 UI Toolkit 화면이 없어 몰랐다. 19 로 바꿨다(Input System `touchId` 도 같은 번호)
+- 샘플 — UI Toolkit 뿌리가 테마 없이 높이 0 이라 아래 붙임 패널이 화면 밖(안 보임) → 뿌리를 화면 가득으로. `BoxCollider` 를 엔진 코드 줄이기가 빼 큐브 누르기가 안 됨 → 샘플은 `stripEngineCode = false`. 큐브가 분홍(기본 셰이더 빠짐)인 것은 모양뿐이라 두었다
+- **열린 결정 — uGUI `type` 의 글자 수 · 거르기 차례** — uGUI `InputField.text` setter 는 먼저 `characterLimit` 로 자르고 거른다: `qa_user01!` → `qa_user0` → `qauser0`(7자). 키로 치면 한 글자씩 걸러 `qauser01`(8자)이고 TMP 는 SDK 가 그 차례로 거른다. uGUI 도 키 입력 차례로 바꿀지(지금 Ashveil 이 쓰는 길이 바뀐다) 사용자에게 묻는다
+
+## 2026-11-03 — 샘플 iOS 빌드 실패 · 가짜 Input 에서 location 뺌
+
+- run 41604854616 의 iOS 잡만 빨강 — `LocationService class is used but Location Usage Description is empty in Player Settings`. 샘플 게임 코드는 위치를 안 쓴다. 가짜 `Input` 이 `UnityEngine.Input` 을 전부 감싸며 `location` 까지 적어 IL 에 LocationService 가 남았다(엔진 코드 줄이기를 켠 16ff5bc 에서도 실패 — 샘플 설정 탓이 아니다)
+- 같은 까닭으로 Android QA 빌드는 위치 권한을 얻었다 — 2021.3 APK `aapt dump permissions` 에 `ACCESS_FINE_LOCATION` · `ACCESS_COARSE_LOCATION`. Ashveil QA 빌드도 같았을 것이다
+- 고침 — `location` 을 감싸지 않는다. 대가는 `Input.location` 을 적은 게임 파일이 QA 빌드에서만 CS0117(`UnityEngine.Input.location` 으로 적으면 풀림). 위치를 쓰는 게임은 드물고 권한 · iOS 빌드 부작용은 모든 게임에 생겨 빼는 쪽을 골랐다
+
+## 2026-11-03 — uGUI type 차례 (사용자 결정)
+
+- 키 입력 차례로 — uGUI 도 TMP 처럼 SDK 가 글자마다 거르고(`onValidateInput` 이 있으면 그것, 없으면 비공개 `Validate(string, int, char)`) 거른 결과가 `characterLimit` 에 차면 멈춘다. 그 결과를 `text` 에 넣으면 setter 는 이미 맞는 글자라 더 자르지 않는다
+- 까닭 — `type` 은 사람이 친 결과를 흉내 낸다. uGUI · TMP 가 같은 답(`qauser01`)을 낸다
+- 대가 — Ashveil 이 쓰는 uGUI 길이 바뀐다. 글자 수를 넘는 글자를 거르는 칸에 넣는 케이스만 결과가 달라진다(전에는 더 짧았다). test_platform 다음 줄 1번(Ashveil 회귀)에서 본다
+
+## 2026-11-03 — 두 번째 실기기 시험 (팜 RF9R408GKRR · SM-A325N · Android 13 · run 41613553747 · 커밋 346a64c)
+
+- 이 세션은 RF9R408GKRR 만 썼다(사용자 — 다른 폰은 다른 세션 몫)
+- APK 넷(6000.0 옛 Input · 6000.0 Input System · 2022.3 둘 다 · 2021.3 옛 Input) 모두 같은 결과 — TMP `qauser01` · UI Toolkit `qa_user0` · 세 로그인 버튼 상태 글자 · `drag` 뒤 `/SampleCanvas/Bag/Slot[3]/Item` · `cube 1` · `key I` · `tree` 에 `/UitkDocument/UitkPanel/…` · `errors` 0. 손가락 19 고침(383ca98)으로 uGUI · UI Toolkit 버튼이 다 눌린다. uGUI 만 `qauser0` — 이 빌드는 uGUI type 고침(2db810e) 전이다
+- **전체 화면 안내 창이 게임 시작을 막았다** — 이 폰(One UI · Android 13)은 처음 켜는 몰입 모드 앱마다 「이 앱은 전체 화면 모드로 보도록 설정되어 있습니다」 창(`ImmersiveModeConfirmation`)을 띄워 포커스를 가져간다. Unity 6 은 켜질 때 창 포커스가 없으면 첫 장면을 안 올려 SDK(`AfterSceneLoad`)가 안 켜지고 `open` 이 60초 뒤 「QA 빌드인가요?」로 실패한다. 아래에서 위로 밀어 나온 「확인」을 누르자 포커스를 되찾은 지 0.13초 뒤 `[ControlCli] … 명령을 받습니다`. 확인은 패키지 이름으로 기억돼 다시 깔아도 안 뜬다. 첫 시험 폰(SM-G996N · Android 15)은 안 띄웠다. 팜 폰 준비(`settings put secure immersive_mode_confirmations confirmed`)로 막을 일이라 test_platform 다음 줄에 둔다
+- **`open` 이 새 빌드를 안 깔았다** — Appium 은 깔린 앱과 versionCode 가 같으면 안 깐다. 샘플(그리고 versionCode 를 안 올리는 QA 빌드)은 모두 1 이라, Input System APK 를 열어도 EventSystem 에 `StandaloneInputModule` 만 있었고(옛 Input 앱), 2022.3 APK 는 깔린 6000.0 앱에 없는 `UnityPlayerActivity` 를 띄우려다 HTTP 500. `appium:enforceAppInstall: true` 로 고쳤다(팜 · USB 같은 `capabilities()`). CI 빌드마다 서명 키가 달라도 다시 깔기는 됐다
+- UI Toolkit 칸 글자가 화면에 안 보인다 — 샘플 PanelSettings 에 테마(글꼴)가 없어서다. SDK 로 읽은 값은 맞아 두었다(큐브 분홍과 같은 모양 문제)
+- **macOS 앱(이 맥 · `open --pc --app`)** — 가로 전체 화면(3024×1898)에서는 uGUI · TMP 로그인 · `drag` 가 안 먹고 UI Toolkit 로그인 · 큐브 · `key I` · `type` 은 됐다. 화면을 보니 아래 붙인 UI Toolkit 패널이 가로에서 uGUI 칸 위를 덮어 누르는 자리가 패널에 먹혔다. 같은 앱을 세로 창(`-screen-fullscreen 0 -screen-width 540 -screen-height 1200`)으로 띄우니 다 됐다(uGUI 는 고침 전이라 `qauser0`) — SDK 가 아니라 샘플 화면 문제. 샘플 PC 빌드를 540×1200 창으로 굽는다. Unity 는 마지막 창 크기를 `~/Library/Preferences/com.maxihan1.controlcli.sample.plist` 에 기억하지만 「… Default」 키로 빌드 기본값이 바뀐 것을 알아채 새 기본값을 쓴다
+- 346a64c run 의 iOS 잡도 같은 LocationService 로 빨강 — location 을 뺀 3e98be8 전 커밋이라 예상대로
+- 세 고침 확인(run 41618229974 · d645827) — 7개 초록(iOS 포함). APK 권한은 `INTERNET` 만(6000.0 · 2021.3). 팜에서 6000.0 · 2021.3 APK 모두 uGUI `qauser01` · `login qauser01 1` 까지 전 단계 통과. 폰을 놓았다 다시 잡아도 전체 화면 안내 창은 다시 안 떴다(팜 정리가 그 기억을 안 지운다)
+- **macOS 게임이 디스플레이가 꺼지면 멈춘다** — 새 PC 빌드(run 41619067888)를 `open --pc --app` 하니 세로 창(「화면 540×1200」)으로 떠 첫 화면은 읽었으나 그 뒤 모든 명령이 「멈췄거나 일시정지」. `sample <pid>` 로 main thread 를 뜨니 `ExecutePlayerLoop` → `TimeUpdateWaitForLastPresentation…` → `GfxDeviceMetal::WaitForLastPresentationAndGetTimestamp` 의 세마포어에서 서 있다 — Metal 이 직전 프레임을 화면에 못 내보냈다. `pmset -g log` 에 19:43(로컬) 「Display is turned off」, 세로 창이 됐던 시험은 19:23. 아까 됐던 옛 빌드(전체 화면)도 지금은 같은 자리에서 멈춰 창 모양 탓이 아니다. App Nap 을 끄는 `-NSAppSleepDisabled YES` 로는 안 풀린다(가설 버림). README PC 절에 「화면은 켜져 있어야 한다」를 적었다. ponytail: CLI 가 PC 세션 동안 `caffeinate -d` 로 디스플레이를 켜 둘 수도 있다 — 화면 없는 맥에서 돌릴 일이 생기면 더한다

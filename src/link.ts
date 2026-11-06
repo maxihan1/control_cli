@@ -1,8 +1,10 @@
-// 게임 SDK 에 명령 하나를 보내는 두 길 — 디바이스 팜 게임 명령 주소(HTTP) · USB adb forward(TCP)
+// 게임 SDK 에 명령 하나를 보내는 길 — 디바이스 팜 게임 명령 주소(HTTP) · USB adb forward(TCP) · PC(TCP) · USB iPhone(usbmuxd)
 import { execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { createConnection } from 'node:net';
+import { createConnection, type Socket } from 'node:net';
 import { join } from 'node:path';
+
+import { connect as connectPhone } from './usbmux.js';
 
 export type Command = { cmd: string } & Record<string, unknown>;
 export interface Reply {
@@ -36,34 +38,47 @@ export function usbLink(udid: string | undefined, port = GAME_PORT): Link {
 }
 
 export function tcpLink(port: number): Link {
-  return (command) =>
-    new Promise((resolve, reject) => {
-      const socket = createConnection({ host: '127.0.0.1', port }, () => socket.write(JSON.stringify(command) + '\n'));
-      let buf = '';
-      let done = false;
-      const finish = (e: Error | null, line?: string) => {
-        if (done) return;
-        done = true;
-        socket.destroy();
-        if (e) return reject(e);
-        try {
-          resolve(asReply(JSON.parse(line!)));
-        } catch (err) {
-          reject(err instanceof Error ? err : new Error(String(err)));
-        }
-      };
-      socket.setEncoding('utf8');
-      socket.setTimeout(REPLY_TIMEOUT_MS, () => finish(new Error(`게임이 ${REPLY_TIMEOUT_MS / 1000}초 안에 답하지 않았습니다`)));
-      socket.on('data', (chunk: string) => {
-        // 오류 기록 답은 수백 KB 라 새 조각에서만 줄 끝을 찾는다.
-        const nl = chunk.indexOf('\n');
-        if (nl < 0) buf += chunk;
-        else finish(null, buf + chunk.slice(0, nl));
-      });
-      socket.on('error', (e) => finish(new Error(`게임 포트 ${port} 에 붙지 못했습니다 — QA 빌드가 켜져 있나요? (${e.message})`)));
-      // 폰 쪽 포트가 안 열려 있어도 adb 는 연결을 받았다가 바로 닫는다.
-      socket.on('close', () => finish(new Error(`게임이 답 없이 연결을 닫았습니다 — 폰에서 QA 빌드가 켜져 있고 포트 ${port} 를 여나요?`)));
+  return (command) => talk(createConnection({ host: '127.0.0.1', port }), command, port, false);
+}
+
+// USB iPhone — usbmuxd 가 이어 준 소켓이 곧 폰의 포트다. 명령마다 새로 잇는다(adb forward 처럼 걸어 둘 것이 없다).
+export function iosLink(udid: string | undefined, port = GAME_PORT): Link {
+  return async (command) => talk(await connectPhone(udid, port), command, port, true);
+}
+
+// 명령 한 줄을 쓰고 답 한 줄을 읽는다 — connected 가 아니면 이어진 뒤에 쓴다.
+function talk(socket: Socket, command: Command, port: number, connected: boolean): Promise<Reply> {
+  return new Promise((resolve, reject) => {
+    const send = () => socket.write(JSON.stringify(command) + '\n');
+    if (connected) send();
+    else socket.once('connect', send);
+    let buf = '';
+    let done = false;
+    const finish = (e: Error | null, line?: string) => {
+      if (done) return;
+      done = true;
+      socket.destroy();
+      if (e) return reject(e);
+      try {
+        resolve(asReply(JSON.parse(line!)));
+      } catch (err) {
+        reject(err instanceof Error ? err : new Error(String(err)));
+      }
+    };
+    socket.setEncoding('utf8');
+    socket.setTimeout(REPLY_TIMEOUT_MS, () => finish(new Error(`게임이 ${REPLY_TIMEOUT_MS / 1000}초 안에 답하지 않았습니다`)));
+    socket.on('data', (chunk: string) => {
+      // 오류 기록 답은 수백 KB 라 새 조각에서만 줄 끝을 찾는다.
+      const nl = chunk.indexOf('\n');
+      if (nl < 0) buf += chunk;
+      else finish(null, buf + chunk.slice(0, nl));
     });
+    socket.on('error', (e) => finish(new Error(`게임 포트 ${port} 에 붙지 못했습니다 — QA 빌드가 켜져 있나요? (${e.message})`)));
+    // 폰 쪽 포트가 안 열려 있어도 adb 는 연결을 받았다가 바로 닫는다.
+    socket.on('close', () => finish(new Error(`게임이 답 없이 연결을 닫았습니다 — 폰에서 QA 빌드가 켜져 있고 포트 ${port} 를 여나요?`)));
+    // usbmuxd 가 이어 준 소켓은 Connect 답을 읽고 멈춰 둔 채로 온다 — 다시 흐르게 한다.
+    socket.resume();
+  });
 }
 
 // 디바이스 팜 게임 명령 주소 — 잡은 사람만 받는다. 답은 {value: 게임 답}, 성공 · 오류는 HTTP 코드로 가른다(Devicefarm 안내서 12절 · 7절).
