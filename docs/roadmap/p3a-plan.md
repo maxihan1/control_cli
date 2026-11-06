@@ -81,7 +81,7 @@ relay 127.0.0.1:13101 — 게임 2개
   - 백그라운드 relay 는 `close` 가 끄지 않는다(다음 `open` · 다른 세션이 쓴다)
 - 세션 파일에 `relay: {url, game: <key>}` — 명령은 `relayLink(url, headers, key)`(`src/link.ts`, `farmLink` 옆)
 - `relay status` — `GET /games` 를 표로
-- `instrument --relay <주소>` — `Assets/ControlCli/Resources/ControlCliRelay.txt` 에 주소 한 줄
+- `instrument --relay <주소>` — `Assets/ControlCli/Resources/ControlCliRelay.txt` 에 주소 한 줄. `--relay` 가 없으면 그 파일을 지운다 — relay 는 기본 꺼짐이고, 파일이 없으면 SDK 의 relay 쪽은 스레드 · 연결 없이 잠든다(Release 빌드는 `CONTROL_CLI` 가 없어 SDK 가 통째로 빠진다)
 - MCP `open` 도구에 `relay` · `game` 칸
 
 ### 4. SDK (Unity, 0.8.0 — `protocol` 은 2 그대로, 명령 · 답 꼴이 같아서)
