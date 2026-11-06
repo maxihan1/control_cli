@@ -3,7 +3,6 @@ import { createHash } from 'node:crypto';
 import { mkdir, readdir, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import { back, type Conn } from './appium.js';
 import { SETTLE, settled, type Game, type TreeReply } from './game.js';
 import { flatten, line, type Entry } from './snapshot.js';
 
@@ -15,8 +14,8 @@ const DANGER = /삭제|탈퇴|로그아웃|종료|나가기|delete|remove|log ?o
 const CLOSE = /^(닫기|취소|뒤로|돌아가기|close|cancel|back|x|×|✕)$|close/i;
 
 export interface CrawlOptions {
-  /** 닫기 버튼이 없는 창을 닫을 뒤로 키 — Appium 세션이 없으면(USB 로 붙음) 못 쓴다 */
-  back?: { conn: Conn; sessionId: string };
+  /** 닫기 버튼이 없는 창을 닫을 뒤로 키 — Appium 이 있으면 폰 뒤로 키, 없으면(PC · iOS · 이미 켠 USB 게임) SDK 의 Escape 키 */
+  back?: () => Promise<unknown>;
   out: string;
   maxWindows?: number;
   minutes?: number;
@@ -124,7 +123,7 @@ export async function crawl(game: Game, o: CrawlOptions): Promise<string> {
       if (ok(await game.tree())) return true;
     }
     if (!o.back) return false;
-    await back(o.back.conn, o.back.sessionId);
+    await o.back();
     return ok(await settled(game));
   };
 
