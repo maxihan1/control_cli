@@ -68,7 +68,7 @@
 - [x] `conform` D 줄 초록 — sample run 41806656652 의 팜 RF9R408GKRR APK 넷 「통과 52 · 실패 0 · 미실행 0」 · 이 맥 macOS 둘 「통과 51 · 실패 0 · 미실행 1」(PC 는 일시정지가 안 난다)
 
 ## P3. 연결 · 플랫폼
-- [ ] 설계 · 구현 계획
+- [ ] 설계 · 구현 계획 — P3-A 설계 [p3a-plan.md](p3a-plan.md)(셋으로 나눔 — P3-A relay → P3-B WebGL → P3-C Linux). 구현 계획은 아직
 - [ ] `control-cli relay` — 게임이 WebSocket 으로 거는 길 · 원격 연결
 - [ ] Unity WebGL 샘플 · 이 맥 브라우저에서 `conform`
 - [ ] Linux 샘플 빌드 · `conform`
