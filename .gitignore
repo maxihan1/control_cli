@@ -9,6 +9,14 @@ dist/
 [Bb]uilds/
 [Ll]ogs/
 *.apk
+# 샘플 Unity 프로젝트 — 장면 · 설정 · .meta 는 빌드 때 Unity 가 만든다(ProjectVersion.txt 만 둔다)
+sample/Assets/Sample.unity*
+sample/Assets/Second.unity*
+sample/**/*.meta
+sample/ProjectSettings/*
+!sample/ProjectSettings/ProjectVersion.txt
+sample/UserSettings/
+sample/Packages/packages-lock.json
 # 컴파일 검사 하네스가 받은 Unity 참조 · 만든 csproj
 tools/unity-compile-check/.cache/
 tools/unity-compile-check/.work/

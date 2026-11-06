@@ -1,12 +1,12 @@
-# SDK 를 Unity 판 · 입력 설정마다 컴파일만 해 보고 .meta 를 검사한다 — Unity 라이선스 없이 (tools/unity-compile-check)
+# SDK 를 Unity 판 · 입력 설정마다 컴파일만 해 보고 .meta · 명령 정의(protocol/commands.json ↔ SDK Caps · MCP 도구)를 검사한다 — Unity 라이선스 없이 (tools/unity-compile-check)
 name: sdk-compile
 
 on:
   pull_request:
-    paths: ['sdk/**', 'tools/unity-compile-check/**', 'src/sdk-meta.test.ts', '.github/workflows/sdk-compile.yml']
+    paths: ['sdk/**', 'sample/Assets/**', 'tools/unity-compile-check/**', 'src/sdk-meta.test.ts', 'protocol/**', 'src/protocol.ts', 'src/protocol.test.ts', 'src/mcp.ts', 'src/mcp.test.ts', '.github/workflows/sdk-compile.yml']
   push:
     branches: [main]
-    paths: ['sdk/**', 'tools/unity-compile-check/**', 'src/sdk-meta.test.ts', '.github/workflows/sdk-compile.yml']
+    paths: ['sdk/**', 'sample/Assets/**', 'tools/unity-compile-check/**', 'src/sdk-meta.test.ts', 'protocol/**', 'src/protocol.ts', 'src/protocol.test.ts', 'src/mcp.ts', 'src/mcp.test.ts', '.github/workflows/sdk-compile.yml']
 
 jobs:
   meta:
@@ -17,7 +17,7 @@ jobs:
         with:
           node-version: 22
       - run: npm ci
-      - run: node --test dist/sdk-meta.test.js
+      - run: node --test dist/sdk-meta.test.js dist/protocol.test.js dist/mcp.test.js
 
   compile:
     runs-on: ubuntu-latest
