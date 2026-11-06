@@ -6,7 +6,7 @@ export const PACKAGE = 'com.maxihan1.control-cli';
 export const INPUT_ASSEMBLY = 'ControlCli.Input';
 
 export function packageUrl(ref: string): string {
-  return `https://github.com/maxihan1/control_cli.git?path=/sdk#${ref}`;
+  return `https://github.com/maxihan1/control_cli.git?path=/sdk/unity#${ref}`;
 }
 
 interface Manifest {

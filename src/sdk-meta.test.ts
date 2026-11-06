@@ -1,10 +1,10 @@
-// sdk/ 의 파일 · 폴더마다 .meta 가 하나씩 있고 guid 가 겹치지 않는지 본다 — git 으로 받은 UPM 패키지는 Unity 가 .meta 를 못 만든다
+// sdk/unity/ 의 파일 · 폴더마다 .meta 가 하나씩 있고 guid 가 겹치지 않는지 본다 — git 으로 받은 UPM 패키지는 Unity 가 .meta 를 못 만든다
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import test from 'node:test';
 
-const SDK = join(import.meta.dirname, '..', 'sdk');
+const SDK = join(import.meta.dirname, '..', 'sdk', 'unity');
 
 // Unity 는 . 으로 시작하거나 ~ 로 끝나는 이름을 가져오지 않아 .meta 도 없다.
 const walk = (dir: string): string[] =>
@@ -14,7 +14,7 @@ const walk = (dir: string): string[] =>
     return [p, ...(e.isDirectory() ? walk(p) : [])];
   });
 
-test('sdk/ 의 파일 · 폴더마다 .meta 가 하나씩 있고 guid 가 겹치지 않는다', () => {
+test('sdk/unity/ 의 파일 · 폴더마다 .meta 가 하나씩 있고 guid 가 겹치지 않는다', () => {
   const all = walk(SDK);
   const rel = (p: string) => relative(SDK, p);
   const assets = new Set(all.filter((p) => !p.endsWith('.meta')));
