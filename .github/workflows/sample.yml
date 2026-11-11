@@ -5,6 +5,11 @@ on:
   pull_request:
     paths: ['sdk/**', 'sample/**', 'src/instrument.ts', '.github/workflows/sample.yml']
   workflow_dispatch:
+    inputs:
+      relay:
+        description: 'QA 빌드에 구울 relay 주소(ws://<이 맥 Wi-Fi 주소>:13101 · wss://relay.<도메인>) — 비우면 relay 꺼짐'
+        required: false
+        default: ''
 
 # Personal 좌석은 취소된 잡에서 반납되지 않을 수 있어 진행 중인 실행을 취소하지 않는다(Ashveil D-34).
 concurrency:
@@ -104,7 +109,10 @@ jobs:
           printf 'm_EditorVersion: %s\n' '${{ matrix.unity }}' > sample/ProjectSettings/ProjectVersion.txt
           node -e 'const f="sample/Packages/manifest.json",m=JSON.parse(require("fs").readFileSync(f)),[ugui,tmp,is]=process.argv.slice(1);m.dependencies["com.unity.ugui"]=ugui;if(tmp)m.dependencies["com.unity.textmeshpro"]=tmp;if(is)m.dependencies["com.unity.inputsystem"]=is;require("fs").writeFileSync(f,JSON.stringify(m,null,2))' '${{ matrix.ugui }}' '${{ matrix.tmp }}' '${{ matrix.inputsystem }}'
       # PR 이면 브랜치 머리 커밋을 받는다 — 합침 커밋은 UPM 이 git 으로 못 받을 수 있다.
-      - run: node dist/main.js instrument sample --ref ${{ github.event.pull_request.head.sha || github.sha }}
+      # relay 주소는 환경 변수로 넘긴다 — 입력 글자가 명령줄로 풀리지 않게.
+      - run: node dist/main.js instrument sample --ref ${{ github.event.pull_request.head.sha || github.sha }} ${RELAY:+--relay "$RELAY"}
+        env:
+          RELAY: ${{ inputs.relay }}
       - uses: actions/cache@v6
         with:
           path: sample/Library
