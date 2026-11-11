@@ -114,7 +114,7 @@ test('PC 게임을 open 하면 표준 화면 conform 이 MCP 도구로 일시정
   assert.ok(existsSync(join(home, '.control-cli', 'default.json')), '세션 파일은 홈 폴더에');
 
   const r = await conform(new Game(mcpLink(call)));
-  assert.deepEqual([r.passed, r.failed, r.skipped], [51, 0, 1], report(r));
+  assert.deepEqual([r.passed, r.failed, r.skipped], [52, 0, 1], report(r));
   assert.deepEqual((await call('screenshot')).content, [{ type: 'image', data: Buffer.from('jpg').toString('base64'), mimeType: 'image/jpeg' }]);
   const png = (await call('screenshot', { format: 'png' })).content[0];
   assert.deepEqual([png.type, png.mimeType, Buffer.from(png.data!, 'base64').subarray(1, 4).toString()], ['image', 'image/png', 'PNG']);
