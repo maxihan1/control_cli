@@ -44,7 +44,7 @@
 ## U4. 입력
 - [x] 옛 Input 마우스 비추기
 - [x] Input System 가짜 터치 · updateCount 확인
-- [ ] 답 미루기 일반화 — U6 로 미룸(U4 는 Idle 로 충분)
+- [x] 답 미루기 일반화 — U6 에서 끝냄(`_ready` · `_cancel`)
 - [x] 샘플 matrix New · Both
 - [x] 샘플 Input System 빌드에서 click · drag · TouchText — 6000.0 Input System 만 · 2022.3 둘 다(EventSystem 에 `InputSystemUIInputModule` 확인)
 
@@ -63,7 +63,7 @@
 - [x] 샘플 StandaloneOSX 실측 (이 맥) — 세로 창에서 다 됨. 가로 전체 화면은 샘플 UI Toolkit 패널이 uGUI 를 덮어 안 됨
 - [x] 샘플 PC 빌드를 540×1200 창으로(`SampleBuild.cs`)
 - [x] 새 샘플 PC 빌드가 `open --pc --app` 만으로 세로 창으로 뜨는지 — 첫 화면 「화면 540×1200」(run 41619067888)
-- [ ] 새 샘플 PC 빌드로 loop 전체 (이 맥 — 디스플레이가 켜져 있을 때. 꺼져 있으면 Unity 가 Metal 프레임 내보내기에서 멈춘다)
+- [x] 새 샘플 PC 빌드로 loop 전체 — P0~P2-D 에서 새 샘플 macOS 앱으로 conform(P2-D 「통과 51 · 미실행 1」)이 이 loop 를 다 품는다
 
 ## U7. iOS
 - [x] usbmuxd 연결(`src/usbmux.ts` · `iosLink`)
