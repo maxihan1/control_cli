@@ -1,4 +1,4 @@
-// 게임 SDK 에 명령 하나를 보내는 길 — 디바이스 팜 게임 명령 주소(HTTP) · USB adb forward(TCP) · PC(TCP) · USB iPhone(usbmuxd)
+// 게임 SDK 에 명령 하나를 보내는 길 — 디바이스 팜 게임 명령 주소 · relay(HTTP) · USB adb forward(TCP) · PC(TCP) · USB iPhone(usbmuxd)
 import { execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { createConnection, type Socket } from 'node:net';
@@ -81,22 +81,34 @@ function talk(socket: Socket, command: Command, port: number, connected: boolean
   });
 }
 
-// 디바이스 팜 게임 명령 주소 — 잡은 사람만 받는다. 답은 {value: 게임 답}, 성공 · 오류는 HTTP 코드로 가른다(Devicefarm 안내서 12절 · 7절).
-export function farmLink(farm: string, headers: Record<string, string>, serial: string): Link {
+// HTTP 로 명령 하나를 보내고 {value: 게임 답} 을 받는다 — 성공 · 오류는 HTTP 코드로 가른다(디바이스 팜 · relay 가 같은 꼴, Devicefarm 안내서 12절 · 7절).
+function postLink(endpoint: string, headers: Record<string, string>, refused: (status: number, message?: string) => string): Link {
   return async (command) => {
-    const res = await fetch(`${farm}/api/devices/${encodeURIComponent(serial)}/game`, {
+    const res = await fetch(endpoint, {
       method: 'POST',
       headers: { ...headers, 'Content-Type': 'application/json' },
       body: JSON.stringify(command),
       signal: AbortSignal.timeout(REPLY_TIMEOUT_MS),
     });
     const body = (await res.json().catch(() => null)) as { value?: unknown } | null;
-    if (!res.ok) {
-      const message = (body?.value as { message?: string } | undefined)?.message;
-      throw new Error(`디바이스 팜이 게임 명령을 HTTP ${res.status} 로 거절했습니다${message ? `: ${message}` : ''}`);
-    }
+    if (!res.ok) throw new Error(refused(res.status, (body?.value as { message?: string } | undefined)?.message));
     return asReply(body?.value);
   };
+}
+
+// 디바이스 팜 게임 명령 주소 — 잡은 사람만 받는다.
+export function farmLink(farm: string, headers: Record<string, string>, serial: string): Link {
+  return postLink(`${farm}/api/devices/${encodeURIComponent(serial)}/game`, headers, (status, message) => `디바이스 팜이 게임 명령을 HTTP ${status} 로 거절했습니다${message ? `: ${message}` : ''}`);
+}
+
+// relay 에 붙은 게임 — key 는 <앱>@<기기 id 앞 8자>라 게임을 다시 켜도 같은 세션으로 간다. relay 의 거절 글은 그대로 보인다.
+export function relayLink(url: string, headers: Record<string, string>, key: string): Link {
+  const link = postLink(`${url}/games/${encodeURIComponent(key)}/command`, headers, (status, message) => message ?? `relay 가 게임 명령을 HTTP ${status} 로 거절했습니다`);
+  return (command) =>
+    link(command).catch((e: unknown) => {
+      // fetch 는 닿지 못하면 TypeError('fetch failed') 를 던진다.
+      throw e instanceof TypeError ? new Error(`relay ${url} 에 닿지 못했습니다 — relay 가 꺼졌으면 close 뒤 open --relay 로 다시 엽니다`) : e;
+    });
 }
 
 function asReply(v: unknown): Reply {

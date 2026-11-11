@@ -775,3 +775,19 @@ export async function fakeFarm(
   const { port } = server.address() as AddressInfo;
   return { url: `http://127.0.0.1:${port}/wd/hub`, server, held, seen, state };
 }
+
+/** relay 에 거는 게임 흉내 — SDK Relay.cs 처럼 hello 한 줄 뒤 `<번호> <명령>` 에 `<번호> <답>` 으로 답한다 */
+export async function fakeRelayGame(game: FakeGame, url: string, hello: Record<string, unknown> = {}): Promise<WebSocket> {
+  const ws = new WebSocket(`${url.replace(/^http/, 'ws')}/game`);
+  await new Promise<void>((ok, no) => {
+    ws.onopen = () => ok();
+    ws.onerror = () => no(new Error(`relay ${url} 에 붙지 못했습니다`));
+  });
+  ws.send(`hello ${JSON.stringify({ app: 'com.fake.game', version: '1.0', engine: 'fake', engineVersion: '0', sdkVersion: '0.3.0', platform: 'macOS', model: 'FakeBook', device: 'fake', deviceId: 'fake-device-1', ...hello })}`);
+  ws.onmessage = (e) => {
+    const text = String(e.data);
+    const sp = text.indexOf(' ');
+    ws.send(`${text.slice(0, sp)} ${JSON.stringify(game.handle(JSON.parse(text.slice(sp + 1)) as Command))}`);
+  };
+  return ws;
+}
