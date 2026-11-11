@@ -183,10 +183,15 @@ export async function run(argv: string[], o: Options): Promise<string> {
   if (name === 'instrument') {
     // 기본은 이 CLI 판 tag — CLI 가 아는 SDK 경로(?path=/sdk/unity)와 SDK 판이 늘 맞는다(그 tag 를 먼저 찍는다).
     const ref = values.ref ?? `v${VERSION}`;
-    if (args.length !== 1) throw new Error('instrument <Unity 프로젝트 폴더> [--ref <태그 · 커밋>] 꼴이어야 합니다');
-    const { asmdefs, warnings } = instrument(args[0], ref);
+    const address = values.relay ? args.find((a) => /^(ws|http)s?:\/\//.test(a)) : undefined;
+    if (values.relay && !address) throw new Error('--relay 뒤에 게임이 걸 주소(ws:// · wss://)를 줍니다');
+    const folders = args.filter((a) => a !== address);
+    if (folders.length !== 1) throw new Error('instrument <Unity 프로젝트 폴더> [--ref <태그 · 커밋>] [--relay <주소>] 꼴이어야 합니다');
+    const gameAddress = address?.replace(/^http/, 'ws');
+    const { asmdefs, warnings } = instrument(folders[0], ref, gameAddress);
     return [
       `SDK(${ref}) 를 Packages/manifest.json 에 더했습니다`,
+      ...(gameAddress ? [`relay 주소를 구웠습니다 — 게임이 ${gameAddress} 로 겁니다`] : []),
       ...asmdefs.map((a) => `asmdef 참조 더함: ${a}`),
       ...warnings.map((w) => `경고: ${w}`),
       'QA 빌드 정의 심볼에 CONTROL_CLI 가 있어야 SDK 가 빌드에 들어갑니다',
