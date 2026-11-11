@@ -21,9 +21,13 @@ export interface Found {
   interactable?: boolean;
   /** 영구 id(QA 빌드가 장면 오브젝트에 붙인 것) 또는 instance id — [@id=…] 로 다시 찾는다. UI Toolkit 요소는 없다 */
   id?: string;
-  /** 화면 가운데(왼쪽 아래가 0,0) — 화면에 비친 자리가 없거나 꺼졌으면 없다 */
+  /** 누를 자리(왼쪽 아래가 0,0) — 화면에 비친 자리가 없거나 꺼졌으면 없다 */
   x?: number;
   y?: number;
+  /** 화면 사각형 [x, y, w, h](왼쪽 아래 0,0 · 화면 밖으로 나간 만큼 자르지 않는다) — UI 는 제 사각형, 월드 오브젝트는 렌더러 bounds 를 비춘 것. 렌더러가 없거나 꺼졌으면 없다. SDK 0.8.0(caps 의 rect)부터 */
+  rect?: [number, number, number, number];
+  /** 답할 때 게임 화면 크기 [w, h] — rect · x · y 를 비율로 바꿀 때. SDK 0.8.0 부터 */
+  screen?: [number, number];
   /** inactive 로 찾은 꺼진 오브젝트 */
   active?: false;
 }
@@ -161,6 +165,8 @@ const found = (r: Record<string, unknown>): Found => ({
   id: r.id as string | undefined,
   x: r.x as number | undefined,
   y: r.y as number | undefined,
+  rect: r.rect as Found['rect'],
+  screen: r.screen as Found['screen'],
   active: r.active === false ? false : undefined,
 });
 // 기다린 값과 같은가 — CLI 인자는 늘 글자라 '10' · '[0, 1, 0]' 을 JSON 으로도 읽어 견준다.

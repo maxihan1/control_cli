@@ -234,6 +234,18 @@ export const STEPS: Step[] = [
     },
   },
   {
+    cmds: ['find', 'rect'],
+    label: 'find 의 rect 가 x,y 를 품는다 — uGUI · UI Toolkit · 월드 오브젝트',
+    run: async (g) => {
+      for (const name of ['LoginButton', 'UitkLoginButton', 'WorldCube']) {
+        const f = (await g.find(name))!;
+        const [x, y, w, h] = f.rect ?? [0, 0, 0, 0];
+        if (!(w > 0 && h > 0 && f.x! >= x && f.x! <= x + w && f.y! >= y && f.y! <= y + h && f.screen?.length === 2))
+          throw new Error(`${name} 의 rect ${JSON.stringify(f.rect)} · 자리 (${f.x}, ${f.y}) · screen ${JSON.stringify(f.screen)} — rect 가 자리를 품고 screen 이 있어야 합니다`);
+      }
+    },
+  },
+  {
     cmds: ['find', 'get'],
     label: 'B HiddenText 는 찾기에 없고 inactive 로는 active:false · get',
     run: async (g) => {

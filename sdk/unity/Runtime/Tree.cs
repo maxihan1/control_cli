@@ -256,6 +256,65 @@ namespace ControlCli
             return p.z > 0 ? new Vector2(p.x, p.y) : (Vector2?)null;
         }
 
+        // 화면 사각형(왼쪽 아래가 0,0) — 오브젝트 윤곽을 그릴 때. UI 는 제 사각형, 월드 오브젝트는 켜진 렌더러 bounds 를 합친 상자를 카메라로 비춘다.
+        // 화면 밖으로 나간 만큼은 자르지 않는다. 렌더러가 없거나 다 카메라 뒤면 null.
+        public static Rect? ScreenBox(Item item, Camera cam = null)
+        {
+#if CONTROL_CLI_UITK
+            if (item.Ve != null) return UiToolkit.ScreenRect(item.Ve);
+#endif
+            var go = item.Go;
+            var rect = ScreenRect(go);
+            if (rect != null) return rect;
+            if (cam == null) cam = Camera.main;
+            if (cam == null) return null;
+            // ponytail: 켜진 렌더러를 다 합친다 — 큰 파티클 · 그림자 판이 붙은 오브젝트는 사각형이 커진다. 문제면 ParticleSystemRenderer 를 뺀다.
+            Bounds? box = null;
+            foreach (var r in go.GetComponentsInChildren<Renderer>())
+            {
+                if (!r.enabled) continue;
+                var b = box ?? r.bounds;
+                b.Encapsulate(r.bounds);
+                box = b;
+            }
+            return box == null ? (Rect?)null : Project(cam, box.Value);
+        }
+
+        // 상자 꼭짓점 8개를 비춘다. 카메라 앞뒤에 걸친 모서리는 near 면에서 자른 점을 쓴다 — 뒤 점을 그대로 비추면 화면 반대편으로 뒤집힌다.
+        private static Rect? Project(Camera cam, Bounds b)
+        {
+            var corners = new Vector3[8];
+            var depth = new float[8];
+            for (var i = 0; i < 8; i++)
+            {
+                corners[i] = b.center + Vector3.Scale(b.extents, new Vector3((i & 1) == 0 ? -1 : 1, (i & 2) == 0 ? -1 : 1, (i & 4) == 0 ? -1 : 1));
+                depth[i] = cam.WorldToScreenPoint(corners[i]).z;
+            }
+            var near = cam.nearClipPlane;
+            var points = new List<Vector3>();
+            for (var i = 0; i < 8; i++)
+            {
+                if (depth[i] >= near) points.Add(corners[i]);
+                // 모서리는 번호가 한 비트만 다른 꼭짓점 둘 — 작은 번호 쪽에서 한 번씩 본다.
+                for (var bit = 1; bit < 8; bit <<= 1)
+                {
+                    var j = i | bit;
+                    if (j != i && (depth[i] >= near) != (depth[j] >= near))
+                        points.Add(Vector3.Lerp(corners[i], corners[j], (depth[i] - near) / (depth[i] - depth[j])));
+                }
+            }
+            if (points.Count == 0) return null;
+            var min = new Vector2(float.MaxValue, float.MaxValue);
+            var max = new Vector2(float.MinValue, float.MinValue);
+            foreach (var w in points)
+            {
+                Vector2 p = cam.WorldToScreenPoint(w);
+                min = Vector2.Min(min, p);
+                max = Vector2.Max(max, p);
+            }
+            return Rect.MinMaxRect(min.x, min.y, max.x, max.y);
+        }
+
         // 화면 좌표(왼쪽 아래가 0,0)의 사각형. 화면 위 uGUI 가 아니면 null.
         public static Rect? ScreenRect(GameObject go)
         {

@@ -4,7 +4,7 @@ import { createServer as createNetServer, type AddressInfo, type Server as NetSe
 
 import type { Node, PointerAction } from './game.js';
 import type { Command, Reply } from './link.js';
-import { COMMANDS } from './protocol.js';
+import { COMMANDS, FEATURES } from './protocol.js';
 import { one, pathOf, select, steps, type View } from './select.js';
 import { packet } from './usbmux.js';
 
@@ -63,6 +63,7 @@ const keysOf = (c: Command) => String(c.key).split('+').map((k) => k.trim());
 // SDK Feed.Mask 와 같다 — 영숫자 · _ · - 가 40자 넘게 이어진 토막(토큰)을 가린다(Issue Bunker nginx 규칙)
 const mask = (s: string) => s.replace(/[A-Za-z0-9_-]{40,}/g, '***');
 const STAMP = '2026-11-04T00:00:00.000Z';
+const SCREEN = [2400, 1080];
 // SDK SdkLog 와 같은 줄 — 이름 칸은 그대로, 값 칸은 「이름=***」, 실패 글 속 입력값도 ***. 알림 읽기와 sdk-log 자신은 안 적는다
 const NAMED = ['target', 'to', 'name', 'method', 'prop', 'key'];
 const SECRET = ['text', 'value', 'args'];
@@ -80,7 +81,7 @@ export class FakeGame {
   keys: string[] = [];
   commands: Command[] = [];
   /** SDK 의 Caps 흉내 — 테스트가 빼서 옛 SDK · 다른 엔진을 흉내 낸다 */
-  caps: string[] = [...COMMANDS];
+  caps: string[] = [...COMMANDS, ...FEATURES];
   onBack?: () => void;
   onKey?: (key: string) => void;
   /** static 칸 · 메서드 — 「타입.칸」 */
@@ -182,7 +183,10 @@ export class FakeGame {
       ...(n.kind ? { interactable: n.interactable } : {}),
       ...(n.id ? { id: n.id } : {}),
       ...(active && at ? { x: at[0], y: at[1] } : {}),
+      // 가짜 사각형은 자리 둘레 100×100 — rect 를 빼면 옛 SDK(0.7.0)처럼 rect · screen 을 안 준다.
+      ...(active && at && this.caps.includes('rect') ? { rect: [at[0] - 50, at[1] - 50, 100, 100] } : {}),
       ...(active ? {} : { active: false }),
+      ...(this.caps.includes('rect') ? { screen: SCREEN } : {}),
     };
   }
 
@@ -254,7 +258,7 @@ export class FakeGame {
       case 'ping':
         return { ok: true, app: 'com.fake.game', version: '1.0', engine: 'fake', engineVersion: '0', sdkVersion: '0.3.0', protocol: 2, caps: this.caps };
       case 'tree':
-        return { ok: true, scene: this.scene, screen: [2400, 1080], tree: on(this.roots).map(strip) };
+        return { ok: true, scene: this.scene, screen: SCREEN, tree: on(this.roots).map(strip) };
       case 'find':
         return f.trail ? { ok: true, found: true, ...this.found(f.trail, all, c.camera as string | undefined) } : { ok: true, found: false };
       case 'find-all':

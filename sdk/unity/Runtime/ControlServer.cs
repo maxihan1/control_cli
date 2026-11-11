@@ -35,9 +35,11 @@ namespace ControlCli
             "find-all", "find-at", "components", "members", "text-set",
             "touch-down", "touch-move", "touch-up", "swipe", "long-press", "mouse-move", "scroll", "key-down", "key-up", "tilt", "pointer", "input-reset",
             "logs", "events", "sdk-log",
+            // 명령 뒤는 기능(commands.json 의 features) — rect 는 find 답의 화면 사각형.
+            "rect",
         };
         // sdk/unity/package.json 의 version 과 같다(src/protocol.test.ts 가 본다).
-        public const string SdkVersion = "0.7.0";
+        public const string SdkVersion = "0.8.0";
 
         private sealed class Request
         {
@@ -463,7 +465,7 @@ namespace ControlCli
             return sb.Append("]}").ToString();
         }
 
-        // find · find-all · find-at 답 한 칸(중괄호 안) — 경로 · 글자 · 누를 수 있나 · id · 화면 가운데(켜진 것만) · 꺼짐.
+        // find · find-all · find-at 답 한 칸(중괄호 안) — 경로 · 글자 · 누를 수 있나 · id · 누를 자리 · 화면 사각형(켜진 것만) · 화면 크기 · 꺼짐.
         private static string Found(List<Item> trail, bool all, Camera cam)
         {
             var item = trail[trail.Count - 1];
@@ -477,8 +479,16 @@ namespace ControlCli
             {
                 var p = Tree.ScreenPoint(item, cam);
                 if (p != null) sb.Append(",\"x\":").Append(Mathf.RoundToInt(p.Value.x)).Append(",\"y\":").Append(Mathf.RoundToInt(p.Value.y));
+                var r = Tree.ScreenBox(item, cam);
+                if (r != null)
+                {
+                    int x0 = Mathf.RoundToInt(r.Value.xMin), y0 = Mathf.RoundToInt(r.Value.yMin);
+                    sb.Append(",\"rect\":[").Append(x0).Append(',').Append(y0).Append(',')
+                        .Append(Mathf.RoundToInt(r.Value.xMax) - x0).Append(',').Append(Mathf.RoundToInt(r.Value.yMax) - y0).Append(']');
+                }
             }
             else sb.Append(",\"active\":false");
+            sb.Append(",\"screen\":[").Append(Screen.width).Append(',').Append(Screen.height).Append(']');
             return sb.ToString();
         }
 

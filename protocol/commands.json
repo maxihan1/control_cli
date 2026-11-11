@@ -1,11 +1,14 @@
 {
   "protocol": 2,
+  "features": [
+    { "name": "rect", "summary": "find · find-all · find-at 답에 화면 사각형 rect 와 화면 크기 screen(SDK 0.8.0)" }
+  ],
   "commands": [
-    { "name": "ping", "summary": "게임 답 · 엔진 · SDK 판 · 할 수 있는 명령(caps)", "args": {} },
+    { "name": "ping", "summary": "게임 답 · 엔진 · SDK 판 · 할 수 있는 명령과 기능(caps)", "args": {} },
     { "name": "tree", "summary": "켜진 오브젝트 트리 · 장면 이름 · 화면 크기", "args": {} },
     {
       "name": "find",
-      "summary": "주소의 오브젝트 — 없으면 found:false, 여럿이 맞으면 실패. 답의 x · y 는 화면 가운데(왼쪽 아래 0,0)",
+      "summary": "주소의 오브젝트 — 없으면 found:false, 여럿이 맞으면 실패. 답의 x · y 는 누를 자리, rect [x, y, w, h] 는 화면 사각형, screen 은 화면 크기(모두 픽셀 · 왼쪽 아래 0,0)",
       "args": {
         "target": { "type": "string", "required": true, "summary": "주소 — 이름(하나뿐일 때) · / 로 시작하는 경로 · //*[@tag=Player] 같은 선택자" },
         "inactive": { "type": "boolean", "required": false, "summary": "꺼진 오브젝트 · 숨은 요소도 본다 — 경로 순번이 꺼진 형제까지 센다" },

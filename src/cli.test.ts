@@ -198,7 +198,7 @@ test('conform — 표준 화면이면 PC 는 일시정지 줄만 미실행, 다�
   const bad = await fakeTcp(new FakeGame([node('Boot')]));
   try {
     await cli('-s=cf', 'open', '--pc', '--port', String(ok.port));
-    assert.match(await cli('-s=cf', 'conform', '--port', String(ok.port)), /통과 51 · 실패 0 · 미실행 1$/);
+    assert.match(await cli('-s=cf', 'conform', '--port', String(ok.port)), /통과 52 · 실패 0 · 미실행 1$/);
     await cli('-s=cf', 'close');
     await cli('-s=cf2', 'open', '--pc', '--port', String(bad.port));
     await assert.rejects(cli('-s=cf2', 'conform', '--port', String(bad.port)), /통과 \d+ · 실패 [1-9]/);
@@ -209,14 +209,14 @@ test('conform — 표준 화면이면 PC 는 일시정지 줄만 미실행, 다�
   }
 });
 
-test('conform — 팜은 Appium 으로 앱을 뒤로 보내 일시정지 줄까지 52줄 통과', async () => {
+test('conform — 팜은 Appium 으로 앱을 뒤로 보내 일시정지 줄까지 53줄 통과', async () => {
   const f = await fakeFarm(standardScreen());
   const own = await mkdtemp(join(tmpdir(), 'control-cli-'));
   const fc = (...argv: string[]) => run(argv, { env: { PLATFORM_APPIUM_URL: f.url, PLATFORM_APP: 'http://builds/qa.apk' }, dir: own });
   try {
     await fc('hold');
     await fc('-s=fc', 'open');
-    assert.match(await fc('-s=fc', 'conform'), /통과 52 · 실패 0 · 미실행 0$/);
+    assert.match(await fc('-s=fc', 'conform'), /통과 53 · 실패 0 · 미실행 0$/);
     assert.ok(f.seen.includes('POST /wd/hub/session/S1/execute/sync'));
     await fc('-s=fc', 'close');
     await fc('release');

@@ -19,9 +19,12 @@ export interface CommandSpec {
 
 export interface Protocol {
   protocol: number;
+  /** 명령이 아닌 기능 — SDK 가 caps 에 명령 이름 뒤로 싣는다(옛 SDK 와 섞여 돌 때 「이 답 칸을 주나」) */
+  features: { name: string; summary: string }[];
   commands: CommandSpec[];
 }
 
 // dist/protocol.js 에서 저장소 뿌리의 protocol/ — npm 패키지에도 protocol/ 을 싣는다(package.json files).
 export const PROTOCOL = JSON.parse(readFileSync(join(import.meta.dirname, '..', 'protocol', 'commands.json'), 'utf8')) as Protocol;
 export const COMMANDS = PROTOCOL.commands.map((c) => c.name);
+export const FEATURES = PROTOCOL.features.map((f) => f.name);

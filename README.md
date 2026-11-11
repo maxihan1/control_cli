@@ -36,7 +36,7 @@ node /tmp/control_cli/dist/main.js instrument <Unity 프로젝트 폴더> --ref 
 
 `npx github:maxihan1/control_cli` 는 쓰지 않는다 — npm 10 이 git 패키지를 npx 로 받을 때 「GitFetcher requires an Arborist constructor」로 멈춘다(GitHub Actions 에서 확인).
 
-1. `Packages/manifest.json` 에 SDK 패키지를 `--ref` 로 고정해 더한다(없으면 이 CLI 판 tag — 0.7.0 이면 `v0.7.0`. SDK 경로 `?path=/sdk/unity` 와 SDK 판이 CLI 와 늘 맞는다)
+1. `Packages/manifest.json` 에 SDK 패키지를 `--ref` 로 고정해 더한다(없으면 이 CLI 판 tag — 0.8.0 이면 `v0.8.0`. SDK 경로 `?path=/sdk/unity` 와 SDK 판이 CLI 와 늘 맞는다)
 2. `Assets/` · `Packages/`(내장 패키지) 아래 asmdef 의 `references` 에 `ControlCli.Input` 을 더한다 — 에디터 전용 · `noEngineReferences` 는 건너뛴다. asmdef 없는 스크립트(Assembly-CSharp)는 자동으로 참조한다
 3. `namespace` 안에 `using UnityEngine;` 을 둔 파일 · `namespace UnityEngine.*` 안의 파일은 `UnityEngine.Input` 이 먼저 잡혀 가짜 터치를 못 본다 — 경고로 알려 준다
 4. 깨진 asmdef 가 있으면 파일 이름을 알리고 아무것도 바꾸지 않는다
@@ -49,7 +49,7 @@ node /tmp/control_cli/dist/main.js instrument <Unity 프로젝트 폴더> --ref 
 ## CLI
 
 ```bash
-npm i -D github:maxihan1/control_cli#v0.7.0
+npm i -D github:maxihan1/control_cli#v0.8.0
 npx control-cli help
 ```
 
@@ -118,7 +118,7 @@ macOS 의 usbmuxd 로 폰의 `127.0.0.1:13100` 에 명령마다 바로 잇는다
 | `type <ref\|주소> <글자>` | InputField · TMP_InputField · UI Toolkit TextField 에 바로 넣는다(화면 키보드 없이). 글자 수 제한 · 거르기는 그 칸 규칙대로, 키로 칠 때의 차례(글자마다 거르고 거른 결과로 자름)다 — 글자 수 8 · 영숫자 칸에 `qa_user01!` 면 `qauser01`. uGUI · TMP 는 SDK 가 그 칸의 거르개를 글자마다 부른다. 비밀번호 칸이면 Ran 줄에 글자 대신 `'***'` | `game.type('IdInput', 'qa_user01')` |
 | `text <ref\|주소>` | 글자 읽기 | `game.text('StatusText')` |
 | `get <ref\|주소> <컴포넌트.칸> [--inactive]` | 속성 읽기 — 게임이 폰에서 셈하는 값. `material` · `materials` · `mesh` 는 읽기만 해도 사본을 만들어 거절한다(`shared…` 를 읽는다). UI Toolkit 요소는 요소 칸을 바로(`value` · `text` · `layout.height`) | `game.get('Player', 'PlayerController.moveSpeed')` |
-| `find <ref\|주소> [--inactive] [--camera 주소]` | 있으면 `{path, text?, interactable?, id?, x?, y?, active?}`(`x` · `y` 는 화면 가운데 · 왼쪽 아래 0,0), 없으면 `null` | `game.find('//*[@tag=Boss]')` |
+| `find <ref\|주소> [--inactive] [--camera 주소]` | 있으면 `{path, text?, interactable?, id?, x?, y?, rect?, screen?, active?}`(`x` · `y` 는 누를 자리, `rect` 는 화면 사각형 `[x, y, w, h]`, `screen` 은 화면 크기 `[w, h]` — 모두 픽셀 · 왼쪽 아래 0,0), 없으면 `null` | `game.find('//*[@tag=Boss]')` |
 | `find-all <주소> [--inactive] [--camera 주소]` | 맞는 것 전부 — 없으면 빈 목록 | `game.findAll('//Inventory/Slot')` |
 | `find-at <x> <y> [--camera 주소]` | 좌표의 맨 위(UI Toolkit → uGUI → 3D · 2D 물리) — 살펴볼 때만. 버튼 속 글자가 맞을 수 있다 | 없음 |
 | `parent <ref\|주소>` | 부모(`<경로>/..`) — 뿌리면 `null` | `game.parent('Item')` |
@@ -209,7 +209,7 @@ npx control-cli crawl --max 30 --minutes 5 --exclude '/설정|settings/i' --excl
 `control-cli mcp` 는 stdio MCP 서버다 — 따로 띄워 두는 프로그램이 아니라 AI 앱이 이 명령을 실행해 붙는다.
 
 ```bash
-npm i -g github:maxihan1/control_cli#v0.7.0      # control-cli 를 PATH 에
+npm i -g github:maxihan1/control_cli#v0.8.0      # control-cli 를 PATH 에
 claude mcp add control-cli -- control-cli mcp     # Claude Code
 ```
 
@@ -249,9 +249,9 @@ Desktop 은 셸의 PATH 를 안 볼 수 있다 — `control-cli` · `node` 를 �
 
 | `cmd` | 칸 | 답 |
 |---|---|---|
-| `ping` | | `{ok, app, version, engine, engineVersion, sdkVersion, protocol, caps}` — `engine` 부터는 protocol 2(SDK 0.3.0)부터. CLI 는 `open` 때 받은 `caps` 밖 명령을 보내지 않고 거절한다. 명령 정의는 `protocol/commands.json` |
+| `ping` | | `{ok, app, version, engine, engineVersion, sdkVersion, protocol, caps}` — `engine` 부터는 protocol 2(SDK 0.3.0)부터. `caps` 는 명령 이름 뒤에 기능 이름(`commands.json` 의 `features` — `rect` 는 SDK 0.8.0)을 싣는다. CLI 는 `open` 때 받은 `caps` 밖 명령을 보내지 않고 거절한다. 명령 정의는 `protocol/commands.json` |
 | `tree` | | `{ok, scene, screen:[w,h], tree:[{name, text?, kind?, interactable?, children?}]}` — 켜진 오브젝트만. `kind` 는 Selectable 종류(Button · Toggle · InputField · TMP_InputField …) 또는 UI Toolkit 컨트롤(Button · Toggle · RadioButton · TextField · DropdownField · Slider). `text` 는 Text · InputField · TextMeshPro(TMP_Text · TMP_InputField) · UI Toolkit(TextElement · TextField). UI Toolkit 은 숨은 요소(display none · 안 보임)를 빼고 컨트롤 속은 내보내지 않는다. 비밀번호 칸 글자는 `***` |
-| `find` | `target` · `inactive`? · `camera`? | `{ok, found:false}` 또는 `{ok, found:true, path, text?, interactable?, id?, x?, y?, active?}` — 여럿이 맞거나 꼴이 틀리면 실패. `id` 는 게임 오브젝트만, `x` · `y` 는 켜지고 화면에 비친 것만, `active:false` 는 `inactive` 로 찾은 꺼진 것. 선택자 · `inactive` · `camera` 는 SDK 0.5.0 부터 |
+| `find` | `target` · `inactive`? · `camera`? | `{ok, found:false}` 또는 `{ok, found:true, path, text?, interactable?, id?, x?, y?, rect?, screen?, active?}` — 여럿이 맞거나 꼴이 틀리면 실패. `id` 는 게임 오브젝트만, `x` · `y` 는 켜지고 화면에 비친 것만, `active:false` 는 `inactive` 로 찾은 꺼진 것. 선택자 · `inactive` · `camera` 는 SDK 0.5.0 부터. `rect` · `screen` 은 아래 「화면 사각형」 |
 | `find-all` | `target` · `inactive`? · `camera`? | `{ok, found:[…]}` — `find` 의 칸 목록, 없으면 빈 목록 |
 | `find-at` | `x` · `y` · `camera`? | `find` 와 같은 답 — UI Toolkit(맨 앞 panel) → uGUI(EventSystem raycast) → 3D · 2D 물리 차례, 트리에 없는 속 칸은 트리에 있는 조상으로 |
 | `click` | `target` · `camera`? · `count`? · `interval`? | `{ok, x, y}` — 가짜 터치가 다 나가고 게임이 처리한 뒤 답한다. 켜진 것만. `count`(기본 1) · `interval`(초, 기본 0.1)은 SDK 0.6.0 부터 |
@@ -290,6 +290,13 @@ Desktop 은 셸의 PATH 를 안 볼 수 있다 — `control-cli` · `node` 를 �
 | `components` | `target` · `inactive`? | `{ok, components:[{name, type}]}` — SDK 0.5.0 부터(아래도) |
 | `members` | `target` · `component` · `inactive`? | `{ok, fields:[{name, type, value?, readOnly?, static?}], properties:[…], methods:[{name, args, returns, static?}]}` — 그 타입에서 Unity 부모 앞까지 선언한 것. 값은 읽다 던지거나 사본 속성이면 없다 |
 | `text-set` | `target` · `text` · `inactive`? | `{ok, text}` — 다시 읽은 글자. 입력칸 · 글자 컴포넌트가 없는 것은 실패 |
+
+**화면 사각형**(SDK 0.8.0 — `ping` 의 `caps` 에 `rect`) — `find` · `find-all` · `find-at` 답의 한 칸마다 `rect: [x, y, w, h]` 와 `screen: [w, h]` 를 싣는다. 픽셀이고 `x` · `y` 와 같이 왼쪽 아래가 0,0 이다. 스크린샷처럼 왼쪽 위가 0,0 인 그림에 그릴 때는 `top = screen[1] - (y + h)`, 기기 화면 크기와 다르면 `screen` 으로 나눠 비율로 바꾼다.
+
+- uGUI · UI Toolkit — 그 요소의 화면 사각형(돌린 UI 는 둘레)
+- 월드 오브젝트 — 켜진 렌더러 bounds 를 다 합친 상자의 꼭짓점 8개를 카메라(`camera` 칸, 기본 주 카메라)로 비춘 둘레. 카메라 앞뒤에 걸친 상자는 near 면에서 잘라 비춘다. 렌더러가 없거나 상자가 다 카메라 뒤면 `rect` 가 없다
+- 화면 밖으로 나간 만큼은 자르지 않는다 — 그리는 쪽이 `screen` 으로 자른다. 꺼진 오브젝트(`active:false`)는 `rect` 가 없다
+- `x` · `y` 는 누를 자리라 `rect` 가운데와 다를 수 있다(월드 오브젝트는 첫 렌더러 가운데)
 
 ## 개발
 

@@ -15,11 +15,11 @@ const direct = (g: FakeGame) => new Game(async (c) => g.handle(c));
 const hooks = (g: FakeGame) => ({ background: async () => g.background() });
 const byName = (g: FakeGame, name: string) => flatten(g.roots).find((e) => e.node.name === name)!.node as FakeNode;
 
-test('표준 화면이면 52줄이 모두 통과한다', async () => {
+test('표준 화면이면 53줄이 모두 통과한다', async () => {
   const g = standardScreen();
   const r = await conform(direct(g), hooks(g));
-  assert.deepEqual([r.passed, r.failed, r.skipped], [52, 0, 0], report(r));
-  assert.match(report(r), /\n통과 52 · 실패 0 · 미실행 0$/);
+  assert.deepEqual([r.passed, r.failed, r.skipped], [53, 0, 0], report(r));
+  assert.match(report(r), /\n통과 53 · 실패 0 · 미실행 0$/);
   assert.deepEqual([g.fingers.size, g.held.size, g.scene], [0, 0, 'Sample']);
   assert.match(report(r), /^conform — com\.fake\.game 1\.0 · fake 0 · SDK 0\.3\.0 · protocol 2/);
 });
@@ -28,9 +28,19 @@ test('옛 uGUI setter 차례(qauser0)면 그 줄과 로그인 줄이 실패하�
   const g = standardScreen((t) => keyFilter(8)(t.slice(0, 8)));
   g.caps = g.caps.filter((c) => c !== 'layout');
   const r = await conform(direct(g), hooks(g));
-  assert.deepEqual([r.passed, r.failed, r.skipped], [49, 2, 1], report(r));
+  assert.deepEqual([r.passed, r.failed, r.skipped], [50, 2, 1], report(r));
   assert.match(report(r), /✗ type IdInput 'qa_user01!' → qauser01 — IdInput: "qauser0"/);
   assert.match(report(r), /- layout 이 답한다 \(미실행 — 이 SDK 의 caps 에 layout 없음\)/);
+});
+
+test('옛 SDK(caps 에 rect 없음)면 find 답에 rect · screen 이 없고 rect 줄만 미실행', async () => {
+  const g = standardScreen();
+  g.caps = g.caps.filter((c) => c !== 'rect');
+  const f = await direct(g).find('LoginButton');
+  assert.deepEqual([f?.rect, f?.screen, typeof f?.x], [undefined, undefined, 'number']);
+  const r = await conform(direct(g), hooks(g));
+  assert.deepEqual([r.passed, r.failed, r.skipped], [52, 0, 1], report(r));
+  assert.match(report(r), /- find 의 rect 가 x,y 를 품는다 .* \(미실행 — 이 SDK 의 caps 에 rect 없음\)/);
 });
 
 // 장면 줄(A)은 표준 화면을 새로 만든다 — 앞 판 상태를 남기려고 scene-load 를 뺀다(B 영구 id 줄 · D 장면 알림 줄도 같이 미실행).
@@ -40,7 +50,7 @@ test('같은 게임에 다시 돌려도 통과하고, 둘째 판은 Item 을 다
   const g = keepScreen(standardScreen());
   await conform(direct(g), hooks(g));
   const r = await conform(direct(g), hooks(g));
-  assert.deepEqual([r.passed, r.failed, r.skipped], [47, 0, 5], report(r));
+  assert.deepEqual([r.passed, r.failed, r.skipped], [48, 0, 5], report(r));
   assert.ok(flatten(g.roots).some((e) => e.path === '/SampleCanvas/Bag/Slot[2]/Item'), report(r));
 });
 
@@ -50,7 +60,7 @@ test('다시 돌릴 때 누르기 · 끌기가 안 먹으면 앞 판 글자 · �
   byName(g, 'LoginButton').onClick = undefined;
   byName(g, 'Item').movable = false;
   const r = await conform(direct(g), hooks(g));
-  assert.deepEqual([r.passed, r.failed, r.skipped], [42, 5, 5], report(r));
+  assert.deepEqual([r.passed, r.failed, r.skipped], [43, 5, 5], report(r));
   assert.match(report(r), /✗ click LoginButton → StatusText 에 「login qauser01」 — StatusText: "login qauser01 \d+"/);
   assert.match(report(r), /✗ drag Item → 다른 칸 — \/SampleCanvas\/Bag\/Slot\[3\]\/Item 있음: false/);
   assert.match(report(r), /✗ C click LoginButton count 2 → 끝 번호가 2 늚/);
@@ -60,7 +70,7 @@ test('caps 에 find 가 없으면 find 로 확인하는 줄(누르기 · 끌기)
   const g = standardScreen();
   g.caps = g.caps.filter((c) => c !== 'find');
   const r = await conform(direct(g), hooks(g));
-  assert.deepEqual([r.passed, r.failed, r.skipped], [20, 0, 32], report(r));
+  assert.deepEqual([r.passed, r.failed, r.skipped], [20, 0, 33], report(r));
   assert.match(report(r), /- click LoginButton → StatusText 에 「login qauser01」 \(미실행 — 이 SDK 의 caps 에 find 없음\)/);
 });
 
@@ -68,7 +78,7 @@ test('A 줄 — 장면을 바꿨다 돌아오면 표준 화면이 새로 서고,
   const g = standardScreen();
   await conform(direct(g), hooks(g));
   const r = await conform(direct(g), hooks(g));
-  assert.deepEqual([r.passed, r.failed, r.skipped], [52, 0, 0], report(r));
+  assert.deepEqual([r.passed, r.failed, r.skipped], [53, 0, 0], report(r));
   assert.deepEqual([g.scene, g.loaded.map((l) => l.name), g.prefs.size, g.timeScale], ['Sample', ['Sample'], 0, 1]);
   assert.match(report(r), /✓ A scene-load Second → Sample 로 돌아오면 표준 화면을 다시 만든다/);
 });
@@ -169,14 +179,14 @@ test('C 줄 — 옛 SDK(caps 에 P2-C 명령 없음)면 C 줄 15개는 미실행
   const g = standardScreen();
   g.caps = g.caps.filter((c) => !P2C.includes(c));
   const r = await conform(direct(g), hooks(g));
-  assert.deepEqual([r.passed, r.failed, r.skipped], [37, 0, 15], report(r));
+  assert.deepEqual([r.passed, r.failed, r.skipped], [38, 0, 15], report(r));
   assert.match(report(r), /- C 손가락 둘 — touch-down 둘 → fingers 2 · touch-up → fingers 0 \(미실행 — 이 SDK 의 caps 에 touch-down · touch-up · input-reset 없음\)/);
 });
 
 test('D 줄 — 앱을 뒤로 보낼 길이 없으면(PC · iPhone) 일시정지 줄만 미실행이다', async () => {
   const g = standardScreen();
   const r = await conform(direct(g));
-  assert.deepEqual([r.passed, r.failed, r.skipped], [51, 0, 1], report(r));
+  assert.deepEqual([r.passed, r.failed, r.skipped], [52, 0, 1], report(r));
   assert.match(report(r), /- D 일시정지 알림 — 앱을 2초 뒤로 → game\.paused · game\.resumed \(미실행 — 앱을 뒤로 보낼 길 없음: PC · iPhone · Appium 없는 USB\)/);
 });
 
