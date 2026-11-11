@@ -3,16 +3,18 @@ import assert from 'node:assert/strict';
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { mkdtemp } from 'node:fs/promises';
+import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createInterface } from 'node:readline';
 import { after, test } from 'node:test';
 
 import { CONFORM, conform, report } from './conform.js';
-import { fakeFarm, FakeGame, fakeTcp, node, standardScreen } from './fake-game.js';
+import { fakeFarm, FakeGame, fakeRelayGame, fakeTcp, node, standardScreen } from './fake-game.js';
 import { Game, WAIT } from './game.js';
 import type { Link } from './link.js';
 import { COMMANDS, PROTOCOL } from './protocol.js';
+import { relay } from './relay.js';
 
 Object.assign(WAIT, { intervalMs: 5 });
 Object.assign(CONFORM, { waitMs: 50, holdS: 0.1, dragS: 0, keyS: 0 });
@@ -135,4 +137,20 @@ test('팜 — hold → open → tree → close → release 가 세션 도구로 
   assert.match((await call('close')).content[0].text!, /폰은 아직 잡혀 있습니다/);
   assert.match((await call('release')).content[0].text!, /^폰 R1 놓음/);
   assert.ok(farm.seen.includes('POST /api/devices/R1/hold') && farm.seen.includes('DELETE /api/devices/R1/hold'));
+});
+
+test('open {relay} 는 relay 에 걸어 온 게임에 붙는다', async (t) => {
+  const r = relay();
+  await new Promise<void>((ok) => r.listen(0, '127.0.0.1', ok));
+  const url = `http://127.0.0.1:${(r.address() as AddressInfo).port}`;
+  const ws = await fakeRelayGame(standardScreen(), url);
+  t.after(() => {
+    ws.close();
+    r.closeAllConnections();
+    r.close();
+  });
+  const { call } = await server();
+  assert.match((await call('open', { relay: url })).content[0].text!, /^세션 default 열림 — com\.fake\.game 1\.0 \(relay · macOS · FakeBook\)/);
+  assert.match((await call('find', { target: 'LoginButton' })).content[0].text!, /LoginButton/);
+  assert.match((await call('close')).content[0].text!, /^세션 default 닫음/);
 });

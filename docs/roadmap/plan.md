@@ -23,7 +23,7 @@
 | 오브젝트 | WaitForComponentProperty · GetParent · GetScreenPosition · SetText(글자 컴포넌트) · 컴포넌트 · 필드 · 메서드 목록 | ✓ `wait-prop` · `parent`(`/..`) · `find` 답 `x,y` · `text-set` · `components` · `members` | P2-B |
 | 오브젝트 | GetVisualElementProperty · WaitForVisualElementProperty(UI Toolkit) | ✓ 요소에 `get` · `wait-prop`(`value` · `text` · `layout.height`) | P2-B |
 | 알림 | 장면 열림 · 닫힘 · 로그 · 앱 일시정지 · SetServerLogging | ✓ `events`(`scene.loaded` · `scene.unloaded` · `game.paused` · `game.resumed`) · `logs` · `sdk-log on\|off` — 가져가기(번호 뒤만). 이름 · 시각 칸 · 토큰 가리기는 Issue Bunker 정책과 같다 | P2-D |
-| 연결 | Android 역방향 포트 연결 · iOS 역방향 · AltTester Server(로컬 · 원격 중계) | ✓ adb forward · 팜 · usbmuxd | P3 |
+| 연결 | Android 역방향 포트 연결 · iOS 역방향 · AltTester Server(로컬 · 원격 중계) | ✓ adb forward · 팜 · usbmuxd · relay(로컬 · 원격, P3-A) | P3 |
 | 플랫폼 | Android · iOS · Windows · macOS | ✓ | — |
 | 플랫폼 | Linux · WebGL | | P3 |
 | 엔진 | Unity | ✓ | — |

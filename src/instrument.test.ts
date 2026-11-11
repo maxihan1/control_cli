@@ -1,10 +1,10 @@
 // QA 빌드 직전 손질이 패키지 · asmdef 참조를 바르게 더하고 가짜 터치를 가리는 파일을 찾는지 본다
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { addInputReference, addPackage, instrument, packageUrl, shadowsFakeInput, INPUT_ASSEMBLY, PACKAGE } from './instrument.js';
+import { addInputReference, addPackage, instrument, packageUrl, shadowsFakeInput, INPUT_ASSEMBLY, PACKAGE, RELAY_FILE } from './instrument.js';
 
 test('패키지는 다른 의존을 남기고 고른 ref 로 더한다', () => {
   const out = addPackage({ dependencies: { 'com.unity.ugui': '2.0.0' } }, 'abc123');
@@ -79,4 +79,15 @@ test('프로젝트 폴더를 고치고 무엇을 바꿨는지 돌려준다', () 
   assert.equal(manifest.dependencies[PACKAGE], packageUrl('v1'));
   const editor = JSON.parse(readFileSync(join(root, 'Assets', 'Game', 'Editor', 'Game.Editor.asmdef'), 'utf8'));
   assert.equal(editor.references, undefined);
+});
+
+test('relay 주소를 주면 Resources 에 주소 파일을 넣고, 안 주면 남은 파일을 지운다', () => {
+  const root = mkdtempSync(join(tmpdir(), 'instrument-relay-'));
+  mkdirSync(join(root, 'Packages'));
+  mkdirSync(join(root, 'Assets'));
+  writeFileSync(join(root, 'Packages', 'manifest.json'), JSON.stringify({ dependencies: {} }));
+  instrument(root, 'v1', 'ws://192.168.0.10:13101');
+  assert.equal(readFileSync(join(root, RELAY_FILE), 'utf8'), 'ws://192.168.0.10:13101\n');
+  instrument(root, 'v1');
+  assert.equal(existsSync(join(root, RELAY_FILE)), false);
 });

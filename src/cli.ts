@@ -1,6 +1,6 @@
 // 명령줄 하나를 받아 세션 파일을 읽고 게임 · 디바이스 팜 · Appium 에 보낸 뒤 찍을 글을 돌려준다
 import { spawn } from 'node:child_process';
-import { existsSync, readdirSync } from 'node:fs';
+import { closeSync, existsSync, openSync, readdirSync } from 'node:fs';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
@@ -12,14 +12,15 @@ import { crawl, CRAWL } from './crawl.js';
 import { installAndLaunch, terminate } from './devicectl.js';
 import { Game, settled, WAIT, type At, type FindOptions, type PingReply, type PrefType, type WaitOptions } from './game.js';
 import { instrument } from './instrument.js';
-import { farmLink, GAME_PORT, iosLink, tcpLink, usbLink, type Command, type Reply } from './link.js';
+import { farmLink, GAME_PORT, iosLink, relayLink, tcpLink, usbLink, type Command, type Reply } from './link.js';
 import { serve, VERSION } from './mcp.js';
+import { relay, RELAY_PORT, type GameInfo } from './relay.js';
 import { snapshot } from './snapshot.js';
 import { phone } from './usbmux.js';
 
 interface Session {
-  /** pc 는 내 컴퓨터에서 도는 게임(Windows · macOS 빌드), ios 는 USB iPhone(usbmuxd)에 바로 붙는다 */
-  via: 'farm' | 'usb' | 'pc' | 'ios';
+  /** pc 는 내 컴퓨터에서 도는 게임(Windows · macOS 빌드), ios 는 USB iPhone(usbmuxd)에 바로 붙는다, relay 는 이미 켜진 게임이 relay 에 걸어 왔다 */
+  via: 'farm' | 'usb' | 'pc' | 'ios' | 'relay';
   /** USB 는 비면 adb 에 꽂힌 하나뿐인 폰. iPhone 은 열 때 찾은 UDID */
   udid?: string;
   /** Appium 세션 번호 — 없으면(PC · iPhone · USB 로 이미 켠 게임) 스크린샷 · 뒤로 키를 SDK 가 한다 */
@@ -31,6 +32,8 @@ interface Session {
   /** config --wait — wait · wait-prop 의 기본 한도 */
   waitMs?: number;
   refs: Record<string, string>;
+  /** open --relay — 명령은 이 relay 의 이 게임으로(깔고 켜기는 via 길 그대로) */
+  relay?: { url: string; key: string };
 }
 
 export interface Options {
@@ -50,6 +53,8 @@ export const HELP = `control-cli [-s=<세션>] <명령>
   open --usb [--app <APK>] [--udid <serial>]      USB 폰 — app 이 있으면 내 컴퓨터 Appium 이 깔고 켠다
   open --pc [--app <실행 파일 · .app>]            내 컴퓨터의 PC 게임 — app 이 있으면 띄우고 close 가 끈다
   open --ios [--app <서명된 .app>] [--udid <UDID>]  USB iPhone(usbmuxd) — app 이 있으면 devicectl 로 깔고 켠다(Xcode 15+ · iOS 17+)
+  open --relay [주소] [--game <이름>] [--app …]   relay 에 걸어 온 게임 — 주소가 없으면 이 컴퓨터 relay(없으면 띄운다). --app 이면 깔고 켜기는 팜 · --pc · --ios 길
+  relay [--port 13101] [--token <비밀값>] · relay status [주소]   게임이 거는 중계를 띄운다 · 붙은 게임을 본다
   snapshot [--png]                                 줄인 오브젝트 목록 + 스크린샷 파일(--png 은 게임이 PNG 로)
   click <ref|주소> [--count <n>] [--interval <초>]  Ran: await game.click('LoginButton')
   drag <ref|주소> <ref|주소> [--via <주소>]… [--duration <초>]
@@ -90,12 +95,13 @@ export const HELP = `control-cli [-s=<세션>] <명령>
   crawl [--max ${CRAWL.maxWindows}] [--minutes ${CRAWL.minutes}] [--exclude <정규식>]… [--out <폴더>]   창 훑기
   close                                            Appium 세션을 닫는다
   release [--udid <serial>]                        폰을 놓는다 — 팜이 깐 게임 · 데이터를 지운다
-  instrument <Unity 프로젝트 폴더> [--ref <커밋>]  QA 빌드에 SDK 를 넣는다
+  instrument <Unity 프로젝트 폴더> [--ref <커밋>] [--relay <주소>]  QA 빌드에 SDK 를 넣는다 — relay 주소를 주면 게임이 그리로 건다
 
 주소는 오브젝트 이름(하나뿐일 때) · /Canvas/Panel/Slot[2] 경로 · //*[@tag=Player] · //*[contains(@name,Slot)] · //*[@text=OK]/.. 선택자(AltTester PATH 꼴).
 읽기 · 쓰기 명령(get · set · call · text-set …)은 --inactive 로 꺼진 것도, 누르기 · 끌기는 --camera 로 카메라를 고른다. ref(e3)는 마지막 화면에서만 쓴다.
 입력 시간은 초 — 명령 하나는 8초 안(더 길게는 touch-down · key-down 뒤 touch-up · key-up).
 연결: --url 또는 PLATFORM_APPIUM_URL (없으면 http://127.0.0.1:4723) · 토큰: --token 또는 PLATFORM_APPIUM_TOKEN, 둘 다 없으면 macOS Keychain 의 control-cli-farm
+relay 토큰: CONTROL_CLI_RELAY_TOKEN, 없으면 macOS Keychain 의 control-cli-relay
 앱: --app 또는 PLATFORM_APP · 폰: --udid 또는 PLATFORM_DEVICE_UDID · USB 게임 포트: --port (기본 ${GAME_PORT})`;
 
 const quote = (s: string) => `'${s.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n')}'`;
@@ -138,6 +144,8 @@ export async function run(argv: string[], o: Options): Promise<string> {
       usb: { type: 'boolean' },
       pc: { type: 'boolean' },
       ios: { type: 'boolean' },
+      relay: { type: 'boolean' },
+      game: { type: 'string' },
       port: { type: 'string' },
       minutes: { type: 'string' },
       text: { type: 'string' },
@@ -175,10 +183,15 @@ export async function run(argv: string[], o: Options): Promise<string> {
   if (name === 'instrument') {
     // 기본은 이 CLI 판 tag — CLI 가 아는 SDK 경로(?path=/sdk/unity)와 SDK 판이 늘 맞는다(그 tag 를 먼저 찍는다).
     const ref = values.ref ?? `v${VERSION}`;
-    if (args.length !== 1) throw new Error('instrument <Unity 프로젝트 폴더> [--ref <태그 · 커밋>] 꼴이어야 합니다');
-    const { asmdefs, warnings } = instrument(args[0], ref);
+    const address = values.relay ? args.find((a) => /^(ws|http)s?:\/\//.test(a)) : undefined;
+    if (values.relay && !address) throw new Error('--relay 뒤에 게임이 걸 주소(ws:// · wss://)를 줍니다');
+    const folders = args.filter((a) => a !== address);
+    if (folders.length !== 1) throw new Error('instrument <Unity 프로젝트 폴더> [--ref <태그 · 커밋>] [--relay <주소>] 꼴이어야 합니다');
+    const gameAddress = address?.replace(/^http/, 'ws');
+    const { asmdefs, warnings } = instrument(folders[0], ref, gameAddress);
     return [
       `SDK(${ref}) 를 Packages/manifest.json 에 더했습니다`,
+      ...(gameAddress ? [`relay 주소를 구웠습니다 — 게임이 ${gameAddress} 로 겁니다`] : []),
       ...asmdefs.map((a) => `asmdef 참조 더함: ${a}`),
       ...warnings.map((w) => `경고: ${w}`),
       'QA 빌드 정의 심볼에 CONTROL_CLI 가 있어야 SDK 가 빌드에 들어갑니다',
@@ -196,6 +209,23 @@ export async function run(argv: string[], o: Options): Promise<string> {
   const port = values.port === undefined ? GAME_PORT : Number(values.port);
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('--port 는 1~65535 정수여야 합니다');
 
+  if (name === 'relay') {
+    if (args[0] === 'status') {
+      const url = relayUrl(args[1]);
+      const games = await relayGames(url, relayHeaders(env));
+      return [`relay ${url} — 게임 ${games.length}개`, ...games.map((g) => `  ${gameLine(g)} · ${ago(g.since)}째 · 신호 ${ago(g.lastSeen)} 전`)].join('\n');
+    }
+    if (args.length) throw new Error('relay [--port <n>] [--token <비밀값>] · relay status [주소] 꼴이어야 합니다');
+    const token = values.token ?? env.CONTROL_CLI_RELAY_TOKEN;
+    const listenPort = values.port === undefined ? RELAY_PORT : port;
+    const server = relay({ token });
+    await new Promise<void>((ok, no) => {
+      server.once('error', no);
+      server.listen(listenPort, ok);
+    });
+    console.log(`relay 가 ${listenPort} 에서 게임을 받습니다 — 명령은 ${token ? '토큰이 있어야' : '이 컴퓨터에서만'}`);
+    return new Promise<never>(() => {});
+  }
   if (name === 'mcp') {
     // 세션 도구는 이 run 을 그대로 부른다 — 서버를 띄울 때 준 세션 · 연결 옵션을 넘긴다.
     const globals = [`--session=${sname}`, ...(['url', 'token', 'port'] as const).flatMap((k) => (values[k] === undefined ? [] : [`--${k}=${values[k]}`]))];
@@ -203,7 +233,7 @@ export async function run(argv: string[], o: Options): Promise<string> {
       session: (argv) => run([...globals, ...argv], o),
       game: async (command: Command): Promise<Reply> => {
         const s = await load(file);
-        const game = gameOf(s, farm, port);
+        const game = gameOf(s, farm, port, env);
         if (command.cmd !== 'ping') return game.call(command);
         // CLI ping 처럼 받은 caps 를 세션에 적는다 — 게임을 새 SDK 로 다시 띄웠을 수 있다.
         const reply = await game.ping();
@@ -238,17 +268,24 @@ export async function run(argv: string[], o: Options): Promise<string> {
   if (name === 'open') {
     if (await readFile(file).then(() => true, () => false)) throw new Error(`세션 ${sname} 이 이미 열려 있습니다 — close 부터 합니다`);
     if ([values.usb, values.pc, values.ios].filter(Boolean).length > 1) throw new Error('--usb · --pc · --ios 는 하나만 씁니다');
-    const via: Session['via'] = values.ios ? 'ios' : values.pc ? 'pc' : values.usb ? 'usb' : 'farm';
-    // PC · iPhone 은 Appium 을 안 쓴다 — 팜 · USB Android 의 PLATFORM_APP(APK) · PLATFORM_DEVICE_UDID 를 보지 않는다.
-    const local = via === 'pc' || via === 'ios';
+    if (values.game !== undefined && !values.relay) throw new Error('--game 은 --relay 와 함께 씁니다');
+    const address = values.relay ? args.find((a) => /^(ws|http)s?:\/\//.test(a)) : undefined;
+    // --relay 만 주면 이미 켜진 게임에 붙는다 — 깔 게 없다(PLATFORM_APP 은 보지 않는다).
+    const via: Session['via'] = values.ios ? 'ios' : values.pc ? 'pc' : values.usb ? 'usb' : values.relay && values.app === undefined ? 'relay' : 'farm';
+    const local = via === 'pc' || via === 'ios' || via === 'relay';
     const udid =
-      via === 'pc' ? undefined
+      via === 'pc' || via === 'relay' ? undefined
       : via === 'ios' ? (await phone(values.udid)).udid
       : (values.udid ?? env.PLATFORM_DEVICE_UDID ?? (via === 'farm' ? (await readFile(heldFile, 'utf8').catch(() => '')).trim() || undefined : undefined));
     if (via === 'farm' && !udid) throw new Error('잡은 폰이 없습니다 — hold 부터 합니다');
     const app = local ? values.app : (values.app ?? env.PLATFORM_APP);
     if (via === 'farm' && !app) throw new Error('게임을 깔려면 --app 이나 PLATFORM_APP 이 필요합니다(QA APK 주소)');
     const s: Session = { via, udid, refs: {} };
+    // relay 는 켜기 전에 본다 — --app 으로 켜면 켠 뒤 (다시) 붙은 게임을 고른다.
+    const url = values.relay ? relayUrl(address) : undefined;
+    const headers = relayHeaders(env);
+    const started = url ? await ensureRelay(url, headers, o.dir) : '';
+    const before = url && app ? await relayGames(url, headers) : undefined;
     if (via === 'pc') {
       if (app) s.pid = launch(app);
     } else if (via === 'ios') {
@@ -256,14 +293,18 @@ export async function run(argv: string[], o: Options): Promise<string> {
     } else if (app) s.appium = await openSession(appium, app, udid);
     // 게임이 답하기 전에 실패해도 close 로 Appium 세션 · 띄운 게임을 닫을 수 있게 먼저 적는다.
     await save(file, s);
-    const game = gameOf(s, farm, port);
+    const picked = url ? await pickGame(url, headers, values.game, before) : undefined;
+    if (url && picked) s.relay = { url, key: picked.key };
+    const game = gameOf(s, farm, port, env);
     const info = await untilAnswers(game);
     s.caps = game.caps;
     await save(file, s);
     const pid = s.pid ? ` · 프로세스 ${s.pid}` : '';
-    const where = via === 'farm' ? `디바이스 팜 ${udid}` : via === 'usb' ? 'USB' : via === 'pc' ? `PC${pid}` : `iPhone ${udid}${pid}`;
+    const where =
+      picked ? `relay · ${picked.platform} · ${picked.model}${via === 'farm' ? ` · 디바이스 팜 ${udid}` : ''}${pid}`
+      : via === 'farm' ? `디바이스 팜 ${udid}` : via === 'usb' ? 'USB' : via === 'pc' ? `PC${pid}` : `iPhone ${udid}${pid}`;
     const engine = info.engine ? ` · ${info.engine} ${info.engineVersion} · SDK ${info.sdkVersion}` : '';
-    return `세션 ${sname} 열림 — ${info.app} ${info.version} (${where})${engine}\n${await shot(game, s, appium, file, sname, o.dir)}`;
+    return `${started}세션 ${sname} 열림 — ${info.app} ${info.version} (${where})${engine}\n${await shot(game, s, appium, file, sname, o.dir)}`;
   }
 
   const s = await load(file);
@@ -276,7 +317,7 @@ export async function run(argv: string[], o: Options): Promise<string> {
     return `세션 ${sname} 닫음${closed}${killed}${s.via === 'farm' ? ' — 폰은 아직 잡혀 있습니다(release)' : ''}`;
   }
 
-  const game = gameOf(s, farm, port);
+  const game = gameOf(s, farm, port, env);
   const target = (x: string | undefined, what = '주소') => {
     if (x === undefined) throw new Error(`${name} 에 ${what}(ref 나 오브젝트 이름 · 경로)가 필요합니다`);
     if (!/^e\d+$/.test(x)) return x;
@@ -661,16 +702,83 @@ export async function run(argv: string[], o: Options): Promise<string> {
   }
 }
 
-function gameOf(s: Session, farm: Conn, port: number): Game {
-  // PC 게임의 SDK 는 이 컴퓨터의 127.0.0.1 에 열려 있다 — adb 없이 바로 붙는다.
+function gameOf(s: Session, farm: Conn, port: number, env: Options['env']): Game {
+  // PC 게임의 SDK 는 이 컴퓨터의 127.0.0.1 에 열려 있다 — adb 없이 바로 붙는다. relay 면 깔고 켠 길과 상관없이 relay 로.
   const link =
-    s.via === 'farm' ? farmLink(farm.base, farm.headers, s.udid!)
+    s.relay ? relayLink(s.relay.url, relayHeaders(env), s.relay.key)
+    : s.via === 'farm' ? farmLink(farm.base, farm.headers, s.udid!)
     : s.via === 'usb' ? usbLink(s.udid, port)
     : s.via === 'ios' ? iosLink(s.udid, port)
     : tcpLink(port);
   const game = new Game(link, s.caps);
   if (s.waitMs !== undefined) game.waitMs = s.waitMs;
   return game;
+}
+
+// ws:// · wss:// 도 받는다 — 게임에 구운 주소를 그대로 써도 된다.
+function relayUrl(address?: string): string {
+  const url = (address ?? `http://127.0.0.1:${RELAY_PORT}`).replace(/^ws(s?):\/\//, 'http$1://').replace(/\/+$/, '');
+  if (!/^https?:\/\/[^/]+$/.test(url)) throw new Error(`relay 주소는 http(s) · ws(s)://<호스트>[:<포트>] 꼴입니다: ${address}`);
+  return url;
+}
+
+const relayHeaders = (env: Options['env']): Record<string, string> => (env.CONTROL_CLI_RELAY_TOKEN ? { Authorization: `Bearer ${env.CONTROL_CLI_RELAY_TOKEN}` } : {});
+
+async function relayGames(url: string, headers: Record<string, string>): Promise<GameInfo[]> {
+  const res = await fetch(`${url}/games`, { headers, signal: AbortSignal.timeout(5000) });
+  const body = (await res.json().catch(() => null)) as { value?: unknown } | null;
+  if (!res.ok) throw new Error((body?.value as { message?: string } | undefined)?.message ?? `relay ${url} 가 HTTP ${res.status} 로 답했습니다`);
+  return body?.value as GameInfo[];
+}
+
+const gameLine = (g: GameInfo) => `${g.app} ${g.version} · ${g.platform} · ${g.model}`;
+const ago = (t: number) => {
+  const s = Math.max(0, Math.round((Date.now() - t) / 1000));
+  return s < 60 ? `${s}초` : `${Math.floor(s / 60)}분`;
+};
+
+// 이 컴퓨터 주소에 relay 가 없으면 띄운다 — 토큰 변수를 지워 늘 토큰 없이(명령은 이 컴퓨터에서만). close 는 끄지 않는다(다음 open · 다른 세션이 쓴다).
+async function ensureRelay(url: string, headers: Record<string, string>, dir: string): Promise<string> {
+  try {
+    await relayGames(url, headers);
+    return '';
+  } catch (e) {
+    if (!(e instanceof TypeError)) throw e; // 닿았는데 거절(403 …)이면 그대로 알린다
+  }
+  const { hostname, port } = new URL(url);
+  if (!['127.0.0.1', 'localhost'].includes(hostname)) throw new Error(`relay ${url} 에 닿지 못했습니다 — 밖 relay 는 띄우지 않습니다. 주소 · 터널이 살아 있나 봅니다`);
+  const logFile = join(dir, 'relay.log');
+  const log = openSync(logFile, 'a');
+  // 띄운 relay 도 main.ts 를 지나 Keychain control-cli-relay 를 읽는다 — 그것도 끈다.
+  const { CONTROL_CLI_RELAY_TOKEN: _token, ...env } = process.env;
+  const child = spawn(process.execPath, [join(import.meta.dirname, 'main.js'), 'relay', `--port=${port || 80}`], { detached: true, stdio: ['ignore', log, log], env: { ...env, CONTROL_CLI_KEYCHAIN: '0' } });
+  child.on('error', () => {});
+  child.unref();
+  closeSync(log);
+  const end = Date.now() + 5000;
+  for (;;) {
+    await sleep(100);
+    try {
+      await relayGames(url, headers);
+      return `relay 를 띄웠습니다 — ${url} (프로세스 ${child.pid}, 기록 ${logFile})\n`;
+    } catch (e) {
+      if (!(e instanceof TypeError) || Date.now() >= end) throw new Error(`relay 를 띄우지 못했습니다 — ${logFile} 를 봅니다`);
+    }
+  }
+}
+
+// open 이 고를 게임 — want 가 있으면 key · 앱 · 기종 · 기기 이름에 그 글자가 든 것, before 가 있으면(--app 으로 켰다) 켠 뒤 붙거나 다시 붙은 것.
+async function pickGame(url: string, headers: Record<string, string>, want: string | undefined, before?: GameInfo[]): Promise<GameInfo> {
+  const end = Date.now() + TIMING.openWaitMs;
+  for (;;) {
+    let games = await relayGames(url, headers);
+    if (before) games = games.filter((g) => !before.some((b) => b.key === g.key && b.since === g.since));
+    if (want !== undefined) games = games.filter((g) => [g.key, g.app, g.model, g.device].some((v) => v.includes(want)));
+    if (games.length === 1) return games[0];
+    if (games.length > 1) throw new Error([`게임이 ${games.length}개 붙어 있습니다 — --game 으로 고릅니다`, ...games.map((g) => `  ${gameLine(g)} (${g.key})`)].join('\n'));
+    if (Date.now() >= end) throw new Error(`${TIMING.openWaitMs / 1000}초 안에 relay ${url} 에 붙은 게임이 없습니다${want ? `(--game ${want})` : ''} — QA 빌드에 instrument --relay 로 이 주소를 구웠나요?`);
+    await sleep(TIMING.openStepMs);
+  }
 }
 
 // PC 게임을 띄운다 — macOS .app 은 Contents/MacOS 안 실행 파일을 바로 띄워야 프로세스 번호를 잡아 close 가 끌 수 있다.

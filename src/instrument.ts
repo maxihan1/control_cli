@@ -1,6 +1,6 @@
 // QA 빌드 직전에 Unity 프로젝트에 SDK 패키지와 asmdef 참조를 더한다 — 게임 저장소에는 SDK 를 넣지 않고 빌드 잡에서만
-import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { join, relative } from 'node:path';
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { dirname, join, relative } from 'node:path';
 
 export const PACKAGE = 'com.maxihan1.control-cli';
 export const INPUT_ASSEMBLY = 'ControlCli.Input';
@@ -57,8 +57,11 @@ function readJson<T>(path: string): T {
   }
 }
 
+// SDK Relay.cs 가 Resources.Load 로 읽는다 — 이 파일이 없으면 relay 는 꺼짐.
+export const RELAY_FILE = join('Assets', 'ControlCli', 'Resources', 'ControlCliRelay.txt');
+
 // 다 읽고 고칠 것을 정한 뒤에 쓴다 — 중간에 깨진 파일이 있으면 아무것도 안 바꾼 채 멈춘다.
-export function instrument(project: string, ref: string): InstrumentResult {
+export function instrument(project: string, ref: string, relayAddress?: string): InstrumentResult {
   const manifestPath = join(project, 'Packages', 'manifest.json');
   const writes: [string, string][] = [[manifestPath, JSON.stringify(addPackage(readJson<Manifest>(manifestPath), ref), null, 2) + '\n']];
   const asmdefs: string[] = [];
@@ -78,5 +81,10 @@ export function instrument(project: string, ref: string): InstrumentResult {
     }
   }
   for (const [path, text] of writes) writeFileSync(path, text);
+  const relayPath = join(project, RELAY_FILE);
+  if (relayAddress) {
+    mkdirSync(dirname(relayPath), { recursive: true });
+    writeFileSync(relayPath, relayAddress + '\n');
+  } else if (existsSync(relayPath)) rmSync(relayPath);
   return { asmdefs, warnings };
 }

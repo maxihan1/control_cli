@@ -37,7 +37,7 @@ export const VERSION = (JSON.parse(readFileSync(join(import.meta.dirname, '..', 
 
 const INSTRUCTIONS = [
   'QA 빌드 게임(control_cli SDK)을 조작한다.',
-  '먼저 open — 디바이스 팜은 hold 로 폰을 잡은 뒤 open {app: QA APK}, 이 컴퓨터 PC 게임은 open {via: "pc"}.',
+  '먼저 open — 디바이스 팜은 hold 로 폰을 잡은 뒤 open {app: QA APK}, 이 컴퓨터 PC 게임은 open {via: "pc"}, relay 에 걸어 온 게임은 open {relay: ""}.',
   '화면은 tree · screenshot 으로 본다. 주소는 오브젝트 이름(켜진 것 중 하나뿐일 때) · /Canvas/Panel/Slot[2] 경로 · //*[@tag=Player] · //*[contains(@name,Slot)] · //*[@text=OK]/.. 같은 선택자(AltTester PATH 꼴).',
   '다 쓰면 close, 팜 폰은 release.',
 ].join(' ');
@@ -79,13 +79,23 @@ export function tools(h: Handlers): Tool[] {
     },
     {
       name: 'open',
-      description: '게임에 붙고 첫 화면을 찍는다 — farm(기본)은 hold 로 잡은 폰에 app 을 깔고 켠다 · usb 는 꽂힌 Android · pc 는 이 컴퓨터 게임(app 이 있으면 띄운다) · ios 는 USB iPhone',
+      description: '게임에 붙고 첫 화면을 찍는다 — farm(기본)은 hold 로 잡은 폰에 app 을 깔고 켠다 · usb 는 꽂힌 Android · pc 는 이 컴퓨터 게임(app 이 있으면 띄운다) · ios 는 USB iPhone · relay 를 주면 relay 에 걸어 온 게임(app 이 있으면 깔고 켜기만 via 길)',
       inputSchema: schema({
         via: { type: 'string', enum: ['farm', 'usb', 'pc', 'ios'], description: '어디의 게임인가(기본 farm)' },
         app: { type: 'string', description: 'QA APK 주소 · 경로(farm · usb) · PC 실행 파일 · .app(pc) · 서명된 .app(ios)' },
         udid,
+        relay: { type: 'string', description: 'relay 주소(ws · wss · http) — 빈 글자면 이 컴퓨터 relay(없으면 띄운다)' },
+        game: { type: 'string', description: 'relay 에 게임이 여럿일 때 고를 이름(key · 앱 · 기종 일부)' },
       }),
-      run: (a) => cli(['open', ...(a.via === undefined || a.via === 'farm' ? [] : [`--${String(a.via)}`]), ...flag('app', a.app), ...flag('udid', a.udid)]),
+      run: (a) =>
+        cli([
+          'open',
+          ...(a.via === undefined || a.via === 'farm' ? [] : [`--${String(a.via)}`]),
+          ...flag('app', a.app),
+          ...flag('udid', a.udid),
+          ...(a.relay === undefined ? [] : ['--relay', ...(a.relay ? [String(a.relay)] : [])]),
+          ...flag('game', a.game),
+        ]),
     },
     { name: 'close', description: '세션을 닫는다 — open 이 띄운 PC · iPhone 게임은 끈다. 팜 폰은 잡힌 채로 남는다(release)', inputSchema: schema({}), run: () => cli(['close']) },
     { name: 'release', description: '잡은 팜 폰을 놓는다 — 팜이 깐 게임 · 데이터를 지운다', inputSchema: schema({ udid }), run: (a) => cli(['release', ...flag('udid', a.udid)]) },

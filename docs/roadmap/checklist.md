@@ -1,21 +1,24 @@
 # AltTester 기능 전부 + 여러 엔진 — 체크리스트
 
-## ▶ 다음 세션은 여기부터 (2026-11-04)
+## ▶ 다음 세션은 여기부터 (2026-11-11)
 
-- P2 끝 — 다음은 P2 묶음을 main 으로. PR #15~#20 은 모두 `roadmap` 에 합쳐졌다(#19 `75f7e1b` · #20 `0749367`, 2026-11-06 — 둘 다 러너 사정으로 떨어진 잡(Unity 라이선스 토큰 · 디스크 꽉 참)을 다시 돌려 초록 뒤 merge commit). instrument 기본 ref 는 정했다(아래 줄 · 브랜치 `p2-ref` → `roadmap` PR). 남은 차례 — `p2-ref` PR 합치기 → `roadmap` → `unity-u8` … → main(PR #14 → #13 … → #5 를 위에서부터) → main 커밋에 `v0.7.0` tag. 그 뒤 P3~P10 병행(트랙마다 세션 · worktree · main 에서 브랜치 · 팜 폰 하나 — plan.md 「순차와 병행」)
-- P2-D 끝 — draft PR #20 · sdk-compile run 41806656486 초록(meta · 2021.3 · 2022.3 · 6000.0) · sample run 41806656652 9개 잡 초록(macOS 옛 Input · Windows 잡은 러너 Docker 층 쓰기 실패로 한 번 다시). 팜 RF9R408GKRR 의 APK 넷(6000.0 옛 Input · 6000.0 Input System · 2022.3 둘 다 · 2021.3 옛 Input) 「통과 52 · 실패 0 · 미실행 0」, 이 맥 macOS 앱 둘(6000.0 옛 Input · Input System) 「통과 51 · 실패 0 · 미실행 1」(일시정지 줄 — PC 는 일시정지가 안 난다). AltTester 명령 목록 기준 68/68. 알림 이름 · 시각 칸 · 토큰 가리기는 Issue Bunker 정책과 맞췄다(context-notes 「P2-D 설계」)
+- **P3-A relay 끝** — draft PR #24(`p3a` → main). 남은 것 — PR ready → 합치기(사용자) → 그 main 커밋에 `v0.9.0` tag 를 바로. PR #22(체크리스트만)는 #24 아래에 들어 있어 닫는다. 실기기 결과는 context-notes 「P3-A 실기기」
+- **다음 P3-B Unity WebGL** — 이 파일 P3-B 「설계 · 구현 계획」부터, main 에서 뗀 브랜치. 게임 쪽은 브라우저 WebSocket 으로 P3-A relay 의 `/game` 에(hello · `<번호> <명령>` 꼴 그대로), 주소는 페이지 주소 `?controlcli=` 가 먼저
+- 진척 페이지(전체) — https://claude.ai/artifact/Y4ZUdJiXPeE4NGSx8oxNWK (db 의 `meta/state` · `phases`(U0~U8 · P0~P10 · 번외, `done`/`total` 은 체크리스트 칸 수) · `tasks`(지금 단계 Task) · `log`). 체크리스트 칸을 바꾸거나 Task 가 끝날 때마다 ArtifactData 로 고친다(`status` 는 done · partial · doing · blocked · todo) — 페이지는 다시 publish 하지 않는다
+- 실기기 길 — 팜 토큰 길이 401(아래 「팜 연결」)이라 이 맥에 USB 로 꽂힌 폰에 adb 로 깔고 켠다(`open --relay` 는 깔기와 상관없이 붙는다). CI APK 는 잡마다 서명 키가 달라 다른 빌드로 바꿀 때 `adb uninstall` 이 먼저다 — 자동 권한이 막아 사용자가 `! ~/Library/Android/sdk/platform-tools/adb -s <serial> uninstall com.maxihan1.controlcli.sample` 로 지운다. `adb install` 출력은 자르지 말고 끝까지 본다(실패를 놓치면 옛 앱이 돈다)
+- 밖 공개 relay 시험 — cloudflared quick tunnel(`cloudflared tunnel --url http://127.0.0.1:<토큰 relay 포트>`, 계정 없는 임시 `trycloudflare.com` 주소)이 `wss` 를 그대로 넘긴다. 토큰은 job tmp 에만, 시험 뒤 터널 · relay 를 끈다. `farm.maxihan.com` 은 Devicefarm 의 SSH 터널이라 손대지 않는다
+
+- P0~P2 · U0~U8 모두 main 에 들어갔다 — PR #5~#21 합침(위에서부터 merge commit, main `b4bdb10` = 옛 `roadmap`), tag `v0.7.0`(SDK · CLI 0.7.0). 그 뒤 #23 find rect 로 main `6f6511a` · tag `v0.8.0`. AltTester 명령 목록 기준 68/68
+- 다음은 P3~P10 병행 — 트랙마다 세션 하나 · worktree 하나 · **main 에서 뗀 브랜치** · 팜 폰 하나(plan.md 「순차와 병행」). 1차 묶음은 P3 연결 · 플랫폼(`relay` · WebGL · Linux · iOS 역방향) · P4 드라이버(Python · C# · Java · Robot — `protocol/commands.json` 에서) · P6 Godot. 트랙을 시작하는 세션은 이 파일의 그 단계 「설계 · 구현 계획」부터
+- 병행 규칙 — 통신 꼴(`protocol/commands.json` · SDK 답 꼴)을 바꾸는 일은 작은 PR 로 main 에 먼저, 다른 트랙은 그 위로 다시 올린다. README 지원 표 · AltTester 표는 트랙 PR 마다 자기 칸만
+- 판 · tag — instrument 는 `--ref` 가 없으면 `v<package.json 판>` 을 받는다(context-notes 「instrument 기본 ref」). 판을 올리는 PR 을 main 에 합치면 그 커밋에 같은 tag 를 바로 찍는다 — 안 찍으면 새 CLI 의 기본값이 SDK 를 못 받는다
 - PR 만들기 — 자동 권한 판정이 PR 본문(다른 저장소 정책 문서 이름)을 「Data Exfiltration」으로 막은 적이 있다. 막히면 사용자가 `! gh pr create …` 로 만든다(P2-D)
+- CI 빨간 줄 — sample 잡이 러너 사정(`no space left on device` · Unity 라이선스 `Access token is unavailable` · Maven `Could not resolve org.jetbrains.kotlin` · game-ci CLI `GitHub API returned 403`)으로 자주 떨어진다. 로그를 읽어 그거면 `gh run rerun <run> --failed`
 - 팜 폰 — RF9R408GKRR 을 다시 써도 된다(사용자 「RF9R408GKRR 써도 됨」, 2026-11-04 P2-C 실기기 때). 세션마다 사용자가 정한 폰만 쓰고, 다 쓰면 `release`
 - C# 컴파일 검사 — `.cache` 는 p2b worktree 에 받아 둔 것을 쓴다: `UNITY_REF_DIR=/Users/maxi.moff/Projects/control_cli/.claude/worktrees/p2b/tools/unity-compile-check/.cache python3 tools/unity-compile-check/check.py 6000.0`(없으면 `check.py fetch 6000.0`)
-- P2-C 끝 — draft PR #19(`p2c` → `roadmap`) · sdk-compile run 41793375881 초록(meta · 2021.3 · 2022.3 · 6000.0) · sample run 41793375943 9개 잡 초록. 팜 RF9R408GKRR 의 APK 넷(6000.0 옛 Input · 6000.0 Input System · 2021.3 옛 Input · 2022.3 둘 다)과 이 맥 macOS 앱 둘(6000.0 옛 Input · Input System) 모두 conform 「통과 48 · 실패 0 · 건너뜀 0」(C 줄 15개 포함). 길게 누르기 명령은 `long-press`(세션 `hold` 와 겹쳐)
-- P2-B 끝 — draft PR #18(`p2b` → `roadmap`) · sdk-compile run 41759126717 초록(meta · 2021.3 · 2022.3 · 6000.0). 팜 RF9R408GKRR 에서 sample run 41759126839 의 6000.0 옛 Input APK · 6000.0 Input System APK · 2021.3 옛 Input APK 모두, 이 맥 macOS 앱(같은 run 의 StandaloneOSX · Mono)도 conform 「통과 33 · 실패 0 · 건너뜀 0」(B 줄 10개 포함). sample run 8개 잡 모두 초록. 영구 id 빌드 훅은 sample 로그에 「Assets/Second.unity 오브젝트 1/1개에 영구 id」 — `GlobalObjectId` 가 장면을 굽는 중에도 번호를 준다. 이 맥에서도 Docker 로 C# 컴파일 검사가 된다(`tools/unity-compile-check/check.py fetch 6000.0` 뒤 `check.py 6000.0`)
-- 팜 연결 — 팜은 이 맥에서 돈다(`http://127.0.0.1:4723/wd/hub`, 밖에서는 `https://farm.maxihan.com/wd/hub`). **토큰은 묻지 않는다** — control-cli 가 `--token` · `PLATFORM_APPIUM_TOKEN` 이 없으면 macOS Keychain `control-cli-farm`(사용자 maxi 의 PAT, 2026-11-04 넣음)을 읽는다. 401 이면 사용자가 새 PAT 를 복사해 두고 세션이 pbpaste → whoami 200 → Keychain 에 넣는다(context-notes 「P2-B 구현」)
+- 팜 연결 — 팜은 이 맥에서 돈다(`http://127.0.0.1:4723/wd/hub`, 밖에서는 `https://farm.maxihan.com/wd/hub`). **2026-11-04 토큰 정책이 바뀌어 사람 PAT 가 없어졌다** — Keychain `control-cli-farm` 의 PAT 는 401 이고, 사용자에게 PAT 를 달라고 하지 않는다. CLI 브라우저 로그인이 생기기 전까지 실기기는 USB(위 「실기기 길」)
 - macOS 시험은 `caffeinate -d -u -t 900` — 잠금 화면은 `-d` 만으로는 13초 만에 화면을 꺼 Unity 가 멈춘다(context-notes 「P1 실기기」)
-- instrument 기본 ref — 정함(2026-11-06 사용자): `--ref` 가 없으면 CLI 판 tag `v<package.json 판>`(지금 `v0.7.0`). **main 에 P2 묶음을 합친 뒤 그 main 커밋에 `v0.7.0` tag 를 먼저 찍어야** 새 CLI 의 기본값이 닿는다. README 의 `npm i -D …#v0.7.0` · MCP 절 `npm i -g …#v0.7.0` 도 같은 tag(context-notes 「instrument 기본 ref」)
-- 차례 — P0 바탕 → P1 MCP → P2 Unity 를 AltTester 와 똑같이 → P3 relay · WebGL · Linux → P4 드라이버 → P5 인스펙터 · Recorder → P6~P10 엔진(맨 뒤 — 사용자 결정)
-- P0 → P1 → P2 는 순차, P3~P10 은 P2 가 main 에 합쳐진 뒤 병행(트랙마다 세션 · worktree · 팜 폰 하나 — plan.md 「순차와 병행」)
-- 브랜치 — `roadmap`(`unity-u8` 위). P0~P2 는 단계마다 브랜치 하나 · PR 하나(`p0` · `p1` · `p2a` …)를 앞 단계 위에 쌓고, P3 부터는 main 에서 트랙마다 따로
-- 그 전에 Unity 넓히기 마무리(U0~U8 draft PR #5~#13 합치기 · `v0.2.0` · Ashveil 회귀 · 팜 안내 창) — [docs/unity/checklist.md](../unity/checklist.md)
+- Unity 넓히기 U0~U8 닫음(2026-11-11) — iPhone 실측 · `v0.2.0` tag · panel 직접은 「안 함」(사용자). test_platform 쪽 Ashveil 회귀 · 팜 안내 창은 그 저장소 다음 줄로 남는다 — [docs/unity/checklist.md](../unity/checklist.md)
 
 단계마다 「설계 → 구현 계획 → 구현 → `conform` 초록(CI + 실기기) → README 지원 표 · AltTester 표 갱신 → test_platform kit 다음 줄」 차례다.
 
@@ -71,11 +74,25 @@
 - [x] `conform` D 줄 초록 — sample run 41806656652 의 팜 RF9R408GKRR APK 넷 「통과 52 · 실패 0 · 미실행 0」 · 이 맥 macOS 둘 「통과 51 · 실패 0 · 미실행 1」(PC 는 일시정지가 안 난다)
 
 ## P3. 연결 · 플랫폼
-- [ ] 설계 · 구현 계획
-- [ ] `control-cli relay` — 게임이 WebSocket 으로 거는 길 · 원격 연결
+
+셋으로 나눔(사용자 2026-11-06) — P3-A relay → P3-B Unity WebGL → P3-C Linux. 설계 · 구현 계획은 [p3a-plan.md](p3a-plan.md).
+
+### P3-A. relay (0.9.0 — 0.8.0 은 #23 find rect 가 먼저 씀)
+- [x] 설계 · 구현 계획 — [p3a-plan.md](p3a-plan.md)(태스크 10개)
+- [x] `control-cli relay` · `relay status` · `open --relay [주소] [--game]` · `relayLink` — 손으로 짠 WebSocket · 권한(루프백 · 토큰) · ping · 번호 붙은 명령, 로컬 relay 는 `open` 이 띄운다(2dd9e22 · 67c2b9c · c91cc72)
+- [x] MCP `open {relay, game}` · `instrument --relay`(9617e24 · 9017863)
+- [x] Unity SDK 0.9.0 `Relay.cs` · `Ask` · `PingReply`(2dc191f) · iOS `NSLocalNetworkUsageDescription` 훅(aa8206e) · sample 입력 `relay`(2ee984b)
+- [x] README relay 절 · 연결 표 · relay 통신 꼴 · plan.md AltTester 연결 줄
+- [x] CI — sdk-compile 초록(run 42978856970) · PR sample 9개 잡 초록(run 42978856957 — relay 없는 TCP 길 회귀 없음). relay 를 구운 sample — Wi-Fi run 42979434816 은 9/9(Maven 못 닿음으로 떨어진 6000.0 옛 Input Android 를 다시 돌려 초록), `wss` run 42979606389 은 8/9(같은 잡이 game-ci CLI API 403 — 러너 사정), relay 를 구운 iOS 빌드(로컬 네트워크 훅)까지 초록
+- [x] 실기기 — 이 맥 macOS 앱 · RF9R408GKRR 같은 Wi-Fi · RF9R408GKRR 밖 공개 `wss`(토큰) 모두 「통과 52 · 실패 0 · 미실행 1」. 폰은 팜 토큰 길이 막혀 USB(adb)로 깔아 일시정지 줄이 미실행(53 대신 52) — 일시정지는 손으로 확인. 위험 셋 결과는 context-notes 「P3-A 실기기」
+- [-] iOS 역방향(케이블 없는 iPhone → relay) 실측 — 안 함(iPhone 실측 못 함 · U7 과 같은 결정, 2026-11-11). 빌드 훅까지만
+
+### P3-B. Unity WebGL
+- [ ] 설계 · 구현 계획 — 브라우저 WebSocket 으로 P3-A relay 에, 페이지 주소 `?controlcli=<주소>` 가 먼저
 - [ ] Unity WebGL 샘플 · 이 맥 브라우저에서 `conform`
+
+### P3-C. Linux
 - [ ] Linux 샘플 빌드 · `conform`
-- [ ] iOS 역방향 연결
 
 ## P4. 드라이버
 - [ ] 설계 · 구현 계획(생성기)
@@ -117,6 +134,7 @@
 
 ### test_platform 다음 줄 (이 저장소에서는 고치지 않는다)
 - 단계마다 새 명령의 `game.*` 함수를 kit(`packages/kit/src/runtime/game.ts`)에 같은 이름으로 더한다 — 안 그러면 `Ran:` 줄이 케이스에서 안 돈다
+- P3-A — 팜 화면에 relay 연결 표시(`GET /games` 꼴 · key `<앱>@<기기 id 앞 8자>`). kit `game.*` 은 그대로(명령 꼴이 같다) — 라이브러리로 붙을 때는 `relayLink(url, headers, key)`
 - P2-D — `logs(since)` · `events(since)` · `sdkLog(on)`(꼴은 control_cli `src/game.ts` 의 `GameLogs` · `GameEvents`). 게임 증적 `game-errors.txt` 는 `e.time` 대신 `e.occurredAt ?? e.time` 으로 옮긴다(SDK 0.7.0 이 둘 다 준다 — `time` 은 나중에 뗀다). 같은 자리에 `game-logs.txt`(`logs(since)` — Warning 까지, 케이스 실패 때 앞뒤 사정) · 알림 줄을 남기는 안. 증적 머리의 「들고 있는 수(200)」는 logs 면 500
 - P2-C — `touchDown` · `touchMove` · `touchUp` · `swipe` · `longPress` · `mouseMove` · `scroll` · `keyDown` · `keyUp` · `tilt` · `pointer` · `resetInput`, `click` · `tap` 의 `{ count?, interval? }` · `drag` 의 `{ via?, duration? }` · `key` 의 `{ duration?, power? }` · `key` 의 `A+LeftShift`(꼴은 control_cli `src/game.ts`). `at` 은 주소 글자 또는 `{x, y}`, 시간은 초. 모두 SDK 한 명령이라 되풀이는 없다
 - P2-B — `findAll` · `findAt` · `parent` · `waitForProp` · `components` · `members` · `setText`, `find` · `get` · `set` · `callMethod` · `click` · `drag` 의 마지막 옵션 `{ inactive?, camera? }`, `screenshot(format)`(꼴은 control_cli `src/game.ts`). `parent` · `waitForProp` 은 바깥 되풀이라 kit 에도 같은 되풀이가 든다. 선택자는 SDK 가 풀어 kit 은 글자를 그대로 넘긴다

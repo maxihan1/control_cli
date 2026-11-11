@@ -1,4 +1,4 @@
-// 폰 안 127.0.0.1 포트로 JSON 명령 한 줄을 받아 게임 메인 스레드에서 처리하고 JSON 한 줄로 답한다
+// 폰 안 127.0.0.1 포트(와 relay — Relay.cs)로 JSON 명령 한 줄을 받아 게임 메인 스레드에서 처리하고 JSON 한 줄로 답한다
 using System;
 using System.Collections;
 using System.Collections.Concurrent;
@@ -39,7 +39,7 @@ namespace ControlCli
             "rect",
         };
         // sdk/unity/package.json 의 version 과 같다(src/protocol.test.ts 가 본다).
-        public const string SdkVersion = "0.8.0";
+        public const string SdkVersion = "0.9.0";
 
         private sealed class Request
         {
@@ -130,6 +130,10 @@ namespace ControlCli
             _acceptThread = new Thread(AcceptLoop) { IsBackground = true, Name = "ControlCli" };
             _acceptThread.Start();
             Debug.Log($"[ControlCli] 127.0.0.1:{Port} 에서 명령을 받습니다");
+#if !UNITY_WEBGL || UNITY_EDITOR
+            // instrument --relay 로 주소를 구운 빌드만 — 없으면 아무것도 안 한다. WebGL 은 브라우저 WebSocket(P3-B).
+            Relay.Start(Ask);
+#endif
         }
 
         private void OnDestroy() => _listener?.Stop();
@@ -159,20 +163,23 @@ namespace ControlCli
                 try
                 {
                     string line;
-                    while ((line = reader.ReadLine()) != null)
-                    {
-                        var request = new Request { Line = line };
-                        _requests.Enqueue(request);
-                        // 실패로 답한 명령이 게임이 깨어난 뒤 늦게 눌리면 다음 명령이 엉뚱한 화면에서 돈다. 버린 요청은 Update 가 건너뛴다.
-                        var timedOut = !request.Done.Wait(ReplyTimeoutMs) && Interlocked.CompareExchange(ref request.State, 2, 0) == 0;
-                        // 게임이 가져간 명령이 답을 미룬 채 멈추면(백그라운드) Done 이 안 온다 — 버림으로 바꾸면 Update 가 남은 가짜 입력을 거둔다.
-                        if (!timedOut && !request.Done.IsSet) timedOut = Interlocked.CompareExchange(ref request.State, 3, 1) == 1;
-                        if (!timedOut) request.Done.Wait();
-                        writer.WriteLine(timedOut ? Error("게임이 10초 안에 답하지 않았습니다(멈췄거나 일시정지)") : request.Reply);
-                    }
+                    while ((line = reader.ReadLine()) != null) writer.WriteLine(Ask(line));
                 }
                 catch (IOException) { } // 상대가 연결을 끊었다
             }
+        }
+
+        // 명령 한 줄을 메인 스레드(Update)에 넘기고 답을 기다린다 — TCP(Serve) · relay(Relay.cs) 가 같이 쓴다. 부른 스레드를 막는다.
+        internal string Ask(string line)
+        {
+            var request = new Request { Line = line };
+            _requests.Enqueue(request);
+            // 실패로 답한 명령이 게임이 깨어난 뒤 늦게 눌리면 다음 명령이 엉뚱한 화면에서 돈다. 버린 요청은 Update 가 건너뛴다.
+            var timedOut = !request.Done.Wait(ReplyTimeoutMs) && Interlocked.CompareExchange(ref request.State, 2, 0) == 0;
+            // 게임이 가져간 명령이 답을 미룬 채 멈추면(백그라운드) Done 이 안 온다 — 버림으로 바꾸면 Update 가 남은 가짜 입력을 거둔다.
+            if (!timedOut && !request.Done.IsSet) timedOut = Interlocked.CompareExchange(ref request.State, 3, 1) == 1;
+            if (!timedOut) request.Done.Wait();
+            return timedOut ? Error("게임이 10초 안에 답하지 않았습니다(멈췄거나 일시정지)") : request.Reply;
         }
 
         private void Update()
@@ -229,6 +236,12 @@ namespace ControlCli
             }
         }
 
+        // ping 답 — relay hello 도 이 칸으로 시작한다(Relay.cs).
+        internal static string PingReply() =>
+            "{\"ok\":true,\"app\":" + Json.Str(Application.identifier) + ",\"version\":" + Json.Str(Application.version)
+            + ",\"engine\":\"unity\",\"engineVersion\":" + Json.Str(Application.unityVersion) + ",\"sdkVersion\":\"" + SdkVersion
+            + "\",\"protocol\":2,\"caps\":[\"" + string.Join("\",\"", Caps) + "\"]}";
+
         private static string Handle(string line)
         {
             if (!line.StartsWith("{")) return Error("명령은 JSON 한 줄이어야 합니다 — {\"cmd\":\"ping\"}");
@@ -238,9 +251,7 @@ namespace ControlCli
             switch (c.cmd)
             {
                 case "ping":
-                    return "{\"ok\":true,\"app\":" + Json.Str(Application.identifier) + ",\"version\":" + Json.Str(Application.version)
-                        + ",\"engine\":\"unity\",\"engineVersion\":" + Json.Str(Application.unityVersion) + ",\"sdkVersion\":\"" + SdkVersion
-                        + "\",\"protocol\":2,\"caps\":[\"" + string.Join("\",\"", Caps) + "\"]}";
+                    return PingReply();
                 case "tree":
                     return "{\"ok\":true,\"scene\":" + Json.Str(SceneManager.GetActiveScene().name) + ",\"screen\":[" + Screen.width + "," + Screen.height + "],\"tree\":" + Tree.Dump() + "}";
                 case "find":

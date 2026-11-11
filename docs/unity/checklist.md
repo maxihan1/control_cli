@@ -1,8 +1,8 @@
 # Unity 지원 넓히기 — 체크리스트
 
-## ▶ 다음 세션은 여기부터 (2026-11-03 두 번째 세션 끝)
+## ▶ 다음 세션은 여기부터 (2026-11-06)
 
-- 코드 · PR — U0~U8 이 draft PR #5~#13 으로 쌓여 있다(브랜치 `unity-u0` … `unity-u8`, 맨 위 `unity-u8` 에서 이어 일한다). 맨 위에만 넣은 고침(TMP 리소스 직접 풀기 · 손가락 19 · 샘플 고침 · 가짜 Input 에서 `location` 뺌 · uGUI `type` 키 입력 차례 · `open` 다시 깔기 · 샘플 PC 세로 창)은 차례로 합치면 main 에 들어간다
+- 코드 · PR — U0~U8(PR #5~#13)은 P0~P2 와 함께 main 에 합쳐졌다(2026-11-06, main `b4bdb10` · tag `v0.7.0`). 이어지는 일은 [로드맵 체크리스트](../roadmap/checklist.md) 맨 위
 - 실측 끝 — 팜 RF9R408GKRR 에서 APK 넷 · 이 맥 macOS 앱(세로 창) 모두 체크리스트 차례 통과, iOS 빌드 초록. 결과 · 원인은 [context-notes](context-notes.md) 「두 번째 실기기 시험」
 - 남은 것 — ① 새 샘플 PC 빌드(세로 창 · run 41619067888 의 StandaloneOSX)로 loop 전체 — 이 맥 디스플레이가 켜져 있을 때(U6) ② iPhone 실측(U7, 사용자) ③ 합친 뒤 `v0.2.0` 태그(U8, 사용자) ④ test_platform 다음 줄 1~6
 - 실측 차례 — 팜 `hold --udid <폰>` → `open --app <APK 경로>` → `type IdInput/TmpIdInput/UitkIdInput 'qa_user01!'` → `click LoginButton/TmpLoginButton/UitkLoginButton` → `drag Item /SampleCanvas/Bag/Slot[3]` → `click WorldCube`(`cube 1`) → `key I`(`key I`) → `errors` → `close` · `release`. 기대값 — uGUI · TMP `qauser01`, UI Toolkit `qa_user0`. 결과물은 `gh run download <run> -R maxihan1/control_cli`
@@ -44,7 +44,7 @@
 ## U4. 입력
 - [x] 옛 Input 마우스 비추기
 - [x] Input System 가짜 터치 · updateCount 확인
-- [ ] 답 미루기 일반화 — U6 로 미룸(U4 는 Idle 로 충분)
+- [x] 답 미루기 일반화 — U6 에서 끝냄(`_ready` · `_cancel`)
 - [x] 샘플 matrix New · Both
 - [x] 샘플 Input System 빌드에서 click · drag · TouchText — 6000.0 Input System 만 · 2022.3 둘 다(EventSystem 에 `InputSystemUIInputModule` 확인)
 
@@ -53,7 +53,7 @@
 - [x] 트리 · 찾기 · 누를 자리 · 누르기 · type
 - [x] 샘플 UIDocument 화면
 - [x] 샘플에서 `tree` 의 `UitkDocument/UitkPanel/…` · `type UitkIdInput` · `click UitkLoginButton` — 세 판 모두(`qa_user0` · `uitk login qa_user0 1`)
-- [ ] EventSystem 없는 옛 Input 게임에서 panel 직접 보내기 (샘플에 없음 — 실제 게임)
+- [-] EventSystem 없는 옛 Input 게임에서 panel 직접 보내기 — 안 함(샘플에 없음 · 실제 게임이 생기면 그때. 2026-11-11 사용자)
 
 ## U6. PC
 - [x] 답 미루기 일반화(`_ready` · `_cancel`)
@@ -63,7 +63,7 @@
 - [x] 샘플 StandaloneOSX 실측 (이 맥) — 세로 창에서 다 됨. 가로 전체 화면은 샘플 UI Toolkit 패널이 uGUI 를 덮어 안 됨
 - [x] 샘플 PC 빌드를 540×1200 창으로(`SampleBuild.cs`)
 - [x] 새 샘플 PC 빌드가 `open --pc --app` 만으로 세로 창으로 뜨는지 — 첫 화면 「화면 540×1200」(run 41619067888)
-- [ ] 새 샘플 PC 빌드로 loop 전체 (이 맥 — 디스플레이가 켜져 있을 때. 꺼져 있으면 Unity 가 Metal 프레임 내보내기에서 멈춘다)
+- [x] 새 샘플 PC 빌드로 loop 전체 — P0~P2-D 에서 새 샘플 macOS 앱으로 conform(P2-D 「통과 51 · 미실행 1」)이 이 loop 를 다 품는다
 
 ## U7. iOS
 - [x] usbmuxd 연결(`src/usbmux.ts` · `iosLink`)
@@ -72,12 +72,12 @@
 - [x] 샘플 iOS(Xcode 프로젝트) matrix
 - [x] 가짜 `Input` 에서 `location` 뺌 — iOS 빌드가 위치 사용 문구를 요구해 깨지고 Android 는 위치 권한이 붙었다
 - [x] 샘플 iOS 빌드 초록 · Android APK 에 위치 권한 없음(`aapt dump permissions`) — run 41618229974(d645827) 7개 초록, APK 권한은 `INTERNET` 만
-- [ ] iPhone 실측 (사용자 — iOS 17+ iPhone · Apple 팀 서명)
+- [-] iPhone 실측 — 안 함(iPhone 실측 못 함, 2026-11-11 사용자). iOS 는 빌드 · 가짜 usbmuxd 테스트까지만 확인 — README 지원 표도 그렇게 적혀 있다
 
 ## U8. 마무리
 - [x] README 지원 표(실기기 확인 / 컴파일만 확인을 나눠) · 개발 절 · help · CLI · SDK 판 0.2.0
 - [x] test_platform 다음 줄 목록 (아래)
-- [ ] 합친 뒤 `v0.2.0` 태그 (사용자 — main 에 합친 뒤)
+- [-] `v0.2.0` 태그 — 안 찍음(main 이 0.2.0 을 건너뛰고 바로 0.7.0 이 됐다, 2026-11-11 사용자)
 
 ### test_platform 다음 줄 (이 저장소에서는 고치지 않는다)
 1. **Ashveil 회귀 한 번** — QA 빌드 `instrument --ref` 를 0.2.0 으로 올려 스모크 · 회귀를 돈다. U5 트리 refactoring(`Item` · 경로를 내려가며 셈)과 U6 답 미루기 일반화가 지금 쓰는 uGUI · 옛 Input 길을 지난다. QA 빌드에 붙던 위치 권한(`ACCESS_FINE_LOCATION` · `ACCESS_COARSE_LOCATION`)이 빠진다
