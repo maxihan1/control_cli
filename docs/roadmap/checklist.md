@@ -4,7 +4,7 @@
 
 - **P3-A 구현부터** — 브랜치 `p3a`(PR #22 `next-tracks` 위, 아직 PR 없음). [p3a-plan.md](p3a-plan.md) 「P3-A 구현 계획」 Task 1 → 10 차례. 실행은 superpowers:subagent-driven-development(권장)나 executing-plans — 시작할 때 사용자에게 고르게 한다. 설계 결정과 까닭은 context-notes 「P3-A 설계」
 - 진척 페이지(전체) — https://claude.ai/artifact/Y4ZUdJiXPeE4NGSx8oxNWK (db 의 `meta/state` · `phases`(U0~U8 · P0~P10 · 번외, `done`/`total` 은 체크리스트 칸 수) · `tasks`(지금 단계 Task) · `log`). 체크리스트 칸을 바꾸거나 Task 가 끝날 때마다 ArtifactData 로 고친다(`status` 는 done · partial · doing · blocked · todo) — 페이지는 다시 publish 하지 않는다
-- P3-A 끝 기준 — 단위 테스트 · sdk-compile 초록, 실기기 이 맥 macOS 앱 「통과 51 · 미실행 1」 · 팜 폰(같은 Wi-Fi) 「통과 52」 · 팜 폰(밖 공개 relay `wss` · 토큰) 「통과 52」. iPhone USB 없이는 사용자 실측 항목
+- P3-A 끝 기준 — 단위 테스트 · sdk-compile 초록, 실기기 이 맥 macOS 앱 「통과 52 · 미실행 1」 · 팜 폰(같은 Wi-Fi) 「통과 53」 · 팜 폰(밖 공개 relay `wss` · 토큰) 「통과 53」. iPhone USB 없이는 사용자 실측 항목 — 숫자는 #23 rect 줄을 더한 것
 - P3-A 실기기 때 사용자에게 물을 것 — 쓸 팜 폰 serial 과 그 폰이 이 맥과 같은 Wi-Fi 인지, 밖 공개 터널 주소(`relay.<도메인>` → 이 맥 13101)
 - PR #22(`next-tracks` → main, 체크리스트만)가 합쳐지면 `p3a` PR 의 base 를 main 으로
 

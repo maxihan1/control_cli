@@ -105,9 +105,9 @@ relay 127.0.0.1:13101 — 게임 2개
 - 단위(실기기 없이) — Node 22 내장 `WebSocket` 클라이언트로 가짜 게임을 relay 에 붙여: `open --relay` → `conform` 52줄 초록, 토큰 · 루프백 거절, 게임 여럿 고르기, 끊겼다 다시 붙어도 세션 이어짐, 늦은 답 번호로 거르기, 백그라운드 relay 띄우기. `instrument --relay` 가 주소 파일을 넣는다
 - CI — sdk-compile(meta · 2021.3 · 2022.3 · 6000.0) 초록. `sample.yml` 에 손으로 돌릴 때 넣는 `relay` 입력(빌드에 구울 주소)
 - 실기기
-  - 이 맥 macOS 앱 → 로컬 relay: 「통과 51 · 실패 0 · 미실행 1」(PC 는 일시정지가 안 난다)
-  - 팜 폰 → 같은 Wi-Fi 의 이 맥 relay: 「통과 52 · 실패 0 · 미실행 0」
-  - 팜 폰 → 밖 공개 relay(`wss` · 토큰): 「통과 52」 — 터널 주소(`relay.<도메인>` → 이 맥 13101)는 사용자가 연다
+  - 이 맥 macOS 앱 → 로컬 relay: 「통과 52 · 실패 0 · 미실행 1」(PC 는 일시정지가 안 난다)
+  - 팜 폰 → 같은 Wi-Fi 의 이 맥 relay: 「통과 53 · 실패 0 · 미실행 0」
+  - 팜 폰 → 밖 공개 relay(`wss` · 토큰): 「통과 53」 — 터널 주소(`relay.<도메인>` → 이 맥 13101)는 사용자가 연다
   - iPhone USB 없이 — 사용자 실측
 - README(relay 절 · 명령 표 · AltTester 표 연결 줄) · test_platform kit 다음 줄(팜 화면 relay 표시 · `GET /games` 꼴)
 
@@ -618,7 +618,7 @@ test('relay 로 연 게임은 conform 이 일시정지 줄(Appium 없음) 말고
   let ws = await fakeRelayGame(game, url);
   try {
     assert.match(await cli('-s=relay', 'open', '--relay', url), /^세션 relay 열림 — com\.fake\.game 1\.0 \(relay · macOS · FakeBook\) · fake 0 · SDK 0\.3\.0/m);
-    assert.match(await cli('-s=relay', 'conform'), /\n통과 51 · 실패 0 · 미실행 1$/);
+    assert.match(await cli('-s=relay', 'conform'), /\n통과 52 · 실패 0 · 미실행 1$/);
     ws.close();
     // relay 가 끊김을 알기 전이면 502(끊겼습니다), 안 뒤면 404(붙어 있지 않습니다)
     await assert.rejects(cli('-s=relay', 'snapshot'), /relay 에 붙어 있지 않습니다|relay 와 끊겼습니다/);
@@ -1229,9 +1229,9 @@ namespace ControlCli.Editor
 
 ### Task 10: 실기기
 
-- [ ] 이 맥 macOS 앱(Wi-Fi 주소를 구운 빌드 — 이 맥에서도 그 주소로 닿는다) — `caffeinate -d -u -t 900` 을 건 채 앱을 켜고 `open --relay` → `conform` 「통과 51 · 실패 0 · 미실행 1」
-- [ ] 팜 폰(사용자가 정한 폰) · 같은 Wi-Fi — `hold` → `open --relay --app <APK>` → `conform` 「통과 52」 → `close` → `release`. 폰이 그 Wi-Fi 에 없으면 사용자에게 묻는다
-- [ ] 팜 폰 · 밖 공개 — 사용자가 터널(`relay.<도메인>` → 이 맥 13101)을 열고, 이 맥에서 `control-cli relay`(Keychain `control-cli-relay` 토큰)를 늘 켜 둔다 → `open --relay wss://relay.<도메인> --app <APK>` → `conform` 「통과 52」
+- [ ] 이 맥 macOS 앱(Wi-Fi 주소를 구운 빌드 — 이 맥에서도 그 주소로 닿는다) — `caffeinate -d -u -t 900` 을 건 채 앱을 켜고 `open --relay` → `conform` 「통과 52 · 실패 0 · 미실행 1」
+- [ ] 팜 폰(사용자가 정한 폰) · 같은 Wi-Fi — `hold` → `open --relay --app <APK>` → `conform` 「통과 53」 → `close` → `release`. 폰이 그 Wi-Fi 에 없으면 사용자에게 묻는다
+- [ ] 팜 폰 · 밖 공개 — 사용자가 터널(`relay.<도메인>` → 이 맥 13101)을 열고, 이 맥에서 `control-cli relay`(Keychain `control-cli-relay` 토큰)를 늘 켜 둔다 → `open --relay wss://relay.<도메인> --app <APK>` → `conform` 「통과 53」
 - [ ] 확인할 위험 셋(IL2CPP `wss` · Android cleartext `ws` · 일시정지 뒤 다시 붙기) 결과를 context-notes 「P3-A 실기기」에
 - [ ] iPhone USB 없이 — 사용자 실측 항목으로 checklist 에 남긴다
 - [ ] checklist P3-A [x] · 「다음 세션은 여기부터」 P3-B · push · PR ready · 합친 뒤 `v0.9.0` tag

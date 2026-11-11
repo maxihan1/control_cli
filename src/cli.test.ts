@@ -1,6 +1,7 @@
 // CLI 를 가짜 디바이스 팜 · 가짜 게임에 붙여 잡기 → 열기 → 액션 → Ran 줄 → 닫기 → 놓기를 돌려 본다
 import assert from 'node:assert/strict';
 import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, before, test } from 'node:test';
@@ -8,8 +9,9 @@ import { after, before, test } from 'node:test';
 import { capabilities } from './appium.js';
 import { run, TIMING } from './cli.js';
 import { CONFORM } from './conform.js';
-import { button, fakeFarm, FakeGame, fakeTcp, fakeUsbmux, node, standardScreen } from './fake-game.js';
+import { button, fakeFarm, FakeGame, fakeRelayGame, fakeTcp, fakeUsbmux, node, standardScreen } from './fake-game.js';
 import { SETTLE, WAIT } from './game.js';
+import { relay } from './relay.js';
 
 Object.assign(SETTLE, { maxMs: 30, stepMs: 5 });
 Object.assign(WAIT, { intervalMs: 5 });
@@ -384,4 +386,72 @@ test('instrument 는 --ref 가 없으면 이 CLI 판 tag 로 SDK 를 고정한�
   const { version } = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8')) as { version: string };
   assert.match(await cli('instrument', root), new RegExp(`^SDK\\(v${version.replaceAll('.', '\\.')}\\) 를`));
   assert.ok((await readFile(join(root, 'Packages', 'manifest.json'), 'utf8')).includes(`?path=/sdk/unity#v${version}"`));
+});
+
+test('relay 로 연 게임은 conform 이 일시정지 줄(Appium 없음) 말고 모두 통과하고, 다시 붙어도 같은 세션으로 간다', async () => {
+  const r = relay();
+  await new Promise<void>((ok) => r.listen(0, '127.0.0.1', ok));
+  const url = `http://127.0.0.1:${(r.address() as AddressInfo).port}`;
+  const game = standardScreen();
+  let ws = await fakeRelayGame(game, url);
+  try {
+    assert.match(await cli('-s=relay', 'open', '--relay', url), /^세션 relay 열림 — com\.fake\.game 1\.0 \(relay · macOS · FakeBook\) · fake 0 · SDK 0\.3\.0/m);
+    assert.match(await cli('-s=relay', 'conform'), /\n통과 52 · 실패 0 · 미실행 1$/);
+    ws.close();
+    // relay 가 끊김을 알기 전이면 502(끊겼습니다), 안 뒤면 404(붙어 있지 않습니다)
+    await assert.rejects(cli('-s=relay', 'snapshot'), /relay 에 붙어 있지 않습니다|relay 와 끊겼습니다/);
+    ws = await fakeRelayGame(game, url);
+    assert.match(await cli('-s=relay', 'snapshot'), /- Snapshot:/);
+    assert.equal(await cli('-s=relay', 'close'), '세션 relay 닫음');
+  } finally {
+    ws.close();
+    r.closeAllConnections();
+    r.close();
+  }
+});
+
+test('relay 에 게임이 여럿이면 목록을 보이고 --game 으로 고른다 · 없으면 기다리다 실패 · relay status', async () => {
+  const r = relay();
+  await new Promise<void>((ok) => r.listen(0, '127.0.0.1', ok));
+  const url = `http://127.0.0.1:${(r.address() as AddressInfo).port}`;
+  await assert.rejects(cli('-s=none', 'open', '--relay', url), /relay .* 에 붙은 게임이 없습니다 — QA 빌드에 instrument --relay/);
+  await cli('-s=none', 'close'); // open 이 먼저 적어 둔 세션 파일
+  const a = await fakeRelayGame(standardScreen(), url, { deviceId: 'phone-0001', platform: 'Android', model: 'SM-A325N' });
+  const b = await fakeRelayGame(standardScreen(), url);
+  try {
+    await assert.rejects(cli('-s=two', 'open', '--relay', url), /게임이 2개 붙어 있습니다 — --game 으로 고릅니다\n  com\.fake\.game 1\.0 · /);
+    await cli('-s=two', 'close');
+    assert.match(await cli('-s=two', 'open', '--relay', url, '--game', 'SM-A325N'), /\(relay · Android · SM-A325N\)/);
+    assert.match(await cli('relay', 'status', url), /^relay http:\/\/127\.0\.0\.1:\d+ — 게임 2개\n  com\.fake\.game 1\.0 · /);
+    await cli('-s=two', 'close');
+  } finally {
+    a.close();
+    b.close();
+    r.closeAllConnections();
+    r.close();
+  }
+});
+
+test('이 컴퓨터 주소에 relay 가 없으면 open 이 백그라운드로 띄우고, 밖 주소는 띄우지 않는다', async () => {
+  const { createServer } = await import('node:net');
+  const probe = createServer();
+  await new Promise<void>((ok) => probe.listen(0, '127.0.0.1', ok));
+  const port = (probe.address() as AddressInfo).port;
+  await new Promise((ok) => probe.close(ok));
+  const url = `http://127.0.0.1:${port}`;
+  // 게임은 SDK 처럼 relay 가 뜰 때까지 다시 건다.
+  let ws: WebSocket | undefined;
+  const dial = setInterval(() => void fakeRelayGame(standardScreen(), url).then((w) => ((ws = w), clearInterval(dial)), () => {}), 50);
+  Object.assign(TIMING, { openWaitMs: 5000 });
+  try {
+    const out = await cli('-s=spawned', 'open', '--relay', url);
+    assert.match(out, /^relay 를 띄웠습니다 — http:\/\/127\.0\.0\.1:\d+ \(프로세스 \d+/);
+    process.kill(Number(/프로세스 (\d+)/.exec(out)![1]));
+    await cli('-s=spawned', 'close');
+  } finally {
+    clearInterval(dial);
+    ws?.close();
+    Object.assign(TIMING, { openWaitMs: 200 });
+  }
+  await assert.rejects(cli('-s=far', 'open', '--relay', 'wss://relay.invalid'), /relay https:\/\/relay\.invalid 에 닿지 못했습니다 — 밖 relay 는 띄우지 않습니다/);
 });
