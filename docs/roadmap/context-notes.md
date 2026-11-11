@@ -206,3 +206,14 @@
 - 권한 — 토큰 없는 relay 는 명령 입구를 루프백만, `--token` relay 는 늘 토큰(터널은 요청을 127.0.0.1 로 넘겨 루프백 규칙이 뚫린다). 게임 쪽엔 토큰을 굽지 않는다 — APK 에서 다 보인다
 - 팜 화면 relay 표시 — 사용자 「다음에 하자」. `GET /games` · `relay status` 는 `open` 이 게임을 고르는 데 어차피 필요해 P3-A 에
 - iPhone 「USB 없이」는 사용자 실측 항목(팜에 iPhone 없음, U7 과 같음)
+
+## 2026-11-11 — P3-A 구현 (브랜치 `p3a`)
+
+계획과 다르게 한 것.
+- 판 0.9.0 — #23 find rect 가 0.8.0 을 먼저 썼다. `p3a` 를 main `6f6511a` 위로 rebase(충돌 없음 — #23 이 고친 `ControlServer.cs` 자리는 `Caps` · `SdkVersion` · `Found` 라 Task 5 의 `Serve` · `ping` 과 안 겹친다)
+- conform 숫자 — #23 이 rect 줄을 더해 한 줄 늘었다. relay 로 연 맥 게임 「통과 52 · 미실행 1」, 팜 폰 「통과 53」(계획 · 끝 기준 · cli.test 를 고침)
+- `open` 이 띄운 로컬 relay 도 `main.ts` 를 지나 Keychain `control-cli-relay` 를 읽어 토큰 relay 가 될 수 있었다 — 띄울 때 `CONTROL_CLI_KEYCHAIN=0` 을 넘겨 설계대로 늘 토큰 없이(c91cc72)
+- sample.yml 의 `relay` 입력은 `${{ inputs.relay }}` 를 명령줄에 바로 넣지 않고 환경 변수 `RELAY` 로 넘긴다 — 입력 글자가 shell 로 풀리지 않게. 두 잡 다 ubuntu 라 `${RELAY:+…}` 가 돈다
+- `LocalNetwork.cs`(Editor 어셈블리)는 `tools/unity-compile-check` 가 보지 않는다(플레이어 어셈블리만) — sample CI 의 iOS 빌드가 컴파일을 확인한다. 기존 `BakeAxes` · `StampIds` 와 같다
+- README 의 명령 표는 게임 명령 + Ran 줄 표라 `open --relay` · `relay` 는 「루프 — relay」 절과 연결 표에 두었다. AltTester 비교 표는 README 가 아니라 plan.md 1절에 있다
+

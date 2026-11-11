@@ -3,9 +3,9 @@
 Unity 게임을 자동화 테스트로 조작하는 SDK 와 CLI.
 
 - **SDK** (Unity UPM 패키지) — QA 빌드에서만 게임 안 `127.0.0.1` 에 포트를 열고, 오브젝트 트리 읽기 · 찾기 · 누르기 · 끌기 · 글자 넣기 · 키 · 속성 읽기 · 스크린샷을 받는다. 터치는 빌드 때 이름이 같은 가짜 `Input` 으로 바꿔치기하고, 새 Input System 게임에는 장치 이벤트로 넣는다
-- **CLI** — appium-cli 꼴. snapshot(줄인 트리 + 스크린샷) → ref → 액션, 액션마다 케이스에 붙일 코드 한 줄(`Ran:`)을 찍는다. 디바이스 팜 게임 명령 주소 · USB `adb forward` · PC(TCP) · USB iPhone(usbmuxd) 로 잇는다
+- **CLI** — appium-cli 꼴. snapshot(줄인 트리 + 스크린샷) → ref → 액션, 액션마다 케이스에 붙일 코드 한 줄(`Ran:`)을 찍는다. 디바이스 팜 게임 명령 주소 · USB `adb forward` · PC(TCP) · USB iPhone(usbmuxd) 로 잇고, 길이 없는 게임은 게임이 relay 로 WebSocket 을 건다
 - **MCP** — `control-cli mcp`. AI 앱(Claude Desktop · Claude Code)이 띄우는 stdio MCP 서버로, 같은 명령을 도구로 내준다 — 셸 없는 AI 앱도 게임을 조작한다
-- **라이브러리** — CLI 와 같은 드라이버(`Game`)와 연결 길(`farmLink` · `usbLink` · `tcpLink` · `iosLink`). test_platform kit 이 CLI 를 띄우지 않고 쓴다
+- **라이브러리** — CLI 와 같은 드라이버(`Game`)와 연결 길(`farmLink` · `relayLink` · `usbLink` · `tcpLink` · `iosLink`). test_platform kit 이 CLI 를 띄우지 않고 쓴다
 
 0단계 실측 결과는 [docs/step0.md](docs/step0.md). Unity 지원 넓히기의 결정 기록은 [docs/unity/](docs/unity/context-notes.md).
 
@@ -36,10 +36,11 @@ node /tmp/control_cli/dist/main.js instrument <Unity 프로젝트 폴더> --ref 
 
 `npx github:maxihan1/control_cli` 는 쓰지 않는다 — npm 10 이 git 패키지를 npx 로 받을 때 「GitFetcher requires an Arborist constructor」로 멈춘다(GitHub Actions 에서 확인).
 
-1. `Packages/manifest.json` 에 SDK 패키지를 `--ref` 로 고정해 더한다(없으면 이 CLI 판 tag — 0.8.0 이면 `v0.8.0`. SDK 경로 `?path=/sdk/unity` 와 SDK 판이 CLI 와 늘 맞는다)
+1. `Packages/manifest.json` 에 SDK 패키지를 `--ref` 로 고정해 더한다(없으면 이 CLI 판 tag — 0.9.0 이면 `v0.9.0`. SDK 경로 `?path=/sdk/unity` 와 SDK 판이 CLI 와 늘 맞는다)
 2. `Assets/` · `Packages/`(내장 패키지) 아래 asmdef 의 `references` 에 `ControlCli.Input` 을 더한다 — 에디터 전용 · `noEngineReferences` 는 건너뛴다. asmdef 없는 스크립트(Assembly-CSharp)는 자동으로 참조한다
 3. `namespace` 안에 `using UnityEngine;` 을 둔 파일 · `namespace UnityEngine.*` 안의 파일은 `UnityEngine.Input` 이 먼저 잡혀 가짜 터치를 못 본다 — 경고로 알려 준다
 4. 깨진 asmdef 가 있으면 파일 이름을 알리고 아무것도 바꾸지 않는다
+5. `--relay <주소>` 를 주면 `Assets/ControlCli/Resources/ControlCliRelay.txt` 에 주소 한 줄을 넣는다 — 게임이 켜질 때 그 relay 로 건다(아래 「루프 — relay」). 안 주면 그 파일을 지운다(relay 꺼짐)
 
 그리고 **QA 빌드 스크립트가 정의 심볼 `CONTROL_CLI` 를 더한다** — 없으면 SDK 코드가 빌드에 아예 안 들어간다. Release 빌드는 손대지 않으면 된다.
 
@@ -108,6 +109,47 @@ npx control-cli open --ios                         # 이미 켜 둔 게임에 �
 ```
 
 macOS 의 usbmuxd 로 폰의 `127.0.0.1:13100` 에 명령마다 바로 잇는다 — iproxy 같은 것을 깔거나 걸어 둘 것이 없다. 깔기 · 켜기 · 끄기는 Xcode 15+ 의 `devicectl`(iOS 17+ · 폰 개발자 모드)이고 bundle id 는 `.app` 의 `Info.plist` 에서 읽는다. 디바이스 팜은 iOS 를 아직 받지 않는다. 스크린샷은 게임이 찍고, iPhone 에는 뒤로 키가 없어 창 훑기는 닫기 버튼 · 저절로 사라지기로만 닫는다. 서명 · 프로비저닝은 Xcode 에서 직접 한다.
+
+### 루프 — relay (게임이 거는 길)
+
+USB · 팜 · 같은 컴퓨터 길이 없는 게임(같은 Wi-Fi 의 폰 · 다른 네트워크의 폰 · 케이블 없는 iPhone)은 방향을 뒤집는다 — 게임이 `control-cli relay` 에 WebSocket 을 **걸고**, CLI 는 relay 에 명령을 보낸다. AltTester Server(로컬 · 원격 중계)와 같은 몫이다.
+
+```bash
+# 이 맥 · 같은 Wi-Fi
+npx control-cli instrument sample --relay ws://<이 맥 Wi-Fi 주소>:13101   # QA 빌드에 relay 주소를 굽는다
+npx control-cli open --relay                    # 이 컴퓨터 relay(13101)가 없으면 띄우고, 게임이 붙기를 60초까지 기다린다
+npx control-cli hold --udid <serial> && npx control-cli open --relay --app qa.apk   # 깔고 켜기는 팜, 명령은 relay
+npx control-cli open --relay --game SM-A325N    # 게임이 여럿이면 key · 앱 · 기종 일부로 고른다
+npx control-cli relay status                    # 붙은 게임 — 앱 · 플랫폼 · 기종 · 붙은 지 · 마지막 신호
+
+# 밖 공개 — relay 를 토큰으로 늘 켜 두고 터널(relay.<도메인> → 이 맥 13101)을 연다
+npx control-cli instrument game --relay wss://relay.<도메인>
+npx control-cli open --relay wss://relay.<도메인>
+```
+
+- 게임은 켜질 때 구운 주소의 `/game` 에 걸고 hello 한 줄(ping 답 + 플랫폼 · 기종 · 기기 이름 · 기기 id)을 보낸다. 못 붙거나 끊기면 2초마다 다시 건다. 게임 key 는 `<앱>@<기기 id 앞 8자>` 라 게임을 다시 켜도 같은 세션으로 간다
+- `open --relay` 가 띄운 relay 는 백그라운드로 돌고(기록 `.control-cli/relay.log`) `close` 가 끄지 않는다 — 다음 `open` · 다른 세션이 쓴다. 이 컴퓨터 주소(`127.0.0.1` · `localhost`)만 띄우고, 밖 주소에 relay 가 없으면 실패한다
+- 권한 — 토큰 없이 띄운 relay 는 이 컴퓨터에서 온 명령만 받는다. `relay --token <비밀값>`(또는 `CONTROL_CLI_RELAY_TOKEN` · Keychain `control-cli-relay`)으로 띄우면 모든 명령에 `Authorization: Bearer` 를 본다 — 터널은 요청을 `127.0.0.1` 에서 온 것처럼 넘기므로 밖 공개는 늘 토큰이다. 게임 입구(`/game`)는 토큰을 받지 않는다(APK 를 풀면 구운 값이 다 보인다)
+- 시간 초과 — 게임 10초 → relay 15초 → CLI 20초. 명령 중 게임이 끊기면 「명령이 실행됐을 수도 있습니다」로 실패한다
+- iOS 는 같은 Wi-Fi 의 relay 로 걸면 「로컬 네트워크」 허락을 묻는다 — relay 주소를 구운 iOS 빌드는 SDK 빌드 훅이 `Info.plist` 에 `NSLocalNetworkUsageDescription` 을 넣는다
+- relay 는 SDK 0.9.0 부터. Unity WebGL(브라우저 WebSocket)은 P3-B
+
+이 맥에 relay 를 늘 켜 두기(밖 공개) — `~/Library/LaunchAgents/com.control-cli.relay.plist` 를 두고 `launchctl load` 한다. 토큰은 Keychain `control-cli-relay` 에 한 번 넣는다(`security add-generic-password -U -a <맥 사용자> -s control-cli-relay -w "$(pbpaste)"`).
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>Label</key><string>com.control-cli.relay</string>
+  <key>ProgramArguments</key><array>
+    <string><which node 의 경로></string><string><npm root -g 의 경로>/control-cli/dist/main.js</string><string>relay</string>
+  </array>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>StandardOutPath</key><string>/tmp/control-cli-relay.log</string>
+  <key>StandardErrorPath</key><string>/tmp/control-cli-relay.log</string>
+</dict></plist>
+```
 
 ### 명령
 
@@ -209,7 +251,7 @@ npx control-cli crawl --max 30 --minutes 5 --exclude '/설정|settings/i' --excl
 `control-cli mcp` 는 stdio MCP 서버다 — 따로 띄워 두는 프로그램이 아니라 AI 앱이 이 명령을 실행해 붙는다.
 
 ```bash
-npm i -g github:maxihan1/control_cli#v0.8.0      # control-cli 를 PATH 에
+npm i -g github:maxihan1/control_cli#v0.9.0      # control-cli 를 PATH 에
 claude mcp add control-cli -- control-cli mcp     # Claude Code
 ```
 
@@ -223,7 +265,7 @@ Desktop 은 셸의 PATH 를 안 볼 수 있다 — `control-cli` · `node` 를 �
 
 | 도구 | 하는 일 |
 |---|---|
-| `hold` · `open` · `close` · `release` | 세션 — CLI 의 같은 명령. `open` 의 `via` 는 `farm`(기본 · `hold` 먼저) · `usb` · `pc` · `ios` |
+| `hold` · `open` · `close` · `release` | 세션 — CLI 의 같은 명령. `open` 의 `via` 는 `farm`(기본 · `hold` 먼저) · `usb` · `pc` · `ios`, `relay`(주소 · 빈 글자면 이 컴퓨터 relay) · `game` 을 주면 relay 에 걸어 온 게임 |
 | `ping` · `tree` · `find` · `click` · `drag` · `type` · `get` · `tap` · `key` · `touch-down` · `touch-move` · `touch-up` · `swipe` · `long-press` · `mouse-move` · `scroll` · `key-down` · `key-up` · `tilt` · `pointer` · `input-reset` · `screenshot` · `errors` · `layout` · `call` · `set` · `static-call` · `static-get` · `static-set` · `pref-get` · `pref-set` · `pref-delete` · `pref-clear` · `timescale-get` · `timescale-set` · `scenes` · `scene-load` · `scene-unload` · `find-all` · `find-at` · `components` · `members` · `text-set` · `logs` · `events` · `sdk-log` | `protocol/commands.json` 의 명령 그대로 — 인자는 그 칸, 답은 SDK 답 JSON(`ok` 뺌). `screenshot` 은 그림으로 준다(`format: png` 면 PNG). `scene-load` 는 열기 시작만 하니 `scenes` 로 다 열렸는지 본다. 부모는 `find` 에 `<경로>/..` |
 
 - 명령을 `protocol/commands.json` 에 더하면 도구도 따라 는다(`src/mcp.test.ts` 가 잡는다)
@@ -240,12 +282,16 @@ Desktop 은 셸의 PATH 를 안 볼 수 있다 — `control-cli` · `node` 를 �
 | 폰 | `--udid` | `PLATFORM_DEVICE_UDID` |
 | USB · PC · iOS 게임 포트 | `--port` | — (기본 13100) |
 | PC 게임 실행 파일 · iOS 서명된 .app | `--app` (`--pc` · `--ios` 와 같이) | — |
+| relay | `open --relay [주소]` · `relay status [주소]` | — (없으면 `http://127.0.0.1:13101` — `ws://` · `wss://` 도 받는다) |
+| relay 토큰 (Bearer) | `relay --token` (relay 를 띄울 때) | `CONTROL_CLI_RELAY_TOKEN` — 없으면 macOS Keychain 의 `control-cli-relay`. 팜 `--token` 과 따로다 |
 | iPhone | `--udid` (`--ios` 와 같이 — 없으면 USB 로 꽂힌 하나) | `USBMUXD_SOCKET_ADDRESS` (usbmuxd 자리 — 테스트용, 없으면 `/var/run/usbmuxd`) |
 
 ## SDK 명령 (통신 꼴 정본)
 
 명령은 JSON 객체 한 줄, 답도 JSON 객체 한 줄이다. 디바이스 팜 게임 명령 주소는 본문을 그대로 한 줄로 넘기고 답을 `{"value": …}` 로 싼다(Devicefarm ADR-048).
 실패는 `{"ok":false,"error":"…"}`. 명령은 게임 프레임에서 받은 차례대로 돈다. 10초 안에 게임이 못 받으면 실패로 답하고 그 명령은 버린다.
+
+**relay 통신 꼴**(SDK 0.9.0) — 게임이 `ws(s)://<relay>/game` 에 WebSocket 을 걸고 첫 글로 `hello <ping 답 JSON 에 platform · model · device · deviceId 를 더한 것>` 을 보낸다. 그 뒤 relay → 게임 `<번호> <명령 JSON>`, 게임 → relay `<번호> <답 JSON>` — 번호로 늦은 답이 다음 명령의 답이 되는 일을 막는다. CLI → relay 는 `GET /games`(붙은 게임 `{value:[{key, app, version, platform, model, device, engine?, engineVersion?, sdkVersion?, since, lastSeen}]}`) · `POST /games/<key>/command`(본문은 명령, 답은 `{value: 게임 답}` — 디바이스 팜 게임 명령 주소와 같은 꼴. 403 권한 · 404 그 게임 없음 · 504 게임이 15초 안에 답 없음 · 502 명령 중 끊김). relay 는 15초마다 ping 해 답 없는 게임을 뺀다.
 
 | `cmd` | 칸 | 답 |
 |---|---|---|

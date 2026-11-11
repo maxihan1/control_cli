@@ -74,11 +74,25 @@
 - [x] `conform` D 줄 초록 — sample run 41806656652 의 팜 RF9R408GKRR APK 넷 「통과 52 · 실패 0 · 미실행 0」 · 이 맥 macOS 둘 「통과 51 · 실패 0 · 미실행 1」(PC 는 일시정지가 안 난다)
 
 ## P3. 연결 · 플랫폼
-- [ ] 설계 · 구현 계획 — P3-A 설계 [p3a-plan.md](p3a-plan.md)(셋으로 나눔 — P3-A relay → P3-B WebGL → P3-C Linux) · 구현 계획 같은 파일(태스크 10개, 0.9.0 — 0.8.0 은 #23 find rect 가 먼저 씀)
-- [ ] `control-cli relay` — 게임이 WebSocket 으로 거는 길 · 원격 연결
+
+셋으로 나눔(사용자 2026-11-06) — P3-A relay → P3-B Unity WebGL → P3-C Linux. 설계 · 구현 계획은 [p3a-plan.md](p3a-plan.md).
+
+### P3-A. relay (0.9.0 — 0.8.0 은 #23 find rect 가 먼저 씀)
+- [x] 설계 · 구현 계획 — [p3a-plan.md](p3a-plan.md)(태스크 10개)
+- [x] `control-cli relay` · `relay status` · `open --relay [주소] [--game]` · `relayLink` — 손으로 짠 WebSocket · 권한(루프백 · 토큰) · ping · 번호 붙은 명령, 로컬 relay 는 `open` 이 띄운다(2dd9e22 · 67c2b9c · c91cc72)
+- [x] MCP `open {relay, game}` · `instrument --relay`(9617e24 · 9017863)
+- [x] Unity SDK 0.9.0 `Relay.cs` · `Ask` · `PingReply`(2dc191f) · iOS `NSLocalNetworkUsageDescription` 훅(aa8206e) · sample 입력 `relay`(2ee984b)
+- [x] README relay 절 · 연결 표 · relay 통신 꼴 · plan.md AltTester 연결 줄
+- [ ] CI — sdk-compile 초록 · sample 손으로 두 번(`relay` 입력 Wi-Fi 주소 · `wss`) 초록
+- [ ] 실기기 — 이 맥 macOS 앱 「통과 52 · 미실행 1」 · 팜 폰 같은 Wi-Fi 「통과 53」 · 팜 폰 밖 공개 `wss` 「통과 53」, 위험 셋(IL2CPP `wss` · Android cleartext `ws` · 일시정지 뒤 다시 붙기)은 context-notes 「P3-A 실기기」
+- [-] iOS 역방향(케이블 없는 iPhone → relay) 실측 — 안 함(iPhone 실측 못 함 · U7 과 같은 결정, 2026-11-11). 빌드 훅까지만
+
+### P3-B. Unity WebGL
+- [ ] 설계 · 구현 계획 — 브라우저 WebSocket 으로 P3-A relay 에, 페이지 주소 `?controlcli=<주소>` 가 먼저
 - [ ] Unity WebGL 샘플 · 이 맥 브라우저에서 `conform`
+
+### P3-C. Linux
 - [ ] Linux 샘플 빌드 · `conform`
-- [ ] iOS 역방향 연결
 
 ## P4. 드라이버
 - [ ] 설계 · 구현 계획(생성기)
@@ -120,6 +134,7 @@
 
 ### test_platform 다음 줄 (이 저장소에서는 고치지 않는다)
 - 단계마다 새 명령의 `game.*` 함수를 kit(`packages/kit/src/runtime/game.ts`)에 같은 이름으로 더한다 — 안 그러면 `Ran:` 줄이 케이스에서 안 돈다
+- P3-A — 팜 화면에 relay 연결 표시(`GET /games` 꼴 · key `<앱>@<기기 id 앞 8자>`). kit `game.*` 은 그대로(명령 꼴이 같다) — 라이브러리로 붙을 때는 `relayLink(url, headers, key)`
 - P2-D — `logs(since)` · `events(since)` · `sdkLog(on)`(꼴은 control_cli `src/game.ts` 의 `GameLogs` · `GameEvents`). 게임 증적 `game-errors.txt` 는 `e.time` 대신 `e.occurredAt ?? e.time` 으로 옮긴다(SDK 0.7.0 이 둘 다 준다 — `time` 은 나중에 뗀다). 같은 자리에 `game-logs.txt`(`logs(since)` — Warning 까지, 케이스 실패 때 앞뒤 사정) · 알림 줄을 남기는 안. 증적 머리의 「들고 있는 수(200)」는 logs 면 500
 - P2-C — `touchDown` · `touchMove` · `touchUp` · `swipe` · `longPress` · `mouseMove` · `scroll` · `keyDown` · `keyUp` · `tilt` · `pointer` · `resetInput`, `click` · `tap` 의 `{ count?, interval? }` · `drag` 의 `{ via?, duration? }` · `key` 의 `{ duration?, power? }` · `key` 의 `A+LeftShift`(꼴은 control_cli `src/game.ts`). `at` 은 주소 글자 또는 `{x, y}`, 시간은 초. 모두 SDK 한 명령이라 되풀이는 없다
 - P2-B — `findAll` · `findAt` · `parent` · `waitForProp` · `components` · `members` · `setText`, `find` · `get` · `set` · `callMethod` · `click` · `drag` 의 마지막 옵션 `{ inactive?, camera? }`, `screenshot(format)`(꼴은 control_cli `src/game.ts`). `parent` · `waitForProp` 은 바깥 되풀이라 kit 에도 같은 되풀이가 든다. 선택자는 SDK 가 풀어 kit 은 글자를 그대로 넘긴다
