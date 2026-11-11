@@ -3,11 +3,12 @@
 ## ▶ 다음 세션은 여기부터 (2026-11-06)
 
 - **P3-A 구현부터** — 브랜치 `p3a`(PR #22 `next-tracks` 위, 아직 PR 없음). [p3a-plan.md](p3a-plan.md) 「P3-A 구현 계획」 Task 1 → 10 차례. 실행은 superpowers:subagent-driven-development(권장)나 executing-plans — 시작할 때 사용자에게 고르게 한다. 설계 결정과 까닭은 context-notes 「P3-A 설계」
+- 진척 페이지(전체) — https://claude.ai/artifact/Y4ZUdJiXPeE4NGSx8oxNWK (db 의 `meta/state` · `phases`(U0~U8 · P0~P10 · 번외, `done`/`total` 은 체크리스트 칸 수) · `tasks`(지금 단계 Task) · `log`). 체크리스트 칸을 바꾸거나 Task 가 끝날 때마다 ArtifactData 로 고친다(`status` 는 done · partial · doing · blocked · todo) — 페이지는 다시 publish 하지 않는다
 - P3-A 끝 기준 — 단위 테스트 · sdk-compile 초록, 실기기 이 맥 macOS 앱 「통과 51 · 미실행 1」 · 팜 폰(같은 Wi-Fi) 「통과 52」 · 팜 폰(밖 공개 relay `wss` · 토큰) 「통과 52」. iPhone USB 없이는 사용자 실측 항목
 - P3-A 실기기 때 사용자에게 물을 것 — 쓸 팜 폰 serial 과 그 폰이 이 맥과 같은 Wi-Fi 인지, 밖 공개 터널 주소(`relay.<도메인>` → 이 맥 13101)
 - PR #22(`next-tracks` → main, 체크리스트만)가 합쳐지면 `p3a` PR 의 base 를 main 으로
 
-- P0~P2 · U0~U8 모두 main 에 들어갔다 — PR #5~#21 합침(위에서부터 merge commit, main `b4bdb10` = 옛 `roadmap`), tag `v0.7.0`(SDK · CLI 0.7.0). AltTester 명령 목록 기준 68/68
+- P0~P2 · U0~U8 모두 main 에 들어갔다 — PR #5~#21 합침(위에서부터 merge commit, main `b4bdb10` = 옛 `roadmap`), tag `v0.7.0`(SDK · CLI 0.7.0). 그 뒤 #23 find rect 로 main `6f6511a` · tag `v0.8.0`. AltTester 명령 목록 기준 68/68
 - 다음은 P3~P10 병행 — 트랙마다 세션 하나 · worktree 하나 · **main 에서 뗀 브랜치** · 팜 폰 하나(plan.md 「순차와 병행」). 1차 묶음은 P3 연결 · 플랫폼(`relay` · WebGL · Linux · iOS 역방향) · P4 드라이버(Python · C# · Java · Robot — `protocol/commands.json` 에서) · P6 Godot. 트랙을 시작하는 세션은 이 파일의 그 단계 「설계 · 구현 계획」부터
 - 병행 규칙 — 통신 꼴(`protocol/commands.json` · SDK 답 꼴)을 바꾸는 일은 작은 PR 로 main 에 먼저, 다른 트랙은 그 위로 다시 올린다. README 지원 표 · AltTester 표는 트랙 PR 마다 자기 칸만
 - 판 · tag — instrument 는 `--ref` 가 없으면 `v<package.json 판>` 을 받는다(context-notes 「instrument 기본 ref」). 판을 올리는 PR 을 main 에 합치면 그 커밋에 같은 tag 를 바로 찍는다 — 안 찍으면 새 CLI 의 기본값이 SDK 를 못 받는다
@@ -73,7 +74,7 @@
 - [x] `conform` D 줄 초록 — sample run 41806656652 의 팜 RF9R408GKRR APK 넷 「통과 52 · 실패 0 · 미실행 0」 · 이 맥 macOS 둘 「통과 51 · 실패 0 · 미실행 1」(PC 는 일시정지가 안 난다)
 
 ## P3. 연결 · 플랫폼
-- [ ] 설계 · 구현 계획 — P3-A 설계 [p3a-plan.md](p3a-plan.md)(셋으로 나눔 — P3-A relay → P3-B WebGL → P3-C Linux) · 구현 계획 같은 파일(태스크 10개, 0.8.0)
+- [ ] 설계 · 구현 계획 — P3-A 설계 [p3a-plan.md](p3a-plan.md)(셋으로 나눔 — P3-A relay → P3-B WebGL → P3-C Linux) · 구현 계획 같은 파일(태스크 10개, 0.9.0 — 0.8.0 은 #23 find rect 가 먼저 씀)
 - [ ] `control-cli relay` — 게임이 WebSocket 으로 거는 길 · 원격 연결
 - [ ] Unity WebGL 샘플 · 이 맥 브라우저에서 `conform`
 - [ ] Linux 샘플 빌드 · `conform`

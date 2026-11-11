@@ -32,7 +32,7 @@ P3 은 셋으로 나눈다(사용자 2026-11-06) — **P3-A relay**(이 문서) 
 $ control-cli instrument sample --relay ws://127.0.0.1:13101    # QA 빌드에 relay 주소를 굽는다
 $ control-cli open --relay                                       # relay 가 없으면 띄우고, 게임이 붙기를 60초까지 기다린다
 relay 를 띄웠습니다 — 127.0.0.1:13101 (백그라운드)
-세션 default 열림 — com.maxihan1.sample 1.0 (relay · macOS · MacBook) · unity 6000.0.84f1 · SDK 0.8.0
+세션 default 열림 — com.maxihan1.sample 1.0 (relay · macOS · MacBook) · unity 6000.0.84f1 · SDK 0.9.0
 $ control-cli click LoginButton                                  # 그다음은 지금과 같다
 
 # 팜 폰 · 같은 Wi-Fi — 깔고 켜는 건 팜, 명령은 relay
@@ -84,7 +84,7 @@ relay 127.0.0.1:13101 — 게임 2개
 - `instrument --relay <주소>` — `Assets/ControlCli/Resources/ControlCliRelay.txt` 에 주소 한 줄. `--relay` 가 없으면 그 파일을 지운다 — relay 는 기본 꺼짐이고, 파일이 없으면 SDK 의 relay 쪽은 스레드 · 연결 없이 잠든다(Release 빌드는 `CONTROL_CLI` 가 없어 SDK 가 통째로 빠진다)
 - MCP `open` 도구에 `relay` · `game` 칸
 
-### 4. SDK (Unity, 0.8.0 — `protocol` 은 2 그대로, 명령 · 답 꼴이 같아서)
+### 4. SDK (Unity, 0.9.0 — `protocol` 은 2 그대로, 명령 · 답 꼴이 같아서)
 - `127.0.0.1:13100` 은 그대로 연다 — 팜 · USB · PC 길은 안 바뀐다
 - `Relay.cs` — 켤 때 `Resources.Load<TextAsset>("ControlCliRelay")` 를 읽는다. 없으면 아무것도 안 한다
 - 백그라운드 스레드가 `ClientWebSocket` 으로 `<주소>/game` 에 걸고, 붙자마자 hello 한 줄(`ping` 답과 같은 내용 + 플랫폼 · 기종 · 기기 id)을 보낸다
@@ -146,7 +146,7 @@ relay 127.0.0.1:13101 — 게임 2개
 | `sdk/unity/Runtime/ControlServer.cs` | `PingReply()` · `Ask()` 로 뽑기, `Relay.Start(Ask)` |
 | `sdk/unity/Runtime/Relay.cs` (+ `.meta`, 새) | 주소 파일 읽기 · 걸기 · hello · 받기/답하기 · 2초마다 다시 |
 | `sdk/unity/Editor/LocalNetwork.cs` (+ `.meta`, 새) | iOS `Info.plist` 에 `NSLocalNetworkUsageDescription` |
-| `sdk/unity/package.json` · `package.json` | 0.8.0 |
+| `sdk/unity/package.json` · `package.json` | 0.9.0 |
 | `.github/workflows/sample.yml` | 손으로 돌릴 때 `relay` 입력 |
 | 문서 | README(relay 절 · 명령 표 · AltTester 표) · plan.md · checklist · context-notes 「P3-A 구현」 · 「P3-A 실기기」 · kit 다음 줄 |
 
@@ -993,7 +993,7 @@ export const RELAY_FILE = join('Assets', 'ControlCli', 'Resources', 'ControlCliR
 - [ ] **Step 5: 통과를 본다** — Run: `npm run build && node --test dist/instrument.test.js dist/cli.test.js 2>&1 | grep -E '^# (pass|fail)'` · Expected: `# fail 0`
 - [ ] **Step 6: 커밋** — 「instrument --relay — QA 빌드에 relay 주소 파일, 안 주면 지운다」
 
-### Task 5: SDK — `Ask` · `PingReply` 뽑기, `Relay.cs`, 0.8.0
+### Task 5: SDK — `Ask` · `PingReply` 뽑기, `Relay.cs`, 0.9.0
 
 **Files:** Modify `sdk/unity/Runtime/ControlServer.cs` · Create `sdk/unity/Runtime/Relay.cs` · `Relay.cs.meta` · Modify `sdk/unity/package.json` · `package.json`
 
@@ -1034,7 +1034,7 @@ export const RELAY_FILE = join('Assets', 'ControlCli', 'Resources', 'ControlCliR
             Relay.Start(Ask);
 #endif
 ```
-`SdkVersion = "0.8.0"`, 머리 주석 `// 폰 안 127.0.0.1 포트(와 relay — Relay.cs)로 JSON 명령 한 줄을 받아 게임 메인 스레드에서 처리하고 JSON 한 줄로 답한다`.
+`SdkVersion = "0.9.0"`, 머리 주석 `// 폰 안 127.0.0.1 포트(와 relay — Relay.cs)로 JSON 명령 한 줄을 받아 게임 메인 스레드에서 처리하고 JSON 한 줄로 답한다`.
 
 - [ ] **Step 4: `sdk/unity/Runtime/Relay.cs`**
 
@@ -1151,9 +1151,9 @@ namespace ControlCli
 ```
 `Relay.cs.meta` — `Feed.cs.meta` 와 같은 꼴, guid 는 `python3 -c "import uuid; print(uuid.uuid4().hex)"` 로 새로.
 
-- [ ] **Step 5: 판 0.8.0** — `sdk/unity/package.json` · `package.json` 의 `"version": "0.8.0"`
+- [ ] **Step 5: 판 0.9.0** — `sdk/unity/package.json` · `package.json` 의 `"version": "0.9.0"`
 - [ ] **Step 6: 확인** — Run: `npm run build && node --test dist/protocol.test.js dist/sdk-meta.test.js 2>&1 | grep -E '^# (pass|fail)'` · Expected: `# fail 0`. 그리고 `UNITY_REF_DIR=/Users/maxi.moff/Projects/control_cli/.claude/worktrees/p2b/tools/unity-compile-check/.cache python3 tools/unity-compile-check/check.py 6000.0` · Expected: 입력 설정 셋 모두 성공
-- [ ] **Step 7: 커밋** — 「Unity SDK 0.8.0 — Relay.cs(ClientWebSocket 으로 걸고 hello · 번호 붙은 명령 · 2초마다 다시), Ask · PingReply 로 TCP 와 같은 길」
+- [ ] **Step 7: 커밋** — 「Unity SDK 0.9.0 — Relay.cs(ClientWebSocket 으로 걸고 hello · 번호 붙은 명령 · 2초마다 다시), Ask · PingReply 로 TCP 와 같은 길」
 
 ### Task 6: iOS 로컬 네트워크 문구
 
@@ -1234,7 +1234,7 @@ namespace ControlCli.Editor
 - [ ] 팜 폰 · 밖 공개 — 사용자가 터널(`relay.<도메인>` → 이 맥 13101)을 열고, 이 맥에서 `control-cli relay`(Keychain `control-cli-relay` 토큰)를 늘 켜 둔다 → `open --relay wss://relay.<도메인> --app <APK>` → `conform` 「통과 52」
 - [ ] 확인할 위험 셋(IL2CPP `wss` · Android cleartext `ws` · 일시정지 뒤 다시 붙기) 결과를 context-notes 「P3-A 실기기」에
 - [ ] iPhone USB 없이 — 사용자 실측 항목으로 checklist 에 남긴다
-- [ ] checklist P3-A [x] · 「다음 세션은 여기부터」 P3-B · push · PR ready · 합친 뒤 `v0.8.0` tag
+- [ ] checklist P3-A [x] · 「다음 세션은 여기부터」 P3-B · push · PR ready · 합친 뒤 `v0.9.0` tag
 
 ## 검증
 
