@@ -217,3 +217,12 @@
 - `LocalNetwork.cs`(Editor 어셈블리)는 `tools/unity-compile-check` 가 보지 않는다(플레이어 어셈블리만) — sample CI 의 iOS 빌드가 컴파일을 확인한다. 기존 `BakeAxes` · `StampIds` 와 같다
 - README 의 명령 표는 게임 명령 + Ran 줄 표라 `open --relay` · `relay` 는 「루프 — relay」 절과 연결 표에 두었다. AltTester 비교 표는 README 가 아니라 plan.md 1절에 있다
 
+## 2026-11-11 — P3-A 실기기 (RF9R408GKRR · 이 맥 · sample run 42979434816 · 42979606389 · 커밋 c11b77d)
+
+- 길 — 팜 토큰 길이 401(2026-11-04 토큰 정책)이라 계획의 「팜 폰」 대신 이 맥에 USB 로 꽂힌 RF9R408GKRR 에 adb 로 깔고 켰다(사용자 「응 진행해」). Appium 이 없어 conform 일시정지 줄은 미실행 — 폰도 맥처럼 「통과 52 · 미실행 1」이 기준이 됐다
+- 같은 Wi-Fi — 폰 172.25.28.72 · 맥 172.25.28.64(`kg_guest`, /23). 게스트 Wi-Fi 가 기기끼리 막지 않았다. 6000.0 Input System APK(relay `ws://172.25.28.64:13101`) → `open --relay` → conform 「통과 52 · 실패 0 · 미실행 1」
+- 이 맥 macOS 앱(6000.0 옛 Input, 같은 Wi-Fi 주소를 구운 빌드) — 폰 게임이 붙어 있는 채로 `open --relay --pc --app` → 켠 뒤 붙은 맥 게임을 골랐다. 「통과 52 · 실패 0 · 미실행 1」
+- 밖 공개 — cloudflared quick tunnel(임시 `trycloudflare.com`) → 이 맥 토큰 relay(13102). `wss://…/game` 에 IL2CPP 게임이 붙었다. 토큰 없이 `open` 은 「relay 토큰이 맞지 않습니다」, 토큰이면 「통과 52 · 실패 0 · 미실행 1」. 시험 뒤 터널 · relay 를 끄고 토큰을 지웠다
+- 위험 셋 — ① IL2CPP `ClientWebSocket` 의 `wss` TLS: 6000.0 · Android 13 에서 됨(2021.3 · 2022.3 은 안 봄) ② Android cleartext 막기: Unity 소켓의 `ws://` 에 안 걸림(Android 13) ③ 일시정지: 홈 키로 5초 뒤로 보내도 WebSocket 은 안 끊긴다 — 그동안 명령은 게임 10초 한도로 「멈췄거나 일시정지」, 돌아오면 같은 연결로 바로 답하고 `events` 에 `game.paused` · `game.resumed`
+- 걸린 것 — 폰에 다른 서명의 옛 샘플 앱이 있어 `adb install -r` 이 `INSTALL_FAILED_UPDATE_INCOMPATIBLE` 로 거절됐는데 출력을 잘라 놓쳤다 → 옛 앱(SDK 0.8.0)이 돌아 relay 줄이 안 나왔다. CI APK 는 잡마다 서명 키가 달라 빌드를 바꿀 때마다 `adb uninstall` 이 먼저(자동 권한이 막아 사용자가 두 번 지웠다). 고칠 수 있는 것 — sample 빌드에 고정 디버그 keystore
+

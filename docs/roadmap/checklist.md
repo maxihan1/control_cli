@@ -1,22 +1,22 @@
 # AltTester 기능 전부 + 여러 엔진 — 체크리스트
 
-## ▶ 다음 세션은 여기부터 (2026-11-06)
+## ▶ 다음 세션은 여기부터 (2026-11-11)
 
-- **P3-A 구현부터** — 브랜치 `p3a`(PR #22 `next-tracks` 위, 아직 PR 없음). [p3a-plan.md](p3a-plan.md) 「P3-A 구현 계획」 Task 1 → 10 차례. 실행은 superpowers:subagent-driven-development(권장)나 executing-plans — 시작할 때 사용자에게 고르게 한다. 설계 결정과 까닭은 context-notes 「P3-A 설계」
+- **P3-A relay 끝** — draft PR #24(`p3a` → main). 남은 것 — PR ready → 합치기(사용자) → 그 main 커밋에 `v0.9.0` tag 를 바로. PR #22(체크리스트만)는 #24 아래에 들어 있어 닫는다. 실기기 결과는 context-notes 「P3-A 실기기」
+- **다음 P3-B Unity WebGL** — 이 파일 P3-B 「설계 · 구현 계획」부터, main 에서 뗀 브랜치. 게임 쪽은 브라우저 WebSocket 으로 P3-A relay 의 `/game` 에(hello · `<번호> <명령>` 꼴 그대로), 주소는 페이지 주소 `?controlcli=` 가 먼저
 - 진척 페이지(전체) — https://claude.ai/artifact/Y4ZUdJiXPeE4NGSx8oxNWK (db 의 `meta/state` · `phases`(U0~U8 · P0~P10 · 번외, `done`/`total` 은 체크리스트 칸 수) · `tasks`(지금 단계 Task) · `log`). 체크리스트 칸을 바꾸거나 Task 가 끝날 때마다 ArtifactData 로 고친다(`status` 는 done · partial · doing · blocked · todo) — 페이지는 다시 publish 하지 않는다
-- P3-A 끝 기준 — 단위 테스트 · sdk-compile 초록, 실기기 이 맥 macOS 앱 「통과 52 · 미실행 1」 · 팜 폰(같은 Wi-Fi) 「통과 53」 · 팜 폰(밖 공개 relay `wss` · 토큰) 「통과 53」. iPhone USB 없이는 사용자 실측 항목 — 숫자는 #23 rect 줄을 더한 것
-- P3-A 실기기 때 사용자에게 물을 것 — 쓸 팜 폰 serial 과 그 폰이 이 맥과 같은 Wi-Fi 인지, 밖 공개 터널 주소(`relay.<도메인>` → 이 맥 13101)
-- PR #22(`next-tracks` → main, 체크리스트만)가 합쳐지면 `p3a` PR 의 base 를 main 으로
+- 실기기 길 — 팜 토큰 길이 401(아래 「팜 연결」)이라 이 맥에 USB 로 꽂힌 폰에 adb 로 깔고 켠다(`open --relay` 는 깔기와 상관없이 붙는다). CI APK 는 잡마다 서명 키가 달라 다른 빌드로 바꿀 때 `adb uninstall` 이 먼저다 — 자동 권한이 막아 사용자가 `! ~/Library/Android/sdk/platform-tools/adb -s <serial> uninstall com.maxihan1.controlcli.sample` 로 지운다. `adb install` 출력은 자르지 말고 끝까지 본다(실패를 놓치면 옛 앱이 돈다)
+- 밖 공개 relay 시험 — cloudflared quick tunnel(`cloudflared tunnel --url http://127.0.0.1:<토큰 relay 포트>`, 계정 없는 임시 `trycloudflare.com` 주소)이 `wss` 를 그대로 넘긴다. 토큰은 job tmp 에만, 시험 뒤 터널 · relay 를 끈다. `farm.maxihan.com` 은 Devicefarm 의 SSH 터널이라 손대지 않는다
 
 - P0~P2 · U0~U8 모두 main 에 들어갔다 — PR #5~#21 합침(위에서부터 merge commit, main `b4bdb10` = 옛 `roadmap`), tag `v0.7.0`(SDK · CLI 0.7.0). 그 뒤 #23 find rect 로 main `6f6511a` · tag `v0.8.0`. AltTester 명령 목록 기준 68/68
 - 다음은 P3~P10 병행 — 트랙마다 세션 하나 · worktree 하나 · **main 에서 뗀 브랜치** · 팜 폰 하나(plan.md 「순차와 병행」). 1차 묶음은 P3 연결 · 플랫폼(`relay` · WebGL · Linux · iOS 역방향) · P4 드라이버(Python · C# · Java · Robot — `protocol/commands.json` 에서) · P6 Godot. 트랙을 시작하는 세션은 이 파일의 그 단계 「설계 · 구현 계획」부터
 - 병행 규칙 — 통신 꼴(`protocol/commands.json` · SDK 답 꼴)을 바꾸는 일은 작은 PR 로 main 에 먼저, 다른 트랙은 그 위로 다시 올린다. README 지원 표 · AltTester 표는 트랙 PR 마다 자기 칸만
 - 판 · tag — instrument 는 `--ref` 가 없으면 `v<package.json 판>` 을 받는다(context-notes 「instrument 기본 ref」). 판을 올리는 PR 을 main 에 합치면 그 커밋에 같은 tag 를 바로 찍는다 — 안 찍으면 새 CLI 의 기본값이 SDK 를 못 받는다
 - PR 만들기 — 자동 권한 판정이 PR 본문(다른 저장소 정책 문서 이름)을 「Data Exfiltration」으로 막은 적이 있다. 막히면 사용자가 `! gh pr create …` 로 만든다(P2-D)
-- CI 빨간 줄 — sample 잡이 러너 사정(`no space left on device` · Unity 라이선스 `Access token is unavailable`)으로 자주 떨어진다. 로그를 읽어 그거면 `gh run rerun <run> --failed`
+- CI 빨간 줄 — sample 잡이 러너 사정(`no space left on device` · Unity 라이선스 `Access token is unavailable` · Maven `Could not resolve org.jetbrains.kotlin` · game-ci CLI `GitHub API returned 403`)으로 자주 떨어진다. 로그를 읽어 그거면 `gh run rerun <run> --failed`
 - 팜 폰 — RF9R408GKRR 을 다시 써도 된다(사용자 「RF9R408GKRR 써도 됨」, 2026-11-04 P2-C 실기기 때). 세션마다 사용자가 정한 폰만 쓰고, 다 쓰면 `release`
 - C# 컴파일 검사 — `.cache` 는 p2b worktree 에 받아 둔 것을 쓴다: `UNITY_REF_DIR=/Users/maxi.moff/Projects/control_cli/.claude/worktrees/p2b/tools/unity-compile-check/.cache python3 tools/unity-compile-check/check.py 6000.0`(없으면 `check.py fetch 6000.0`)
-- 팜 연결 — 팜은 이 맥에서 돈다(`http://127.0.0.1:4723/wd/hub`, 밖에서는 `https://farm.maxihan.com/wd/hub`). **토큰은 묻지 않는다** — control-cli 가 `--token` · `PLATFORM_APPIUM_TOKEN` 이 없으면 macOS Keychain `control-cli-farm`(사용자 maxi 의 PAT, 2026-11-04 넣음)을 읽는다. 401 이면 사용자가 새 PAT 를 복사해 두고 세션이 pbpaste → whoami 200 → Keychain 에 넣는다(context-notes 「P2-B 구현」)
+- 팜 연결 — 팜은 이 맥에서 돈다(`http://127.0.0.1:4723/wd/hub`, 밖에서는 `https://farm.maxihan.com/wd/hub`). **2026-11-04 토큰 정책이 바뀌어 사람 PAT 가 없어졌다** — Keychain `control-cli-farm` 의 PAT 는 401 이고, 사용자에게 PAT 를 달라고 하지 않는다. CLI 브라우저 로그인이 생기기 전까지 실기기는 USB(위 「실기기 길」)
 - macOS 시험은 `caffeinate -d -u -t 900` — 잠금 화면은 `-d` 만으로는 13초 만에 화면을 꺼 Unity 가 멈춘다(context-notes 「P1 실기기」)
 - Unity 넓히기 U0~U8 닫음(2026-11-11) — iPhone 실측 · `v0.2.0` tag · panel 직접은 「안 함」(사용자). test_platform 쪽 Ashveil 회귀 · 팜 안내 창은 그 저장소 다음 줄로 남는다 — [docs/unity/checklist.md](../unity/checklist.md)
 
@@ -83,8 +83,8 @@
 - [x] MCP `open {relay, game}` · `instrument --relay`(9617e24 · 9017863)
 - [x] Unity SDK 0.9.0 `Relay.cs` · `Ask` · `PingReply`(2dc191f) · iOS `NSLocalNetworkUsageDescription` 훅(aa8206e) · sample 입력 `relay`(2ee984b)
 - [x] README relay 절 · 연결 표 · relay 통신 꼴 · plan.md AltTester 연결 줄
-- [ ] CI — sdk-compile 초록 · sample 손으로 두 번(`relay` 입력 Wi-Fi 주소 · `wss`) 초록
-- [ ] 실기기 — 이 맥 macOS 앱 「통과 52 · 미실행 1」 · 팜 폰 같은 Wi-Fi 「통과 53」 · 팜 폰 밖 공개 `wss` 「통과 53」, 위험 셋(IL2CPP `wss` · Android cleartext `ws` · 일시정지 뒤 다시 붙기)은 context-notes 「P3-A 실기기」
+- [x] CI — sdk-compile 초록(run 42978856970) · PR sample 9개 잡 초록(run 42978856957 — relay 없는 TCP 길 회귀 없음). relay 를 구운 sample 두 번(Wi-Fi run 42979434816 · `wss` run 42979606389)은 8/9 — 떨어진 6000.0 옛 Input Android 는 러너 사정(Maven 못 닿음 · game-ci CLI API 403), relay 를 구운 iOS 빌드(로컬 네트워크 훅)까지 초록
+- [x] 실기기 — 이 맥 macOS 앱 · RF9R408GKRR 같은 Wi-Fi · RF9R408GKRR 밖 공개 `wss`(토큰) 모두 「통과 52 · 실패 0 · 미실행 1」. 폰은 팜 토큰 길이 막혀 USB(adb)로 깔아 일시정지 줄이 미실행(53 대신 52) — 일시정지는 손으로 확인. 위험 셋 결과는 context-notes 「P3-A 실기기」
 - [-] iOS 역방향(케이블 없는 iPhone → relay) 실측 — 안 함(iPhone 실측 못 함 · U7 과 같은 결정, 2026-11-11). 빌드 훅까지만
 
 ### P3-B. Unity WebGL
