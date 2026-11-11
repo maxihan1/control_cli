@@ -749,8 +749,9 @@ async function ensureRelay(url: string, headers: Record<string, string>, dir: st
   if (!['127.0.0.1', 'localhost'].includes(hostname)) throw new Error(`relay ${url} 에 닿지 못했습니다 — 밖 relay 는 띄우지 않습니다. 주소 · 터널이 살아 있나 봅니다`);
   const logFile = join(dir, 'relay.log');
   const log = openSync(logFile, 'a');
+  // 띄운 relay 도 main.ts 를 지나 Keychain control-cli-relay 를 읽는다 — 그것도 끈다.
   const { CONTROL_CLI_RELAY_TOKEN: _token, ...env } = process.env;
-  const child = spawn(process.execPath, [join(import.meta.dirname, 'main.js'), 'relay', `--port=${port || 80}`], { detached: true, stdio: ['ignore', log, log], env });
+  const child = spawn(process.execPath, [join(import.meta.dirname, 'main.js'), 'relay', `--port=${port || 80}`], { detached: true, stdio: ['ignore', log, log], env: { ...env, CONTROL_CLI_KEYCHAIN: '0' } });
   child.on('error', () => {});
   child.unref();
   closeSync(log);
