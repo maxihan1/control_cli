@@ -53,7 +53,7 @@
 - [x] 트리 · 찾기 · 누를 자리 · 누르기 · type
 - [x] 샘플 UIDocument 화면
 - [x] 샘플에서 `tree` 의 `UitkDocument/UitkPanel/…` · `type UitkIdInput` · `click UitkLoginButton` — 세 판 모두(`qa_user0` · `uitk login qa_user0 1`)
-- [ ] EventSystem 없는 옛 Input 게임에서 panel 직접 보내기 (샘플에 없음 — 실제 게임)
+- [-] EventSystem 없는 옛 Input 게임에서 panel 직접 보내기 — 안 함(샘플에 없음 · 실제 게임이 생기면 그때. 2026-11-11 사용자)
 
 ## U6. PC
 - [x] 답 미루기 일반화(`_ready` · `_cancel`)
@@ -72,12 +72,12 @@
 - [x] 샘플 iOS(Xcode 프로젝트) matrix
 - [x] 가짜 `Input` 에서 `location` 뺌 — iOS 빌드가 위치 사용 문구를 요구해 깨지고 Android 는 위치 권한이 붙었다
 - [x] 샘플 iOS 빌드 초록 · Android APK 에 위치 권한 없음(`aapt dump permissions`) — run 41618229974(d645827) 7개 초록, APK 권한은 `INTERNET` 만
-- [ ] iPhone 실측 (사용자 — iOS 17+ iPhone · Apple 팀 서명)
+- [-] iPhone 실측 — 안 함(iPhone 실측 못 함, 2026-11-11 사용자). iOS 는 빌드 · 가짜 usbmuxd 테스트까지만 확인 — README 지원 표도 그렇게 적혀 있다
 
 ## U8. 마무리
 - [x] README 지원 표(실기기 확인 / 컴파일만 확인을 나눠) · 개발 절 · help · CLI · SDK 판 0.2.0
 - [x] test_platform 다음 줄 목록 (아래)
-- [ ] 합친 뒤 `v0.2.0` 태그 (사용자 — main 에 합친 뒤)
+- [-] `v0.2.0` 태그 — 안 찍음(main 이 0.2.0 을 건너뛰고 바로 0.7.0 이 됐다, 2026-11-11 사용자)
 
 ### test_platform 다음 줄 (이 저장소에서는 고치지 않는다)
 1. **Ashveil 회귀 한 번** — QA 빌드 `instrument --ref` 를 0.2.0 으로 올려 스모크 · 회귀를 돈다. U5 트리 refactoring(`Item` · 경로를 내려가며 셈)과 U6 답 미루기 일반화가 지금 쓰는 uGUI · 옛 Input 길을 지난다. QA 빌드에 붙던 위치 권한(`ACCESS_FINE_LOCATION` · `ACCESS_COARSE_LOCATION`)이 빠진다

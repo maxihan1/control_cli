@@ -18,7 +18,7 @@
 - C# 컴파일 검사 — `.cache` 는 p2b worktree 에 받아 둔 것을 쓴다: `UNITY_REF_DIR=/Users/maxi.moff/Projects/control_cli/.claude/worktrees/p2b/tools/unity-compile-check/.cache python3 tools/unity-compile-check/check.py 6000.0`(없으면 `check.py fetch 6000.0`)
 - 팜 연결 — 팜은 이 맥에서 돈다(`http://127.0.0.1:4723/wd/hub`, 밖에서는 `https://farm.maxihan.com/wd/hub`). **토큰은 묻지 않는다** — control-cli 가 `--token` · `PLATFORM_APPIUM_TOKEN` 이 없으면 macOS Keychain `control-cli-farm`(사용자 maxi 의 PAT, 2026-11-04 넣음)을 읽는다. 401 이면 사용자가 새 PAT 를 복사해 두고 세션이 pbpaste → whoami 200 → Keychain 에 넣는다(context-notes 「P2-B 구현」)
 - macOS 시험은 `caffeinate -d -u -t 900` — 잠금 화면은 `-d` 만으로는 13초 만에 화면을 꺼 Unity 가 멈춘다(context-notes 「P1 실기기」)
-- Unity 넓히기 남은 것(코드 밖) — iPhone 실측(U7, 사용자) · Ashveil 회귀 · 팜 안내 창(test_platform 다음 줄 6). `v0.2.0` tag 는 아직 안 찍음(main 이 바로 0.7.0 이 됐다 — 찍는다면 U8 끝 커밋 `ea90660` 에, 사용자 결정) — [docs/unity/checklist.md](../unity/checklist.md)
+- Unity 넓히기 U0~U8 닫음(2026-11-11) — iPhone 실측 · `v0.2.0` tag · panel 직접은 「안 함」(사용자). test_platform 쪽 Ashveil 회귀 · 팜 안내 창은 그 저장소 다음 줄로 남는다 — [docs/unity/checklist.md](../unity/checklist.md)
 
 단계마다 「설계 → 구현 계획 → 구현 → `conform` 초록(CI + 실기기) → README 지원 표 · AltTester 표 갱신 → test_platform kit 다음 줄」 차례다.
 
