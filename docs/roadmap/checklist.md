@@ -83,7 +83,7 @@
 - [x] MCP `open {relay, game}` · `instrument --relay`(9617e24 · 9017863)
 - [x] Unity SDK 0.9.0 `Relay.cs` · `Ask` · `PingReply`(2dc191f) · iOS `NSLocalNetworkUsageDescription` 훅(aa8206e) · sample 입력 `relay`(2ee984b)
 - [x] README relay 절 · 연결 표 · relay 통신 꼴 · plan.md AltTester 연결 줄
-- [x] CI — sdk-compile 초록(run 42978856970) · PR sample 9개 잡 초록(run 42978856957 — relay 없는 TCP 길 회귀 없음). relay 를 구운 sample 두 번(Wi-Fi run 42979434816 · `wss` run 42979606389)은 8/9 — 떨어진 6000.0 옛 Input Android 는 러너 사정(Maven 못 닿음 · game-ci CLI API 403), relay 를 구운 iOS 빌드(로컬 네트워크 훅)까지 초록
+- [x] CI — sdk-compile 초록(run 42978856970) · PR sample 9개 잡 초록(run 42978856957 — relay 없는 TCP 길 회귀 없음). relay 를 구운 sample — Wi-Fi run 42979434816 은 9/9(Maven 못 닿음으로 떨어진 6000.0 옛 Input Android 를 다시 돌려 초록), `wss` run 42979606389 은 8/9(같은 잡이 game-ci CLI API 403 — 러너 사정), relay 를 구운 iOS 빌드(로컬 네트워크 훅)까지 초록
 - [x] 실기기 — 이 맥 macOS 앱 · RF9R408GKRR 같은 Wi-Fi · RF9R408GKRR 밖 공개 `wss`(토큰) 모두 「통과 52 · 실패 0 · 미실행 1」. 폰은 팜 토큰 길이 막혀 USB(adb)로 깔아 일시정지 줄이 미실행(53 대신 52) — 일시정지는 손으로 확인. 위험 셋 결과는 context-notes 「P3-A 실기기」
 - [-] iOS 역방향(케이블 없는 iPhone → relay) 실측 — 안 함(iPhone 실측 못 함 · U7 과 같은 결정, 2026-11-11). 빌드 훅까지만
 
