@@ -1,4 +1,5 @@
 // 테스트용 가짜 게임 SDK 와 가짜 디바이스 팜 — 폰 없이 CLI · 창 훑기를 돌려 본다
+import { spawn } from 'node:child_process';
 import { createServer, type Server } from 'node:http';
 import { createServer as createNetServer, type AddressInfo, type Server as NetServer } from 'node:net';
 
@@ -6,6 +7,7 @@ import type { Node, PointerAction } from './game.js';
 import type { Command, Reply } from './link.js';
 import { COMMANDS, FEATURES } from './protocol.js';
 import { one, pathOf, select, steps, type View } from './select.js';
+import type { Step } from './recorder.js';
 import { packet } from './usbmux.js';
 
 export interface FakeNode extends Node {
@@ -667,6 +669,30 @@ export function standardScreen(idAccept = keyFilter(8)): FakeGame {
   game.statics = { 'Sample.TouchProbe.Note': null };
   game.staticMethods = { 'Sample.TouchProbe.Add': (a, b) => Number(a) + Number(b), 'Sample.TouchProbe.Log': (text) => game.log('Log', text) };
   return game;
+}
+
+/** 표준 화면에서 인스펙터로 누를 법한 기록 — Recorder 시험(recorder.test · drivers.test 의 언어별 내보내기)이 같은 것을 쓴다 */
+export const RECORDED: Step[] = [
+  { do: 'type', target: 'IdInput', text: 'qa_user01!' },
+  { do: 'click', target: 'LoginButton' },
+  { check: 'text', target: 'StatusText', contains: 'login qauser01' },
+  { do: 'key', key: 'Escape' },
+  { check: 'text', target: 'TouchText', contains: 'key Escape' },
+  { check: 'prop', target: 'WorldCube', prop: 'Transform.position', equals: [0, 0, 5] },
+];
+
+/** 다른 프로세스를 띄워 끝날 때까지 — 동기 실행은 이벤트 루프를 막아 가짜 게임이 못 답한다 */
+export function exec(cmd: string, args: string[], env: NodeJS.ProcessEnv = {}, cwd?: string): Promise<{ code: number | null; text: string }> {
+  return new Promise((resolve) => {
+    // 바깥 node --test 가 건 NODE_TEST_CONTEXT 가 남으면 안쪽 node --test 가 결과를 바깥에 넘기고 종료 코드 0 으로 끝난다.
+    const { NODE_TEST_CONTEXT: _, ...outer } = process.env;
+    const p = spawn(cmd, args, { cwd, env: { ...outer, ...env } });
+    let text = '';
+    p.stdout.on('data', (b) => (text += b));
+    p.stderr.on('data', (b) => (text += b));
+    p.on('error', (e) => resolve({ code: -1, text: String(e) }));
+    p.on('close', (code) => resolve({ code, text }));
+  });
 }
 
 /** PC 게임 흉내 — SDK 처럼 127.0.0.1 포트에서 JSON 한 줄을 받아 한 줄로 답한다 */

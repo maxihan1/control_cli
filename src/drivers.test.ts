@@ -1,7 +1,7 @@
 // 언어 드라이버 — 생성 칸이 commands.json 과 같은지, 언어마다 다리로 가짜 표준 화면에 conform 이 통과하는지 본다(없는 언어 도구는 건너뜀)
 import assert from 'node:assert/strict';
 import { execFile, spawn, spawnSync } from 'node:child_process';
-import { mkdtemp } from 'node:fs/promises';
+import { copyFile, mkdtemp, writeFile } from 'node:fs/promises';
 import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -10,9 +10,10 @@ import test from 'node:test';
 import { run } from './cli.js';
 import { CONFORM, conform, report } from './conform.js';
 import { drivers } from './drivers.js';
-import { fakeRelayGame, fakeTcp, standardScreen } from './fake-game.js';
+import { exec, fakeRelayGame, fakeTcp, RECORDED, standardScreen } from './fake-game.js';
 import { Game, WAIT } from './game.js';
 import { driverLink } from './link.js';
+import { exportTest, FILES, type Lang } from './recorder.js';
 import { relay } from './relay.js';
 
 Object.assign(WAIT, { intervalMs: 5 });
@@ -130,3 +131,43 @@ print('ok')
     pc.server.close();
   }
 });
+
+// Recorder 가 내보낸 테스트 파일을 그 언어 도구로 실제로 돌린다 — 같은 기록(RECORDED)이 가짜 표준 화면에 초록
+type Ran = { code: number | null; text: string };
+const EXPORTS: { lang: Lang; tool: string; run: (dir: string, file: string, env: NodeJS.ProcessEnv) => Promise<Ran> }[] = [
+  { lang: 'py', tool: 'python3', run: (dir, file, env) => exec('python3', [file], { ...env, PYTHONPATH: join(ROOT, 'drivers/python') }, dir) },
+  {
+    lang: 'java',
+    tool: 'java',
+    run: async (dir, file, env) => {
+      const built = await exec('javac', ['-d', dir, join(ROOT, 'drivers/java/controlcli/ControlCli.java')]);
+      return built.code === 0 ? exec('java', ['-cp', dir, file], env, dir) : built;
+    },
+  },
+  {
+    lang: 'cs',
+    tool: 'dotnet',
+    run: async (dir, _file, env) => {
+      // 드라이버 csproj 를 그대로 — 폴더의 .cs 를 다 넣는다(Bridge.cs 대신 내보낸 Recorded.cs 가 최상위 문장).
+      await copyFile(join(ROOT, 'drivers/csharp/ControlCli.csproj'), join(dir, 'Recorded.csproj'));
+      await copyFile(join(ROOT, 'drivers/csharp/ControlCli.cs'), join(dir, 'ControlCli.cs'));
+      return exec('dotnet', ['run', '--project', dir], env);
+    },
+  },
+  { lang: 'robot', tool: 'robot', run: (dir, file, env) => exec('robot', ['--pythonpath', join(ROOT, 'drivers/python'), '--outputdir', dir, '--console', 'dotted', file], env) },
+];
+
+for (const x of EXPORTS) {
+  test(`Recorder ${x.lang} 내보내기 — ${x.tool} 로 돌리면 가짜 표준 화면에 초록`, { skip: !has(x.tool) && `${x.tool} 없음`, timeout: 180_000 }, async () => {
+    const pc = await fakeTcp(standardScreen());
+    const dir = await mkdtemp(join(tmpdir(), `control-cli-rec-${x.lang}-`));
+    try {
+      const file = join(dir, FILES[x.lang]);
+      await writeFile(file, exportTest(RECORDED, x.lang));
+      const r = await x.run(dir, file, { CONTROL_CLI_GAME: `tcp://127.0.0.1:${pc.port}` });
+      assert.equal(r.code, 0, r.text);
+    } finally {
+      pc.server.close();
+    }
+  });
+}

@@ -1,41 +1,17 @@
 // Recorder — 단계 꼴 검사 · 가짜 표준 화면에 다시 돌리기 · 내보낸 TS 테스트를 실제로 node --test 로 돌려 초록인지 본다
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import test from 'node:test';
 
-import { FakeGame, fakeTcp, node, standardScreen } from './fake-game.js';
+import { exec, FakeGame, fakeTcp, node, RECORDED, standardScreen } from './fake-game.js';
 import { Game, WAIT } from './game.js';
 import { tcpLink } from './link.js';
 import { exportTest, LANGS, replay, steps, typeStep, type Step } from './recorder.js';
 
 Object.assign(WAIT, { intervalMs: 5 });
 const ROOT = join(import.meta.dirname, '..');
-
-/** 표준 화면에서 인스펙터로 누를 법한 차례 — 드라이버 시험(drivers.test)도 같은 것을 쓴다 */
-export const SAMPLE: Step[] = [
-  { do: 'type', target: 'IdInput', text: 'qa_user01!' },
-  { do: 'click', target: 'LoginButton' },
-  { check: 'text', target: 'StatusText', contains: 'login qauser01' },
-  { do: 'key', key: 'Escape' },
-  { check: 'text', target: 'TouchText', contains: 'key Escape' },
-  { check: 'prop', target: 'WorldCube', prop: 'Transform.position', equals: [0, 0, 5] },
-];
-
-/** 따로 띄운다 — 동기 실행은 이벤트 루프를 막아 가짜 게임이 못 답한다 */
-export function exec(cmd: string, args: string[], env: NodeJS.ProcessEnv = {}, cwd = ROOT): Promise<{ code: number | null; text: string }> {
-  return new Promise((resolve) => {
-    // 바깥 node --test 가 건 NODE_TEST_CONTEXT 가 남으면 안쪽 node --test 가 결과를 바깥에 넘기고 종료 코드 0 으로 끝난다.
-    const { NODE_TEST_CONTEXT: _, ...outer } = process.env;
-    const p = spawn(cmd, args, { cwd, env: { ...outer, ...env } });
-    let text = '';
-    p.stdout.on('data', (b) => (text += b));
-    p.stderr.on('data', (b) => (text += b));
-    p.on('error', (e) => resolve({ code: -1, text: String(e) }));
-    p.on('close', (code) => resolve({ code, text }));
-  });
-}
+const SAMPLE = RECORDED;
 
 test('steps — 꼴이 틀린 단계는 몇 번째인지 알린다 · {steps} 도 받는다', () => {
   assert.deepEqual(steps({ steps: SAMPLE }), SAMPLE);
