@@ -25,7 +25,7 @@
 | 알림 | 장면 열림 · 닫힘 · 로그 · 앱 일시정지 · SetServerLogging | ✓ `events`(`scene.loaded` · `scene.unloaded` · `game.paused` · `game.resumed`) · `logs` · `sdk-log on\|off` — 가져가기(번호 뒤만). 이름 · 시각 칸 · 토큰 가리기는 Issue Bunker 정책과 같다 | P2-D |
 | 연결 | Android 역방향 포트 연결 · iOS 역방향 · AltTester Server(로컬 · 원격 중계) | ✓ adb forward · 팜 · usbmuxd · relay(로컬 · 원격, P3-A) | P3 |
 | 플랫폼 | Android · iOS · Windows · macOS | ✓ | — |
-| 플랫폼 | Linux · WebGL | | P3 |
+| 플랫폼 | Linux · WebGL | ✓ Linux(PC 길 · Docker 실측, P3-C) · WebGL(브라우저 → relay, P3-B) | P3 |
 | 엔진 | Unity | ✓ | — |
 | 엔진 | Unreal(+ 사용자가 고른 Godot · GameMaker · RPG Maker · CryEngine) | | P6~P10 |
 | 드라이버 | C# · Python · Java · Robot Framework | TS(CLI · test_platform kit) | P4 |

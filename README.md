@@ -16,7 +16,7 @@ Unity 게임을 자동화 테스트로 조작하는 SDK 와 CLI.
 | Unity 판 | 2021.3 · 2022.3 · 6000.0 | 6000.0 (Ashveil) | 2021.3 · 2022.3 |
 | UI | uGUI · TextMeshPro · UI Toolkit(UIDocument) | uGUI | TMP · UI Toolkit (`layout` 은 uGUI 만) |
 | 입력 | 옛 Input · 새 Input System · 둘 다 | 옛 Input | Input System(Touchscreen · Mouse · Keyboard) |
-| 플랫폼 | Android(팜 · USB) · PC(Windows · macOS) · iOS(USB, 17+) · WebGL(브라우저 → relay) | Android · macOS · WebGL(Chrome) | PC · iOS (CLI 는 가짜 게임 · 가짜 usbmuxd 로 테스트) |
+| 플랫폼 | Android(팜 · USB) · PC(Windows · macOS · Linux) · iOS(USB, 17+) · WebGL(브라우저 → relay) | Android · macOS · Linux(Docker) · WebGL(Chrome) | Windows · iOS (CLI 는 가짜 게임 · 가짜 usbmuxd 로 테스트) |
 
 「컴파일만 확인」은 `tools/unity-compile-check` 9개 구성과 CLI 테스트까지다 — 샘플 Unity 프로젝트(`sample/`)를 CI 가 판 · 입력 · 플랫폼마다 구워(`.github/workflows/sample.yml`, Unity 라이선스 Secret 필요) 실기기에서 돌려 봐야 「실기기로 확인」으로 옮긴다.
 못 가로채는 것 — 게임 코드가 `UnityEngine.Input` 을 전체 이름으로 부르는 곳 · DLL plugin 안의 입력. 디바이스 팜은 Android 만 받는다.
@@ -91,7 +91,7 @@ npx control-cli open --usb --udid <serial> --port 13100
 
 USB 는 `adb forward tcp:13100 tcp:13100` 을 걸고 TCP 로 보낸다. adb 는 `ANDROID_HOME` → `~/Library/Android/sdk` → PATH 순서로 찾는다.
 
-### 루프 — PC (Windows · macOS 빌드)
+### 루프 — PC (Windows · macOS · Linux 빌드)
 
 ```bash
 npx control-cli open --pc --app ./Build/Game.app   # 띄우고 붙는다(.app 은 Contents/MacOS 안 실행 파일) — close 가 끈다
@@ -100,6 +100,21 @@ npx control-cli key I                              # Ran: await game.key('I')
 ```
 
 PC 게임의 SDK 는 이 컴퓨터의 `127.0.0.1:13100` 에 열려 adb 없이 TCP 로 바로 붙는다. 스크린샷은 게임이 프레임 끝에서 찍고, 창 훑기의 뒤로 키는 `Escape` 다. QA 빌드는 창 초점이 없어도 돈다(SDK 가 `runInBackground` · Input System `IgnoreFocus` 를 켜고 uGUI 에 초점을 다시 알린다). 다만 화면은 켜져 있어야 한다 — macOS 는 디스플레이가 꺼지면 Metal 이 프레임을 못 내보내 게임이 멈추고 명령이 「멈췄거나 일시정지」로 실패한다. `PLATFORM_APP` 은 팜 · USB 의 APK 라 PC 는 `--app` 만 본다.
+
+**Linux** — PC 와 같은 길이다(`open --pc --app ./Build/Game.x86_64`). 리눅스 기계가 없으면 Docker 의 `linux/amd64` 컨테이너(Xvfb · Mesa)에서 게임과 CLI 를 함께 돌린다 — SDK 가 컨테이너의 `127.0.0.1` 에만 열어 `docker -p` 로는 못 닿기 때문이다. Apple Silicon 맥의 Docker(Rosetta 흉내)에서는 **IL2CPP 빌드만** 뜬다 — Mono JIT 는 `x86-codegen.h … offset == (gint32)offset` 으로 죽는다.
+
+```dockerfile
+FROM node:22-bookworm-slim
+RUN apt-get update && apt-get install -y --no-install-recommends xvfb libgl1 libgl1-mesa-dri libglu1-mesa \
+    libvulkan1 mesa-vulkan-drivers libxcursor1 libxrandr2 libxinerama1 libxi6 libgtk-3-0 libasound2 && rm -rf /var/lib/apt/lists/*
+```
+
+```bash
+docker build --platform linux/amd64 -t control-cli-linux .
+docker run --rm --platform linux/amd64 -v "$PWD:/cli:ro" -v <Linux 빌드 폴더>:/game control-cli-linux bash -c '
+  Xvfb :99 -screen 0 1280x1400x24 & export DISPLAY=:99; sleep 2; mkdir -p /work && cd /work
+  node /cli/dist/main.js open --pc --app /game/<이름>.x86_64 && node /cli/dist/main.js conform; node /cli/dist/main.js close'
+```
 
 ### 루프 — iOS (USB)
 
