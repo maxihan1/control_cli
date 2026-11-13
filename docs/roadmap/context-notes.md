@@ -296,3 +296,4 @@
 - 결과 — CI 4.5.2 · 4.7.2 xvfb(Mesa llvmpipe · gl_compatibility), 이 맥 macOS 앱(Linux 러너가 구운 ad-hoc 서명 universal 이 그대로 떴다), 이 맥 Chrome 웹(`python3 -m http.server` + `?controlcli=ws://127.0.0.1:13101` + 늦추기 끈 Chrome) 모두 「통과 47 · 실패 0 · 미실행 6」
 - relay 에 같은 앱 탭이 둘이면(옛 탭이 끊긴 채 남음) `--game` 이 못 고른다 — 신호가 끊긴 쪽은 잠시 뒤 빠진다
 - Android — 미리 지은 템플릿 APK(`android_debug.apk`, gradle 빌드 없음)에 잡마다 `keytool` 로 만든 debug keystore(`GODOT_ANDROID_KEYSTORE_DEBUG_*` 환경 변수)로 서명. TCP 서버에 `permissions/internet` 이 필요하다. RF9R408GKRR 에 adb 로 깔고 `monkey` 로 켜 `open --usb` → 47/0/6. 일시정지는 adb 홈 → 다시 켜기로 `game.paused` · `game.resumed` 손 확인(Unity 는 팜 Appium 길이 conform 줄로 본다)
+- 기다림은 벽시계로 — `create_timer` 는 프레임 delta(다듬기)로 세어 xvfb 의 느린 프레임에서 1.5초 키가 1.5초 전에 끝났다(run 43403244582, 4.7.2 하나만 46/1). `Time.get_ticks_msec` 가 끝날 때까지 프레임을 넘긴다
