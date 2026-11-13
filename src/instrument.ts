@@ -1,5 +1,5 @@
-// QA 빌드 직전에 Unity 프로젝트에 SDK 패키지와 asmdef 참조를 더한다 — 게임 저장소에는 SDK 를 넣지 않고 빌드 잡에서만
-import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+// QA 빌드 직전에 Unity 프로젝트에 SDK 패키지와 asmdef 참조를, Godot 프로젝트에 애드온과 autoload 를 더한다 — 게임 저장소에는 SDK 를 넣지 않고 빌드 잡에서만
+import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 
 export const PACKAGE = 'com.maxihan1.control-cli';
@@ -87,4 +87,35 @@ export function instrument(project: string, ref: string, relayAddress?: string):
     writeFileSync(relayPath, relayAddress + '\n');
   } else if (existsSync(relayPath)) rmSync(relayPath);
   return { asmdefs, warnings };
+}
+
+// ── Godot ──────────────────────────────────────────────
+
+// CLI 에 실린 Godot SDK — npm 패키지 files 에 sdk/godot 이 든다. CLI 판 = SDK 판이라 --ref 를 받지 않는다.
+export const GODOT_SDK = join(import.meta.dirname, '..', 'sdk', 'godot', 'addons', 'control_cli');
+export const GODOT_AUTOLOAD = '"*res://addons/control_cli/control_cli.gd"';
+
+// project.godot 의 [구역] 안 key 줄을 바꾼다 — value 가 undefined 면 지운다. 구역이 없으면 끝에 더한다.
+export function godotSetting(text: string, section: string, key: string, value: string | undefined): string {
+  const lines = text.split('\n');
+  const head = lines.findIndex((l) => l.trim() === `[${section}]`);
+  if (head < 0) return value === undefined ? text : `${text.replace(/\n*$/, '\n')}\n[${section}]\n\n${key}=${value}\n`;
+  let end = lines.findIndex((l, i) => i > head && l.startsWith('['));
+  if (end < 0) end = lines.length;
+  const at = lines.findIndex((l, i) => i > head && i < end && l.startsWith(`${key}=`));
+  if (at >= 0) lines.splice(at, 1, ...(value === undefined ? [] : [`${key}=${value}`]));
+  else if (value !== undefined) lines.splice(head + 1, 0, '', `${key}=${value}`);
+  return lines.join('\n');
+}
+
+// Godot QA 빌드 직전 — 애드온을 addons/control_cli 에 새로 넣고 autoload ControlCli · relay 주소(control_cli/relay)를 project.godot 에 쓴다.
+export function instrumentGodot(project: string, relayAddress?: string): void {
+  const file = join(project, 'project.godot');
+  let text = readFileSync(file, 'utf8');
+  text = godotSetting(text, 'autoload', 'ControlCli', GODOT_AUTOLOAD);
+  text = godotSetting(text, 'control_cli', 'relay', relayAddress === undefined ? undefined : JSON.stringify(relayAddress));
+  const dest = join(project, 'addons', 'control_cli');
+  rmSync(dest, { recursive: true, force: true });
+  cpSync(GODOT_SDK, dest, { recursive: true });
+  writeFileSync(file, text);
 }

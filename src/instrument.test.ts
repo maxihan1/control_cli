@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { addInputReference, addPackage, instrument, packageUrl, shadowsFakeInput, INPUT_ASSEMBLY, PACKAGE, RELAY_FILE } from './instrument.js';
+import { addInputReference, addPackage, godotSetting, instrument, instrumentGodot, packageUrl, shadowsFakeInput, INPUT_ASSEMBLY, PACKAGE, RELAY_FILE } from './instrument.js';
 
 test('패키지는 다른 의존을 남기고 고른 ref 로 더한다', () => {
   const out = addPackage({ dependencies: { 'com.unity.ugui': '2.0.0' } }, 'abc123');
@@ -90,4 +90,20 @@ test('relay 주소를 주면 Resources 에 주소 파일을 넣고, 안 주면 �
   assert.equal(readFileSync(join(root, RELAY_FILE), 'utf8'), 'ws://192.168.0.10:13101\n');
   instrument(root, 'v1');
   assert.equal(existsSync(join(root, RELAY_FILE)), false);
+});
+
+test('Godot — 애드온을 넣고 autoload 를 한 줄로, relay 는 주면 쓰고 안 주면 지운다', () => {
+  const root = mkdtempSync(join(tmpdir(), 'instrument-godot-'));
+  writeFileSync(join(root, 'project.godot'), 'config_version=5\n\n[application]\n\nconfig/name="g"\n\n[autoload]\n\nGame="*res://game.gd"\n');
+  instrumentGodot(root, 'ws://192.168.0.10:13101');
+  instrumentGodot(root, 'ws://192.168.0.10:13101');
+  let text = readFileSync(join(root, 'project.godot'), 'utf8');
+  assert.equal(text.match(/^ControlCli=/gm)?.length, 1);
+  assert.match(text, /\[autoload\]\n\nControlCli="\*res:\/\/addons\/control_cli\/control_cli\.gd"\n\nGame=/);
+  assert.match(text, /\[control_cli\]\n\nrelay="ws:\/\/192\.168\.0\.10:13101"\n$/);
+  assert.ok(existsSync(join(root, 'addons', 'control_cli', 'control_cli.gd')));
+  instrumentGodot(root);
+  text = readFileSync(join(root, 'project.godot'), 'utf8');
+  assert.doesNotMatch(text, /relay=/);
+  assert.equal(godotSetting('[a]\n\nx=1\n', 'b', 'y', undefined), '[a]\n\nx=1\n');
 });

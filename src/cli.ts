@@ -11,7 +11,7 @@ import { conform, report } from './conform.js';
 import { crawl, CRAWL } from './crawl.js';
 import { installAndLaunch, terminate } from './devicectl.js';
 import { Game, settled, WAIT, type At, type FindOptions, type PingReply, type PrefType, type WaitOptions } from './game.js';
-import { instrument } from './instrument.js';
+import { instrument, instrumentGodot } from './instrument.js';
 import { driverLink, farmLink, GAME_PORT, iosLink, relayLink, tcpLink, usbLink, type Command, type Reply } from './link.js';
 import { serve, VERSION } from './mcp.js';
 import { relay, RELAY_PORT, type GameInfo } from './relay.js';
@@ -96,7 +96,7 @@ export const HELP = `control-cli [-s=<세션>] <명령>
   crawl [--max ${CRAWL.maxWindows}] [--minutes ${CRAWL.minutes}] [--exclude <정규식>]… [--out <폴더>]   창 훑기
   close                                            Appium 세션을 닫는다
   release [--udid <serial>]                        폰을 놓는다 — 팜이 깐 게임 · 데이터를 지운다
-  instrument <Unity 프로젝트 폴더> [--ref <커밋>] [--relay <주소>]  QA 빌드에 SDK 를 넣는다 — relay 주소를 주면 게임이 그리로 건다
+  instrument <Unity · Godot 프로젝트 폴더> [--ref <커밋>] [--relay <주소>]  QA 빌드에 SDK 를 넣는다 — relay 주소를 주면 게임이 그리로 건다(Godot 는 이 CLI 에 실린 SDK · --ref 없음)
 
 주소는 오브젝트 이름(하나뿐일 때) · /Canvas/Panel/Slot[2] 경로 · //*[@tag=Player] · //*[contains(@name,Slot)] · //*[@text=OK]/.. 선택자(AltTester PATH 꼴).
 읽기 · 쓰기 명령(get · set · call · text-set …)은 --inactive 로 꺼진 것도, 누르기 · 끌기는 --camera 로 카메라를 고른다. ref(e3)는 마지막 화면에서만 쓴다.
@@ -188,8 +188,17 @@ export async function run(argv: string[], o: Options): Promise<string> {
     const address = values.relay ? args.find((a) => /^(ws|http)s?:\/\//.test(a)) : undefined;
     if (values.relay && !address) throw new Error('--relay 뒤에 게임이 걸 주소(ws:// · wss://)를 줍니다');
     const folders = args.filter((a) => a !== address);
-    if (folders.length !== 1) throw new Error('instrument <Unity 프로젝트 폴더> [--ref <태그 · 커밋>] [--relay <주소>] 꼴이어야 합니다');
+    if (folders.length !== 1) throw new Error('instrument <Unity · Godot 프로젝트 폴더> [--ref <태그 · 커밋>] [--relay <주소>] 꼴이어야 합니다');
     const gameAddress = address?.replace(/^http/, 'ws');
+    // Godot 는 project.godot 로 알아본다 — SDK 는 이 CLI 에 실린 판이라 --ref 를 받지 않는다.
+    if (existsSync(join(folders[0], 'project.godot'))) {
+      if (values.ref) throw new Error('Godot SDK 는 이 CLI 에 실린 판을 넣습니다 — --ref 는 Unity 만 받습니다(다른 판은 그 판의 CLI 로)');
+      instrumentGodot(folders[0], gameAddress);
+      return [
+        `Godot SDK(${VERSION}) 를 addons/control_cli 에 넣고 autoload ControlCli 를 project.godot 에 더했습니다`,
+        ...(gameAddress ? [`relay 주소를 구웠습니다 — 게임이 ${gameAddress} 로 겁니다`] : []),
+      ].join('\n');
+    }
     const { asmdefs, warnings } = instrument(folders[0], ref, gameAddress);
     return [
       `SDK(${ref}) 를 Packages/manifest.json 에 더했습니다`,

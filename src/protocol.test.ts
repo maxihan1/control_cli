@@ -31,3 +31,13 @@ test('Unity SDK 의 Caps · protocol 은 commands.json 과 같고 SdkVersion 은
   const version = /SdkVersion = "([^"]+)"/.exec(src)?.[1];
   assert.equal(version, (JSON.parse(readFileSync(join(UNITY, 'package.json'), 'utf8')) as { version: string }).version);
 });
+
+const GODOT = join(import.meta.dirname, '..', 'sdk', 'godot', 'addons', 'control_cli');
+
+test('Godot SDK 의 CAPS · protocol 은 commands.json 과 같고 SDK_VERSION 은 plugin.cfg 판과 같다', () => {
+  const src = readFileSync(join(GODOT, 'control_cli.gd'), 'utf8');
+  const caps = /const CAPS := \[([^\]]*)\]/.exec(src)?.[1].match(/"([^"]+)"/g)?.map((s) => s.slice(1, -1));
+  assert.deepEqual(caps, [...COMMANDS, ...FEATURES], 'control_cli.gd 의 CAPS — 명령 뒤에 기능');
+  assert.equal(Number(/"protocol": (\d+)/.exec(src)?.[1]), PROTOCOL.protocol, 'control_cli.gd ping 의 protocol');
+  assert.equal(/SDK_VERSION := "([^"]+)"/.exec(src)?.[1], /^version="([^"]+)"/m.exec(readFileSync(join(GODOT, 'plugin.cfg'), 'utf8'))?.[1]);
+});

@@ -276,3 +276,24 @@
 - 가짜 표준 화면(`npm test` · CI `drivers` 잡) — Python · Java · C# 다리가 TCP · 토큰 relay 둘 다 「통과 52 · 실패 0 · 미실행 1」(일시정지 — 앱을 뒤로 보낼 길 없음), 틀린 토큰은 relay 거절 글로 실패. Robot suite 7줄 초록
 - 이 맥 macOS 앱(sample run 43387721549 · 6000.0 옛 Input · Mono · SDK 0.10.0) `open --pc --app` → Python 다리 두 판 · Java 다리 모두 「통과 52 · 실패 0 · 미실행 1」. 화면이 잠들고 잠겨 `caffeinate -d -u -t 900` 을 걸고 돌렸다
 - C# · Robot 실기기는 못 했다 — 이 맥에 dotnet · robot 이 없고, `brew install dotnet` · venv `pip install robotframework` · 이미 받아 둔 `mcr.microsoft.com/dotnet/sdk:8.0` 컨테이너로 띄우기를 모두 자동 권한이 막았다. 사용자가 깔아 주면 README 「드라이버」 명령 그대로 돌린다
+
+## 2026-11-13 — P6 설계 ([p6-plan.md](p6-plan.md))
+
+- 판 — Godot 4.5 이상. plan.md 는 4.3+ 였지만 스크립트가 엔진 로그를 받는 길(`Logger` · `OS.add_logger`)이 4.5 에 생겼다 — 없으면 logs · errors 가 빠진다. 4.5 는 2025-09 판이라 바닥으로 삼고 CI 는 4.5.2 · 4.7.2(지금 최신) 둘
+- SDK = GDScript 애드온 하나(`sdk/godot/addons/control_cli`) — autoload 가 매 프레임 TCP 를 훑고(스레드 없음) 명령을 받은 차례로 하나씩 돌린다. 누르기 · 끌기 · 키 · 스크린샷은 코루틴(`await process_frame`)으로 끝난 뒤 답한다. relay 는 `WebSocketPeer` 한 벌이 PC · 폰 · 웹 모두(Unity 는 ClientWebSocket · jslib 둘)
+- instrument — Unity 는 UPM git 주소(`--ref`)지만 Godot 는 패키지 관리자가 없다. CLI npm 패키지에 `sdk/godot` 을 싣고 그대로 복사한다 — CLI 판 = SDK 판이라 `--ref` 를 받지 않는다. CI 는 체크아웃한 CLI 로 돌려 PR 의 SDK 가 들어간다. relay 주소는 `project.godot` 의 `[control_cli] relay` — 내보낸 빌드는 .txt 를 안 싣지만 프로젝트 설정은 실린다
+- conform 엔진 표 — 차례 · 기대값은 한 벌로 두고 이름 꼴만 `Sample`(`UNITY` · `GODOT`)에서. Godot 는 같은 이름 형제를 못 둬(자동으로 이름을 바꾼다) Bag 칸이 `Slot0~3` · 선택자 `//Bag/*`. Unity 에만 있는 UI(TMP · UI Toolkit) 줄은 `ui` 표시로 「godot 표준 화면에 없음」 미실행. 옛 SDK(engine 없음)는 Unity
+- 칸 주소 `[클래스.]칸` — Unity 꼴 `컴포넌트.칸` 을 그대로 받으려고 앞 낱말이 노드의 클래스 줄기 · 스크립트 이름이면 뗀다(`TouchProbe.Say` · `Label.text`). 나머지는 `get_indexed`(`position.y` → `position:y`)라 값 타입 칸 되써 넣기를 Godot 가 한다
+- 영구 id — Godot 는 장면 파일에 노드 id 가 없다(판마다 다름). 「열린 장면 파일 경로 :: 뿌리부터 경로」의 hash 로 — 다시 열어도 같고, 실행 중 만든 노드(owner 없음) · 실행 중 instantiate 한 장면은 instance id 라 conform 의 SecondSaved · SecondMarker 기대와 같다
+- 입력 — 손가락은 `InputEventScreenTouch` · `ScreenDrag` 로 넣고 단추 · Control 은 Godot 의 「터치로 마우스 흉내」로 눌리게 둔다(진짜 폰과 같은 길). 저장 값은 Godot 표준이 없어 `ConfigFile` 하나(`control_cli/prefs_file`)
+
+## 2026-11-13 — P6 실측 (CI run 43401271272 → 43402118931 · 이 맥)
+
+- 첫 CI(43401271272) — 25 통과. GDScript 파싱 오류 하나(`var bit := 1 << (e.button_index - 1)` — 타입 없는 값에서 `:=` 로 타입을 못 정함)로 `fake_input.gd` 가 통째로 안 실려 입력 줄이 다 「처리하다 멈춤」. 이 맥에 Godot 가 없어 문법은 CI `--import` 로 본다 — `:=` 는 오른쪽 타입이 정해질 때만, 하위 클래스 칸을 읽는 인자는 타입을 비운다(GDScript 는 `is` 뒤에도 타입을 좁히지 않을 수 있다)
+- type 거르기 — LineEdit 는 `text_changed` 를 프레임 끝으로 미룬다. 글자를 한 프레임에 다 밀면 거르기가 끝에 한 번만 돌아 「qa_user0」. 글자마다 한 프레임을 넘겨 사람이 칠 때 차례로 「qauser01」
+- pointer enter · exit — 4.5 는 `NOTIFICATION_MOUSE_ENTER` 가 `mouse_entered` 를 내지만 4.7 은 안 낸다. 알림을 보내고 신호가 안 났을 때만 직접 낸다(두 번 나지 않게)
+- 웹 hover — 진짜 마우스가 캔버스 밖이면 Godot 루트 창(`mouse_in_window`)이 가짜 마우스의 hover 를 세지 않는다(PC · xvfb 는 셌다). 옮긴 뒤 `gui_get_hovered_control()` 이 그 자리 Control 이 아니면 SDK 가 enter · exit 신호를 낸다 — Godot 가 잡은 곳(PC)은 손대지 않는다
+- 결과 — CI 4.5.2 · 4.7.2 xvfb(Mesa llvmpipe · gl_compatibility), 이 맥 macOS 앱(Linux 러너가 구운 ad-hoc 서명 universal 이 그대로 떴다), 이 맥 Chrome 웹(`python3 -m http.server` + `?controlcli=ws://127.0.0.1:13101` + 늦추기 끈 Chrome) 모두 「통과 47 · 실패 0 · 미실행 6」
+- relay 에 같은 앱 탭이 둘이면(옛 탭이 끊긴 채 남음) `--game` 이 못 고른다 — 신호가 끊긴 쪽은 잠시 뒤 빠진다
+- Android — 미리 지은 템플릿 APK(`android_debug.apk`, gradle 빌드 없음)에 잡마다 `keytool` 로 만든 debug keystore(`GODOT_ANDROID_KEYSTORE_DEBUG_*` 환경 변수)로 서명. TCP 서버에 `permissions/internet` 이 필요하다. RF9R408GKRR 에 adb 로 깔고 `monkey` 로 켜 `open --usb` → 47/0/6. 일시정지는 adb 홈 → 다시 켜기로 `game.paused` · `game.resumed` 손 확인(Unity 는 팜 Appium 길이 conform 줄로 본다)
+- 기다림은 벽시계로 — `create_timer` 는 프레임 delta(다듬기)로 세어 xvfb 의 느린 프레임에서 1.5초 키가 1.5초 전에 끝났다(run 43403244582, 4.7.2 하나만 46/1). `Time.get_ticks_msec` 가 끝날 때까지 프레임을 넘긴다
