@@ -5,6 +5,7 @@ Unity 게임을 자동화 테스트로 조작하는 SDK 와 CLI.
 - **SDK** (Unity UPM 패키지) — QA 빌드에서만 게임 안 `127.0.0.1` 에 포트를 열고, 오브젝트 트리 읽기 · 찾기 · 누르기 · 끌기 · 글자 넣기 · 키 · 속성 읽기 · 스크린샷을 받는다. 터치는 빌드 때 이름이 같은 가짜 `Input` 으로 바꿔치기하고, 새 Input System 게임에는 장치 이벤트로 넣는다
 - **CLI** — appium-cli 꼴. snapshot(줄인 트리 + 스크린샷) → ref → 액션, 액션마다 케이스에 붙일 코드 한 줄(`Ran:`)을 찍는다. 디바이스 팜 게임 명령 주소 · USB `adb forward` · PC(TCP) · USB iPhone(usbmuxd) 로 잇고, 길이 없는 게임은 게임이 relay 로 WebSocket 을 건다
 - **MCP** — `control-cli mcp`. AI 앱(Claude Desktop · Claude Code)이 띄우는 stdio MCP 서버로, 같은 명령을 도구로 내준다 — 셸 없는 AI 앱도 게임을 조작한다
+- **드라이버(다른 언어)** — Python · C# · Java · Robot Framework. `protocol/commands.json` 에서 명령마다 메서드를 만든 파일 하나씩(`drivers/`) — 아래 「드라이버」
 - **라이브러리** — CLI 와 같은 드라이버(`Game`)와 연결 길(`farmLink` · `relayLink` · `usbLink` · `tcpLink` · `iosLink`). test_platform kit 이 CLI 를 띄우지 않고 쓴다
 
 0단계 실측 결과는 [docs/step0.md](docs/step0.md). Unity 지원 넓히기의 결정 기록은 [docs/unity/](docs/unity/context-notes.md).
@@ -17,6 +18,7 @@ Unity 게임을 자동화 테스트로 조작하는 SDK 와 CLI.
 | UI | uGUI · TextMeshPro · UI Toolkit(UIDocument) | uGUI | TMP · UI Toolkit (`layout` 은 uGUI 만) |
 | 입력 | 옛 Input · 새 Input System · 둘 다 | 옛 Input | Input System(Touchscreen · Mouse · Keyboard) |
 | 플랫폼 | Android(팜 · USB) · PC(Windows · macOS · Linux) · iOS(USB, 17+) · WebGL(브라우저 → relay) | Android · macOS · Linux(Docker) · WebGL(Chrome) | Windows · iOS (CLI 는 가짜 게임 · 가짜 usbmuxd 로 테스트) |
+| 드라이버 | Python · C# · Java · Robot Framework (TCP · relay) | Python · Java (macOS 앱 conform) | C# · Robot (CI 가짜 표준 화면) |
 
 「컴파일만 확인」은 `tools/unity-compile-check` 9개 구성과 CLI 테스트까지다 — 샘플 Unity 프로젝트(`sample/`)를 CI 가 판 · 입력 · 플랫폼마다 구워(`.github/workflows/sample.yml`, Unity 라이선스 Secret 필요) 실기기에서 돌려 봐야 「실기기로 확인」으로 옮긴다.
 못 가로채는 것 — 게임 코드가 `UnityEngine.Input` 을 전체 이름으로 부르는 곳 · DLL plugin 안의 입력. 디바이스 팜은 Android 만 받는다.
@@ -317,6 +319,29 @@ Desktop 은 셸의 PATH 를 안 볼 수 있다 — `control-cli` · `node` 를 �
 | relay 토큰 (Bearer) | `relay --token` (relay 를 띄울 때) | `CONTROL_CLI_RELAY_TOKEN` — 없으면 macOS Keychain 의 `control-cli-relay`. 팜 `--token` 과 따로다 |
 | iPhone | `--udid` (`--ios` 와 같이 — 없으면 USB 로 꽂힌 하나) | `USBMUXD_SOCKET_ADDRESS` (usbmuxd 자리 — 테스트용, 없으면 `/var/run/usbmuxd`) |
 
+## 드라이버 (다른 언어)
+
+시험 코드를 TS 밖에서 쓸 때. 언어마다 의존 없는 파일 하나를 복사해 쓴다 — 명령 하나 = 메서드 하나(`protocol/commands.json` 에서 `npm run drivers` 가 만든다), 답은 게임 답 JSON 객체 그대로, 게임이 실패로 답하면 `GameError` · `GameException`.
+
+| 언어 | 파일 | 꼴 |
+|---|---|---|
+| Python 3.8+ | `drivers/python/control_cli.py` | `Game('tcp://127.0.0.1:13100').click('LoginButton', count=2)` — 고를 칸은 키워드 |
+| C# (.NET 8+) | `drivers/csharp/ControlCli.cs` | `new Game("tcp://127.0.0.1:13100").Click("LoginButton", count: 2)` — 고를 칸은 이름 있는 인자 |
+| Java 17+ | `drivers/java/controlcli/ControlCli.java` | `new ControlCli("tcp://127.0.0.1:13100").click("LoginButton", Map.of("count", 2))` — 고를 칸은 `Map`(모르는 이름은 거절) |
+| Robot Framework | `drivers/robot/standard.robot`(예) | `Library  control_cli.Game  tcp://127.0.0.1:13100` → `Click  LoginButton  count=${2}` — Python 드라이버를 그대로 라이브러리로 |
+
+- 주소 — `tcp://<호스트>:<포트>`(PC 게임 · `adb forward tcp:13100 tcp:13100` 뒤 USB 폰) 또는 relay 의 `http(s)://<relay>/games/<key>`(key 는 `relay status` 에, `@` 는 `%40`). relay 토큰은 `CONTROL_CLI_RELAY_TOKEN`
+- 명령 이름은 그 언어 꼴 — `find-all` → `find_all` · `FindAll` · `findAll`. 기다리기는 그 언어 되풀이로 쓴다(`find` 를 0.3초마다 — 드라이버에 기다리기 도우미는 아직 없다)
+- 드라이버마다 같은 conform 을 돌린다 — 다리(stdin 명령 한 줄 → 그 언어 드라이버 메서드 → stdout 답 한 줄)를 띄워 차례 · 기대값은 TS 한 벌, 명령은 그 언어가 보낸다. PC · relay 세션에서
+
+```bash
+control-cli open --pc --app <샘플 앱>
+control-cli conform --driver 'python3 drivers/python/control_cli.py bridge'
+control-cli conform --driver 'java drivers/java/controlcli/ControlCli.java bridge'
+control-cli conform --driver 'dotnet run --project drivers/csharp'
+robot --pythonpath drivers/python --variable GAME:tcp://127.0.0.1:13100 drivers/robot/standard.robot
+```
+
 ## SDK 명령 (통신 꼴 정본)
 
 명령은 JSON 객체 한 줄, 답도 JSON 객체 한 줄이다. 디바이스 팜 게임 명령 주소는 본문을 그대로 한 줄로 넘기고 답을 `{"value": …}` 로 싼다(Devicefarm ADR-048).
@@ -379,6 +404,7 @@ Desktop 은 셸의 PATH 를 안 볼 수 있다 — `control-cli` · `node` 를 �
 
 ```bash
 npm test                                            # CLI 테스트 — 가짜 게임 · 가짜 팜 · 가짜 PC 게임 · 가짜 usbmuxd
+npm run drivers                                     # protocol/commands.json 에서 드라이버 생성 칸을 다시 쓴다(src/drivers.test.ts 가 다르면 잡는다)
 python3 tools/unity-compile-check/check.py fetch    # Unity 판마다 관리 DLL · 내장 패키지 · TMP · Input System 받기(판마다 수 GB 를 받아 일부만 푼다)
 python3 tools/unity-compile-check/check.py 6000.0   # SDK · 샘플을 입력 설정 셋(옛 Input · 둘 다 · Input System)으로 컴파일 — Docker 필요
 ```

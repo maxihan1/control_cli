@@ -1,8 +1,9 @@
 // 게임 SDK 에 명령 하나를 보내는 길 — 디바이스 팜 게임 명령 주소 · relay(HTTP) · USB adb forward(TCP) · PC(TCP) · USB iPhone(usbmuxd)
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { createConnection, type Socket } from 'node:net';
 import { join } from 'node:path';
+import { createInterface } from 'node:readline';
 
 import { connect as connectPhone } from './usbmux.js';
 
@@ -109,6 +110,35 @@ export function relayLink(url: string, headers: Record<string, string>, key: str
       // fetch 는 닿지 못하면 TypeError('fetch failed') 를 던진다.
       throw e instanceof TypeError ? new Error(`relay ${url} 에 닿지 못했습니다 — relay 가 꺼졌으면 close 뒤 open --relay 로 다시 엽니다`) : e;
     });
+}
+
+// conform --driver — 다른 언어 드라이버의 다리를 띄워 명령 한 줄을 stdin 으로 쓰고 답 한 줄을 stdout 에서 읽는다. 명령은 하나씩 차례로 온다.
+export function driverLink(command: string, env: NodeJS.ProcessEnv): { link: Link; close: () => void } {
+  const child = spawn(command, { shell: true, env, stdio: ['pipe', 'pipe', 'pipe'] });
+  let stderr = '';
+  let ended: Error | undefined;
+  const waiting: ((line: string | Error) => void)[] = [];
+  child.stderr.setEncoding('utf8').on('data', (d: string) => (stderr = (stderr + d).slice(-2000)));
+  child.stdin.on('error', () => undefined);
+  createInterface({ input: child.stdout }).on('line', (line) => waiting.shift()?.(line));
+  child.on('close', (code) => {
+    ended = new Error(`드라이버 다리 「${command}」가 끝났습니다(종료 코드 ${code})${stderr.trim() ? ` — ${stderr.trim()}` : ''}`);
+    for (const w of waiting.splice(0)) w(ended);
+  });
+  const link: Link = (c) =>
+    new Promise((resolve, reject) => {
+      if (ended) return reject(ended);
+      waiting.push((line) => {
+        if (line instanceof Error) return reject(line);
+        try {
+          resolve(asReply(JSON.parse(line)));
+        } catch (e) {
+          reject(new Error(`드라이버 다리의 답이 JSON 한 줄이 아닙니다: ${line.slice(0, 200)} (${e instanceof Error ? e.message : String(e)})`));
+        }
+      });
+      child.stdin.write(JSON.stringify(c) + '\n');
+    });
+  return { link, close: () => child.stdin.end() };
 }
 
 function asReply(v: unknown): Reply {

@@ -259,3 +259,20 @@
 - 결과 — IL2CPP 판(run 43387721549 · a4f15de)을 같은 컨테이너에서 `open --pc --app /game/control-cli-sample.x86_64` → conform 「통과 52 · 실패 0 · 미실행 1」, 두 번 돌려 두 번 같다(일시정지 — PC 와 같음). 그래픽은 Vulkan 이 아니라 OpenGL 4.5 Core(llvmpipe)로 떴다
 - 위험 셋 — ① Rosetta 위 프레임: llvmpipe 소프트웨어 그리기로도 끌기 · 길게 누르기 duration 줄이 시간 한도 안 ② 스크린샷 · PNG 는 검지 않다(540×1200 세로 창 그대로) ③ Xvfb 에 창 관리자가 없어도 초점 · 마우스 좌표 줄이 다 초록. CLI 의 Linux `launch` · `close`(SIGTERM) 도 됐다
 - 남은 흠 — Mesa GL 에서 WorldCube 가 분홍(셰이더 변형 없음)으로 그려진다. 누르기 · 찾기와는 상관없어 그대로 둔다. 소리 장치가 없어 FMOD 오류가 개발 콘솔에 뜨지만 `errors`(예외)에는 안 든다
+
+## 2026-11-13 — P4 설계 ([p4-plan.md](p4-plan.md))
+
+- 드라이버 = 언어마다 의존 없는 파일 하나 — 손으로 쓴 연결(주소 · TCP · relay · JSON · 오류)과 생성 칸(명령마다 메서드)이 한 파일. 생성기(`src/drivers.ts`, `npm run drivers`)는 「생성」 표시 줄 사이만 다시 쓴다. 템플릿을 TS 글자로 감싸면 손 부분을 그 언어로 고치기 어렵고, 템플릿 · 결과 두 벌이 생긴다
+- conform 은 다리로 — 52줄을 넷에 옮기면 1,500줄이 넘고 엔진이 늘 때마다(P6~) 넷을 같이 고쳐야 한다. 다리(stdin 명령 한 줄 → 그 언어 드라이버 메서드 → stdout 답 한 줄)를 두고 `conform --driver` 가 같은 차례를 보낸다. 명령 이름 → 메서드, 칸 → 인자, 연결, JSON 이 모두 그 언어 코드라 드라이버의 모든 층을 지난다. Python 은 `getattr` + 키워드라 메서드 꼴을 그대로 지나고, C# · Java 는 dispatch 도 생성한다
+- Robot 은 따로 안 만든다 — Robot 이 Python 클래스를 라이브러리로 받아 메서드가 키워드가 된다(`find_all` → `Find All`, 고를 칸 `inactive=${True}`). 명령 층은 Python conform 이 덮고, `drivers/robot/standard.robot` 7줄이 키워드 이름 · 인자 · 실패 꼴을 본다
+- 고를 칸 — Python 키워드 전용(`*`), C# 이름 있는 기본값 null, Java `Map<String, ?>`(모르는 이름은 `IllegalArgumentException` — 틀린 칸 이름을 조용히 버리지 않게). 낮은 길은 `send(cmd, args)` — `call` 은 명령 이름이라 피했다
+- 연결 주소 하나 — `tcp://host:port` 또는 relay `http(s)://<relay>/games/<key>`, 토큰은 CLI 와 같은 `CONTROL_CLI_RELAY_TOKEN`. 명령마다 새로 잇는다(TS `tcpLink` 와 같은 길). 팜 · usbmuxd 는 넣지 않았다(팜 토큰 길 401 · iPhone 은 TS 만)
+- Java JSON 은 손으로 — 표준 JSON 이 없고 Maven 없이 `java ControlCli.java` 로 돌게 하려고. 정수인 double 은 `2` 로 쓴다(SDK `JsonUtility` 의 int 칸)
+- Java `HttpClient` 는 HTTP/1.1 로 고정 — 기본값이 `http://` 에 `Upgrade: h2c` 를 붙이고, relay(Node `http`)는 Upgrade 머리가 있는 요청을 `upgrade` 로 넘겨 WebSocket 이 아니면 끊는다(「header parser received no bytes」)
+- 판 — CLI 만 0.11.0(`conform --driver`), SDK 는 0.10.0 그대로. instrument 기본 ref 가 `v<CLI 판>` 이라 합친 main 에 `v0.11.0` tag 를 찍는다(그 커밋의 SDK 는 0.10.0)
+
+## 2026-11-13 — P4 실측
+
+- 가짜 표준 화면(`npm test` · CI `drivers` 잡) — Python · Java · C# 다리가 TCP · 토큰 relay 둘 다 「통과 52 · 실패 0 · 미실행 1」(일시정지 — 앱을 뒤로 보낼 길 없음), 틀린 토큰은 relay 거절 글로 실패. Robot suite 7줄 초록
+- 이 맥 macOS 앱(sample run 43387721549 · 6000.0 옛 Input · Mono · SDK 0.10.0) `open --pc --app` → Python 다리 두 판 · Java 다리 모두 「통과 52 · 실패 0 · 미실행 1」. 화면이 잠들고 잠겨 `caffeinate -d -u -t 900` 을 걸고 돌렸다
+- C# · Robot 실기기는 못 했다 — 이 맥에 dotnet · robot 이 없고, `brew install dotnet` · venv `pip install robotframework` · 이미 받아 둔 `mcr.microsoft.com/dotnet/sdk:8.0` 컨테이너로 띄우기를 모두 자동 권한이 막았다. 사용자가 깔아 주면 README 「드라이버」 명령 그대로 돌린다
