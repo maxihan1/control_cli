@@ -31,8 +31,8 @@ public static class SampleBuild
         PlayerSettings.productName = "control_cli sample";
         PlayerSettings.SetApplicationIdentifier(named, "com.maxihan1.controlcli.sample");
         PlayerSettings.defaultInterfaceOrientation = UIOrientation.Portrait;
-        // 폰은 QA 빌드처럼 IL2CPP — 코드 줄이기 뒤에도 SDK 가 남는지까지 본다. PC 는 Mono(리눅스 CI 는 mac · Windows IL2CPP 를 못 굽는다).
-        var standalone = target == BuildTarget.StandaloneOSX || target == BuildTarget.StandaloneWindows64;
+        // 폰은 QA 빌드처럼 IL2CPP — 코드 줄이기 뒤에도 SDK 가 남는지까지 본다. PC 는 Mono(리눅스 CI 는 mac · Windows IL2CPP 를 못 굽는다, Linux 도 PC 와 같게).
+        var standalone = target == BuildTarget.StandaloneOSX || target == BuildTarget.StandaloneWindows64 || target == BuildTarget.StandaloneLinux64;
         PlayerSettings.SetScriptingBackend(named, standalone ? ScriptingImplementation.Mono2x : ScriptingImplementation.IL2CPP);
         if (target == BuildTarget.Android) PlayerSettings.Android.targetArchitectures = AndroidArchitecture.ARM64;
         // PC 도 폰과 같은 세로 창 — 가로 전체 화면이면 아래 붙인 UI Toolkit 패널이 uGUI 칸을 덮어 누르기 · 끌기가 패널에 먹힌다(이 맥 실측).
