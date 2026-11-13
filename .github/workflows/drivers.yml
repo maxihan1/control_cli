@@ -1,0 +1,38 @@
+# 언어 드라이버(drivers/) — 생성 칸이 commands.json 과 같은지 · Python · Java · C# 다리 conform · Robot suite 를 가짜 표준 화면에 돌린다
+name: drivers
+
+on:
+  pull_request:
+    paths: ['drivers/**', 'protocol/**', 'src/**', 'package.json', '.github/workflows/drivers.yml']
+  push:
+    branches: [main]
+    paths: ['drivers/**', 'protocol/**', 'src/**', 'package.json', '.github/workflows/drivers.yml']
+
+jobs:
+  drivers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 8.0.x
+      - run: pip install robotframework
+      - run: npm ci
+      # C# 다리는 첫 dotnet run 이 빌드까지 해 시험 시간을 넘길 수 있어 먼저 굽는다.
+      - run: dotnet build drivers/csharp
+      # 언어 도구가 다 있으니 건너뛴 시험이 없어야 한다.
+      - run: |
+          set -o pipefail
+          node --test dist/drivers.test.js | tee drivers-test.txt
+          grep -q '^# skipped 0$' drivers-test.txt

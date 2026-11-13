@@ -12,7 +12,7 @@ import { crawl, CRAWL } from './crawl.js';
 import { installAndLaunch, terminate } from './devicectl.js';
 import { Game, settled, WAIT, type At, type FindOptions, type PingReply, type PrefType, type WaitOptions } from './game.js';
 import { instrument } from './instrument.js';
-import { farmLink, GAME_PORT, iosLink, relayLink, tcpLink, usbLink, type Command, type Reply } from './link.js';
+import { driverLink, farmLink, GAME_PORT, iosLink, relayLink, tcpLink, usbLink, type Command, type Reply } from './link.js';
 import { serve, VERSION } from './mcp.js';
 import { relay, RELAY_PORT, type GameInfo } from './relay.js';
 import { snapshot } from './snapshot.js';
@@ -91,6 +91,7 @@ export const HELP = `control-cli [-s=<세션>] <명령>
   input-reset                                      눌러 둔 손가락 · 키 · 가짜 마우스 · 기울기를 다 거둔다
   ping · tree
   conform                                          표준 화면(샘플)에 명령을 차례로 보내 기대값과 견준다 — open 바로 뒤에
+  conform --driver '<다리 명령>'                    같은 차례를 다른 언어 드라이버(drivers/)가 보낸다 — PC · relay 세션
   mcp                                              stdio MCP 서버 — AI 앱(Claude Desktop · Claude Code)이 띄운다. 세션 파일은 ~/.control-cli
   crawl [--max ${CRAWL.maxWindows}] [--minutes ${CRAWL.minutes}] [--exclude <정규식>]… [--out <폴더>]   창 훑기
   close                                            Appium 세션을 닫는다
@@ -167,6 +168,7 @@ export async function run(argv: string[], o: Options): Promise<string> {
       power: { type: 'string' },
       dx: { type: 'string' },
       via: { type: 'string', multiple: true },
+      driver: { type: 'string' },
     },
   });
   for (const [k, v] of Object.entries(values)) {
@@ -679,11 +681,14 @@ export async function run(argv: string[], o: Options): Promise<string> {
       return after(ran(name === 'scene-unload' ? 'unloadScene' : 'waitForScene', quote(args[0]), ...opts(t.shown)));
     }
     case 'conform': {
+      // --driver 면 명령을 그 언어 드라이버의 다리가 보낸다 — 다리는 CONTROL_CLI_GAME 주소로 직접 붙는다.
+      const driven = values.driver === undefined ? undefined : driverLink(values.driver, { ...process.env, ...env, CONTROL_CLI_GAME: driverAddress(s, port) });
+      const g = driven ? new Game(driven.link, s.caps) : game;
       // 일시정지 줄은 Appium 세션이 있을 때(팜 · USB --app)만 앱을 뒤로 보낸다.
-      const r = await conform(game, { background: s.appium ? async () => void (await backgroundApp(appium, s.appium!, 2)) : undefined });
-      s.caps = game.caps;
+      const r = await conform(g, { background: s.appium ? async () => void (await backgroundApp(appium, s.appium!, 2)) : undefined }).finally(() => driven?.close());
+      s.caps = g.caps;
       await save(file, s);
-      const out = report(r);
+      const out = (driven ? `드라이버 — ${values.driver}\n` : '') + report(r);
       // 실패가 있으면 종료 코드 1 — CI · 스크립트가 알아챈다.
       if (r.failed > 0) throw new Error(out);
       return out;
@@ -713,6 +718,13 @@ function gameOf(s: Session, farm: Conn, port: number, env: Options['env']): Game
   const game = new Game(link, s.caps);
   if (s.waitMs !== undefined) game.waitMs = s.waitMs;
   return game;
+}
+
+// 드라이버 다리가 붙을 주소 — 드라이버는 TCP · relay 만 안다(drivers/ 의 Game 주소 꼴).
+function driverAddress(s: Session, port: number): string {
+  if (s.relay) return `${s.relay.url}/games/${encodeURIComponent(s.relay.key)}`;
+  if (s.via === 'pc') return `tcp://127.0.0.1:${port}`;
+  throw new Error('conform --driver 는 PC(open --pc) · relay(open --relay) 세션만 됩니다 — 드라이버는 TCP · relay 로 붙습니다');
 }
 
 // ws:// · wss:// 도 받는다 — 게임에 구운 주소를 그대로 써도 된다.
