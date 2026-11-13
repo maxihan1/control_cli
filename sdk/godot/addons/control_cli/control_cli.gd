@@ -324,7 +324,7 @@ func _handle(c: Dictionary):
 		"layout":
 			return Nodes.layout(target)
 		"type":
-			return _type_text(target, str(c.get("text", "")))
+			return await _type_text(target, str(c.get("text", "")))
 		"screenshot":
 			var format := str(c.get("format", ""))
 			if format != "" and format != "jpg" and format != "png":
@@ -540,12 +540,15 @@ func _type_text(target: String, text: String) -> Dictionary:
 		n.edit()
 	n.clear()
 	var vp: Viewport = n.get_viewport()
+	# LineEdit 는 text_changed 를 프레임 끝으로 미룬다 — 사람이 칠 때처럼 글자마다 한 프레임을 넘겨 거르기가 글자마다 돈다.
 	for ch in text:
 		for pressed in [true, false]:
 			var e := InputEventKey.new()
 			e.unicode = ch.unicode_at(0)
 			e.pressed = pressed
 			vp.push_input(e)
+		await FakeInput.frames(1)
+	await FakeInput.frames(1)
 	if n.has_method("unedit"):
 		n.unedit()
 	n.release_focus()
@@ -562,9 +565,9 @@ func _pointer(target: String, event: String) -> Dictionary:
 		return Props.fail("%s 은 Control 이 아니라 pointer 를 못 보냅니다 — click · touch-down 으로" % target)
 	match event:
 		"enter":
-			n.notification(Control.NOTIFICATION_MOUSE_ENTER)
+			_notify(n, Control.NOTIFICATION_MOUSE_ENTER, n.mouse_entered)
 		"exit":
-			n.notification(Control.NOTIFICATION_MOUSE_EXIT)
+			_notify(n, Control.NOTIFICATION_MOUSE_EXIT, n.mouse_exited)
 		"down", "up":
 			var e := InputEventMouseButton.new()
 			e.button_index = MOUSE_BUTTON_LEFT
@@ -577,3 +580,13 @@ func _pointer(target: String, event: String) -> Dictionary:
 		_:
 			return Props.fail("event 는 down · up · enter · exit 중 하나입니다")
 	return {"ok": true}
+
+# 4.5 는 마우스 알림이 mouse_entered · mouse_exited 신호를 내고 4.7 은 안 낸다 — 알림 뒤 신호가 안 났을 때만 직접 낸다.
+func _notify(n: Control, what: int, sig: Signal) -> void:
+	var fired := [false]
+	var mark := func(): fired[0] = true
+	sig.connect(mark)
+	n.notification(what)
+	sig.disconnect(mark)
+	if not fired[0]:
+		sig.emit()

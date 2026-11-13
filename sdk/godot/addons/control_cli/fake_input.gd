@@ -190,7 +190,7 @@ static func key_event(name: String, pressed: bool, power: float) -> InputEvent:
 
 static func _send(e) -> void:
 	if e is InputEventMouseButton:
-		var bit := 1 << (e.button_index - 1)
+		var bit: int = 1 << (e.button_index - 1)
 		buttons = buttons | bit if e.pressed else buttons & ~bit
 		e.button_mask = buttons
 	Input.parse_input_event(e)
