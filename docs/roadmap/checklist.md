@@ -1,12 +1,13 @@
 # AltTester 기능 전부 + 여러 엔진 — 체크리스트
 
-## ▶ 다음 세션은 여기부터 (2026-11-13)
+## ▶ 다음 세션은 여기부터 (2026-11-14)
 
-- **이어달리기(test_platform 방식, 사용자 2026-11-13)** — 단계 하나(`## P5` · `## P7` …) = main 에서 뗀 브랜치 하나 · PR 하나 · 세션 하나. 끝나면 묻지 않고 `gh pr merge --merge` 로 main 에 합치고(사용자 「작업 끝나면 메인에 머지까지」), 판을 올렸으면 그 main 커밋에 tag, 진척 페이지 db 갱신, 이 블록을 다음 단계로 고쳐 PR 에 싣고, `claude --bg "<다음 단계> — 이어 달리기: …"` 로 다음 세션을 띄운다. 차례 P5 → P7 → P8 → P9(P6 끝). P10 은 「할지 말지」 사용자 결정이라 띄우지 않는다. 막히면(사용자 결정 · 라이선스 · 실기기) 띄우지 않고 까닭을 보고한다. 서버를 다시 빌드하거나 배포하지 않는다
+- **이어달리기(test_platform 방식, 사용자 2026-11-13)** — 단계 하나(`## P5` · `## P7` …) = main 에서 뗀 브랜치 하나 · PR 하나 · 세션 하나. 끝나면 묻지 않고 `gh pr merge --merge` 로 main 에 합치고(사용자 「작업 끝나면 메인에 머지까지」), 판을 올렸으면 그 main 커밋에 tag, 진척 페이지 db 갱신, 이 블록을 다음 단계로 고쳐 PR 에 싣고, `claude --bg "<다음 단계> — 이어 달리기: …"` 로 다음 세션을 띄운다. 차례 P7 → P8 → P9(P5 · P6 끝). P10 은 「할지 말지」 사용자 결정이라 띄우지 않는다. 막히면(사용자 결정 · 라이선스 · 실기기) 띄우지 않고 까닭을 보고한다. 서버를 다시 빌드하거나 배포하지 않는다
 - **끝난 세션 닫기(사용자 2026-11-13 「작업 끝난 세션은 닫아줘」)** — 새 세션은 시작하면 앞 세션을 `claude stop <앞 job id>` 로 멈춘다(대화 · worktree 는 남는다, `claude rm` 은 안 함). `claude agents --json` 의 `state: done` 이 끝난 세션
 - **P4 드라이버 끝** — PR #27 합침 · `v0.11.0`(CLI 0.11.0 · SDK 0.10.0 그대로). `drivers/` 에 Python · C# · Java(파일 하나씩, `npm run drivers` 가 commands.json 에서 생성 칸을 다시 씀) · Robot(Python 드라이버를 라이브러리로). conform 은 `conform --driver '<다리 명령>'` — 이 맥 macOS 앱 Python · Java 52/0/1, C# · Robot 은 CI `drivers` 잡(가짜 표준 화면). 남은 칸 하나 — C# · Robot 실기기(이 맥에 dotnet · robot 깔기를 자동 권한이 막음 → 사용자 몫). `protocol/commands.json` 에 명령을 더하면 `npm run drivers` 도 같이 — `drivers.test` 가 잡는다
 - **P6 Godot 끝** — PR #28 합침 · `v0.12.0`(CLI 0.12.0 · Unity SDK 0.10.0 그대로 · Godot SDK 0.1.0). `sdk/godot/addons/control_cli` GDScript autoload, `instrument <Godot 프로젝트>` 가 실린 애드온을 넣는다. conform 은 `ping.engine` 으로 표준 화면 낱말 표(`src/conform.ts` 의 `UNITY` · `GODOT`)를 고른다. CI `godot` 잡 · 이 맥 macOS 앱 · 웹 모두 47/0/6. Android(USB 폰)도 47/0/6 — P6 칸 다 닫음. Godot 은 이 맥에 없다 — CI 결과물(`godot-sample-4.7.2`)을 받아 실측(README 「개발」)
-- **다음 P5 인스펙터 · Recorder** — 이 파일 P5 「설계 · 구현 계획」. 설계 · 구현 계획(`p5-plan.md`)부터 쓰고 바로 구현. 짐작 — `control-cli inspect` 는 로컬 웹 화면(plan.md 「인스펙터 모양」 — 설치 없음, CLI 가 HTTP 서버를 띄우고 브라우저로 연다): 트리(`tree`) · 상세(`components` · `members` · `get`) · 스크린샷 · 누르면 명령(`find-at` → `click`). Recorder 는 누른 차례를 단계로 적어 TS(`Ran:` 줄 꼴) · Python · C# · Java · Robot 테스트로 내보낸다(드라이버 메서드 이름은 `src/drivers.ts` 가 아는 꼴). 「기록 돌리기」는 내보낸 TS 를 다시 돌려 초록. Unity 가짜 표준 화면(`src/fake-game.ts`)으로 테스트하고, 실측은 이 맥 macOS 앱(Unity sample · Godot 결과물 둘 다)으로. 한 PR 에 다 못 넣으면 inspect 먼저, Recorder 는 칸으로 나눈다
+- **P5 인스펙터 · Recorder 끝** — PR #29 합침 · `v0.13.0`(CLI 0.13.0 · Unity SDK 0.10.0 · Godot SDK 0.1.0 그대로). `control-cli inspect`(로컬 웹 화면 · 토큰) · Recorder(`src/recorder.ts` — 동작 셋 · 확인 둘 → TS · Python · C# · Java · Robot) · `replay` · `export` · 마지막 open 연결(`last-open.json`) · 세션이 `open --port` 를 기억. 이 맥 Unity · Godot macOS 앱으로 기록 → replay · TS · Python · Java 초록, C# · Robot 은 CI `drivers` 잡
+- **다음 P7 Unreal — 사용자 결정 기다림(세션 안 띄움)** — 이 맥에 Unreal 이 없고 CI 러너가 정해지지 않았다(plan.md 「열린 결정」 Unreal CI — 자체 러너 · Epic 컨테이너는 Epic–GitHub 계정 잇기 · 디스크 100GB+). 사용자가 ① 러너(이 맥에 UE 5.4+ 를 깔아 self-hosted · 다른 기계 · Epic 컨테이너) ② 판을 정하면 그때 `p7-plan.md` 부터. P8 GameMaker · P9 RPG Maker 도 라이선스(Igor CLI · MZ 코어 스크립트)라 같은 까닭으로 기다린다
 - 진척 페이지(전체) — https://claude.ai/artifact/Y4ZUdJiXPeE4NGSx8oxNWK (db 의 `meta/state` · `phases`(U0~U8 · P0~P10 · 번외, `done`/`total` 은 체크리스트 칸 수) · `tasks`(지금 단계 Task) · `log`). 체크리스트 칸을 바꾸거나 Task 가 끝날 때마다 ArtifactData 로 고친다(`status` 는 done · partial · doing · blocked · todo) — 페이지는 다시 publish 하지 않는다
 - 실기기 길 — 팜 토큰 길이 401(아래 「팜 연결」)이라 이 맥에 USB 로 꽂힌 폰에 adb 로 깔고 켠다(`open --relay` 는 깔기와 상관없이 붙는다). CI APK 는 잡마다 서명 키가 달라 다른 빌드로 바꿀 때 `adb uninstall` 이 먼저다 — 자동 권한이 막아 사용자가 `! ~/Library/Android/sdk/platform-tools/adb -s <serial> uninstall com.maxihan1.controlcli.sample` 로 지운다. `adb install` 출력은 자르지 말고 끝까지 본다(실패를 놓치면 옛 앱이 돈다)
 - 밖 공개 relay 시험 — cloudflared quick tunnel(`cloudflared tunnel --url http://127.0.0.1:<토큰 relay 포트>`, 계정 없는 임시 `trycloudflare.com` 주소)이 `wss` 를 그대로 넘긴다. 토큰은 job tmp 에만, 시험 뒤 터널 · relay 를 끈다. `farm.maxihan.com` 은 Devicefarm 의 SSH 터널이라 손대지 않는다
@@ -105,10 +106,10 @@
 - [ ] C# · Robot 실기기 — 이 맥에 dotnet · robot 이 없고 깔기(`brew install dotnet` · venv pip · dotnet 컨테이너)를 자동 권한이 막았다. 사용자가 `! brew install dotnet` · `! pipx install robotframework` 로 깔면 README 「드라이버」 명령 그대로
 
 ## P5. 인스펙터 · Recorder
-- [ ] 설계 · 구현 계획
-- [ ] `control-cli inspect` — 트리 · 상세 · 스크린샷 · 누르면 명령
-- [ ] Recorder — 단계 · assertion 기록 → TS · Python · C# · Java · Robot 테스트
-- [ ] 기록 돌리기 · 마지막 연결 기억
+- [x] 설계 · 구현 계획 — [p5-plan.md](p5-plan.md). 로컬 웹 화면 한 장 · 127.0.0.1 + 토큰 · 기록은 동작 셋 · 확인 둘(기다림 꼴) · 비밀번호 칸은 `SECRET_<칸>` 환경 변수 · CLI 0.13.0
+- [x] `control-cli inspect` — 트리 · 상세(컴포넌트 → 칸 · 메서드 · 읽기) · 스크린샷(누르면 `find-at` 으로 고르기) · 누르기 · 글자 넣기 · 키. 이 맥 Unity 6000.0 · Godot 4.7.2 macOS 앱에 HTTP 길 · Chrome 손 확인(Godot)
+- [x] Recorder — 단계 · assertion 기록 → TS · Python · C# · Java · Robot 테스트 — 가짜 표준 화면에 다섯 언어 다 초록(CI `drivers` run 43459774194 · 건너뜀 0), 이 맥 두 앱에 TS · Python · Java 초록
+- [x] 기록 돌리기 · 마지막 연결 기억 — `replay <기록.json>`(인스펙터 「돌리기」와 같은 함수) · `open` 이 연결 칸을 `last-open.json` 에, 세션 없는 `inspect` 가 그것으로 다시 연다
 
 ## P6. Godot
 - [x] 설계 · 구현 계획 — [p6-plan.md](p6-plan.md). Godot 4.5 이상(로그를 받는 `Logger` 가 4.5 부터) · 낱말 표(Node · group · 이름 붙인 layer · `[클래스.]칸` · ConfigFile · `.tscn` 이름) · conform 엔진 표

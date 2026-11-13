@@ -113,7 +113,7 @@ section{border:1px solid var(--line);border-radius:8px;padding:8px;min-width:0}h
 #shot{width:100%;cursor:crosshair;border-radius:4px;display:block}
 button,select,input{font:inherit;color:inherit;background:transparent;border:1px solid var(--line);border-radius:6px;padding:3px 8px}button{cursor:pointer}button:hover{border-color:var(--accent)}
 .row{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:6px 0}code{font-family:ui-monospace,monospace;font-size:12px;word-break:break-all}
-#members div{display:flex;gap:6px;align-items:center;padding:1px 0}#members code{flex:1}
+#members{max-height:32vh;overflow:auto}#members div{display:flex;gap:6px;align-items:center;padding:1px 0}#members code{flex:1}
 #steps{margin:6px 0;padding-left:20px;font-family:ui-monospace,monospace;font-size:12px}#steps li button{padding:0 5px;margin-left:4px}
 #out{white-space:pre-wrap;font-family:ui-monospace,monospace;font-size:12px;max-height:40vh;overflow:auto;margin:6px 0 0}.bad{color:var(--bad)}.good{color:var(--good)}
 </style></head><body>
