@@ -74,25 +74,33 @@ jobs:
           path: |
             ~/godot
             ~/.local/share/godot/export_templates
-          key: godot-export-${{ env.GODOT }}
-      # 판 묶음(tpz)은 1GB 를 넘는다 — macOS · 웹(스레드 없음) 템플릿만 풀어 둔다.
+          key: godot-export-${{ env.GODOT }}-android
+      # 판 묶음(tpz)은 1GB 를 넘는다 — macOS · 웹(스레드 없음) · Android(미리 지은 APK) 템플릿만 풀어 둔다.
       - name: Godot · export 템플릿 받기
         run: |
           T=~/.local/share/godot/export_templates/${GODOT}.stable
-          if [ ! -x ~/godot/godot ] || [ ! -f "$T/macos.zip" ]; then
+          if [ ! -x ~/godot/godot ] || [ ! -f "$T/android_debug.apk" ]; then
             mkdir -p ~/godot "$T" && cd ~/godot
             curl -sSfL -o g.zip "https://github.com/godotengine/godot/releases/download/${GODOT}-stable/Godot_v${GODOT}-stable_linux.x86_64.zip"
             unzip -q -o g.zip && mv "Godot_v${GODOT}-stable_linux.x86_64" godot && rm g.zip
             curl -sSfL -o t.tpz "https://github.com/godotengine/godot/releases/download/${GODOT}-stable/Godot_v${GODOT}-stable_export_templates.tpz"
-            unzip -q -o t.tpz 'templates/macos.zip' 'templates/web_nothreads_*' 'templates/version.txt' && mv templates/* "$T/" && rm -r t.tpz templates
+            unzip -q -o t.tpz 'templates/macos.zip' 'templates/web_nothreads_*' 'templates/android_debug.apk' 'templates/version.txt' && mv templates/* "$T/" && rm -r t.tpz templates
           fi
+      # Android 디버그 서명 — 잡마다 새 keystore 라 다른 빌드로 바꿀 때 폰에서 먼저 지운다(Unity sample 과 같음).
+      - run: keytool -genkeypair -keystore ~/debug.keystore -alias androiddebugkey -storepass android -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US" -noprompt
       - run: node dist/main.js instrument sample-godot
       - run: ~/godot/godot --headless --path sample-godot --import
       - run: |
           mkdir -p sample-godot/build/macOS sample-godot/build/web
           ~/godot/godot --headless --path sample-godot --export-release macOS build/macOS/control-cli-sample.zip
           ~/godot/godot --headless --path sample-godot --export-release Web build/web/index.html
-          ls -la sample-godot/build/macOS sample-godot/build/web
+          mkdir -p sample-godot/build/android
+          ~/godot/godot --headless --path sample-godot --export-debug Android build/android/control-cli-sample.apk
+          ls -la sample-godot/build/macOS sample-godot/build/web sample-godot/build/android
+        env:
+          GODOT_ANDROID_KEYSTORE_DEBUG_PATH: /home/runner/debug.keystore
+          GODOT_ANDROID_KEYSTORE_DEBUG_USER: androiddebugkey
+          GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
       - uses: actions/upload-artifact@v7
         with:
           name: godot-sample-${{ env.GODOT }}
