@@ -38,8 +38,17 @@ export function usbLink(udid: string | undefined, port = GAME_PORT): Link {
   };
 }
 
-export function tcpLink(port: number): Link {
-  return (command) => talk(createConnection({ host: '127.0.0.1', port }), command, port, false);
+export function tcpLink(port: number, host = '127.0.0.1'): Link {
+  return (command) => talk(createConnection({ host, port }), command, port, false);
+}
+
+/** drivers/ 와 같은 주소 꼴 — tcp://<호스트>:<포트> 또는 relay http(s)://<호스트>/games/<key>(토큰은 CONTROL_CLI_RELAY_TOKEN). Recorder 가 내보낸 TS 테스트가 쓴다 */
+export function linkTo(address: string, env: NodeJS.ProcessEnv = process.env): Link {
+  const tcp = /^tcp:\/\/([^:/]+):(\d+)$/.exec(address);
+  if (tcp) return tcpLink(Number(tcp[2]), tcp[1]);
+  const r = /^(https?:\/\/[^/]+)\/games\/([^/]+)$/.exec(address);
+  if (!r) throw new Error(`게임 주소는 tcp://<호스트>:<포트> 또는 http(s)://<relay>/games/<key> 꼴입니다: ${address}`);
+  return relayLink(r[1], env.CONTROL_CLI_RELAY_TOKEN ? { Authorization: `Bearer ${env.CONTROL_CLI_RELAY_TOKEN}` } : {}, decodeURIComponent(r[2]));
 }
 
 // USB iPhone — usbmuxd 가 이어 준 소켓이 곧 폰의 포트다. 명령마다 새로 잇는다(adb forward 처럼 걸어 둘 것이 없다).
