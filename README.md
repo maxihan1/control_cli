@@ -21,6 +21,7 @@ Unity · Godot 게임을 자동화 테스트로 조작하는 SDK 와 CLI.
 | 플랫폼 | Android(팜 · USB) · PC(Windows · macOS · Linux) · iOS(USB, 17+) · WebGL(브라우저 → relay) | Android · macOS · Linux(Docker) · WebGL(Chrome) | Windows · iOS (CLI 는 가짜 게임 · 가짜 usbmuxd 로 테스트) |
 | 드라이버 | Python · C# · Java · Robot Framework (TCP · relay) | Python · Java (macOS 앱 conform) | C# · Robot (CI 가짜 표준 화면) |
 | Godot | 4.5 이상 · Control UI · 3D 물리 · PC · Android · 웹(relay) | 4.5.2 · 4.7.2 Linux(CI xvfb) · 4.7.2 macOS 앱 · Android(USB) · 웹(Chrome) — conform 47/0/6 | iOS(빌드 안 함) |
+| 인스펙터 · Recorder | `control-cli inspect`(로컬 웹 화면) · 기록 → TS · Python · C# · Java · Robot | Unity 6000.0 · Godot 4.7.2 macOS 앱(기록 → `replay` · TS · Python · Java 초록) · Chrome | C# · Robot 내보내기(CI 가짜 표준 화면) |
 
 「컴파일만 확인」은 `tools/unity-compile-check` 9개 구성과 CLI 테스트까지다 — 샘플 Unity 프로젝트(`sample/`)를 CI 가 판 · 입력 · 플랫폼마다 구워(`.github/workflows/sample.yml`, Unity 라이선스 Secret 필요) 실기기에서 돌려 봐야 「실기기로 확인」으로 옮긴다.
 못 가로채는 것 — 게임 코드가 `UnityEngine.Input` 을 전체 이름으로 부르는 곳 · DLL plugin 안의 입력. 디바이스 팜은 Android 만 받는다.
@@ -337,6 +338,38 @@ Desktop 은 셸의 PATH 를 안 볼 수 있다 — `control-cli` · `node` 를 �
 | relay | `open --relay [주소]` · `relay status [주소]` | — (없으면 `http://127.0.0.1:13101` — `ws://` · `wss://` 도 받는다) |
 | relay 토큰 (Bearer) | `relay --token` (relay 를 띄울 때) | `CONTROL_CLI_RELAY_TOKEN` — 없으면 macOS Keychain 의 `control-cli-relay`. 팜 `--token` 과 따로다 |
 | iPhone | `--udid` (`--ios` 와 같이 — 없으면 USB 로 꽂힌 하나) | `USBMUXD_SOCKET_ADDRESS` (usbmuxd 자리 — 테스트용, 없으면 `/var/run/usbmuxd`) |
+
+## 인스펙터 · Recorder
+
+설치 없이 브라우저로 게임 안을 본다(AltTester Desktop 의 인스펙터 · Recorder 자리). 엔진을 가리지 않는다 — Unity · Godot 둘 다 같은 화면.
+
+```bash
+control-cli open --pc --app <게임 앱>     # 또는 --usb · --relay … (팜 · iPhone 도)
+control-cli inspect                        # 브라우저가 http://127.0.0.1:13110/?t=<토큰> 을 연다(--headless 면 주소만 찍음 · --listen <포트>)
+```
+
+- 왼쪽 트리 · 가운데 스크린샷 · 오른쪽 고른 것. 스크린샷을 누르면 그 자리 오브젝트(`find-at`)를 고른다. 고른 것의 컴포넌트를 누르면 칸 · 메서드 목록, 칸마다 「읽기」 · 「값 확인」
+- 「누르기」 · 「글자 넣기」 · 「키 누르기」 · 「글자 확인」 · 「값 확인」은 Recorder 에 단계로 적힌다(「기록」을 끄면 적지 않고 하기만). 확인은 기다림 꼴 — 글자는 「들어 있다」, 값은 「같다」를 10초까지 되풀이
+- 「돌리기」는 기록을 지금 게임에 다시 돌린다 · 「저장(JSON)」 · 「내보내기」(TS · Python · C# · Java · Robot) · 「내려받기」
+- 세션이 없으면 마지막으로 연 `open` 연결(`.control-cli/last-open.json` — `--app` · 토큰은 안 적음)로 다시 연다. 서버는 `127.0.0.1` 만 듣고 주소의 토큰이 있어야 명령이 간다
+- 비밀번호 칸에 넣은 글자는 기록에 남기지 않는다 — `SECRET_<칸 이름>` 환경 변수로 바꿔 적는다(돌릴 때 그 변수를 준다)
+
+```bash
+control-cli replay recorded.json                          # 지금 세션에 다시 — 단계마다 통과/실패, 실패면 종료 코드 1
+control-cli export recorded.json --lang py --out test_recorded.py
+CONTROL_CLI_GAME=tcp://127.0.0.1:13100 node --test recorded.test.ts     # TS — import { Game, linkTo } from 'control-cli' (Node 22.6+ 는 --experimental-strip-types)
+CONTROL_CLI_GAME=tcp://127.0.0.1:13100 PYTHONPATH=drivers/python python3 test_recorded.py
+```
+
+| 언어 | 파일 | 돌리기 |
+|---|---|---|
+| TypeScript | `recorded.test.ts` | `node --test` — 줄은 Ran 줄과 같은 `await game.click('LoginButton');` |
+| Python | `test_recorded.py` | `python3` 또는 `pytest`(드라이버는 `drivers/python`) |
+| C# | `Recorded.cs` | `drivers/csharp/ControlCli.cs` · `ControlCli.csproj` 옆에 두고 `dotnet run`(최상위 문장) |
+| Java | `RecordedTest.java` | `javac -d out drivers/java/controlcli/ControlCli.java && java -cp out RecordedTest.java` |
+| Robot | `recorded.robot` | `robot --pythonpath drivers/python recorded.robot` |
+
+게임 주소는 모두 `CONTROL_CLI_GAME`(기본 `tcp://127.0.0.1:13100`, relay 면 `http(s)://<relay>/games/<key>`). 기록하지 않는 것 — 좌표 누르기 · 끌기(주소 없는 좌표는 케이스에 못 쓴다), 칸 쓰기 · 메서드 부르기(CLI `set` · `call`).
 
 ## 드라이버 (다른 언어)
 

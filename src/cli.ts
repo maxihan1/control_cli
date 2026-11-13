@@ -1,6 +1,7 @@
 // 명령줄 하나를 받아 세션 파일을 읽고 게임 · 디바이스 팜 · Appium 에 보낸 뒤 찍을 글을 돌려준다
 import { spawn } from 'node:child_process';
 import { closeSync, existsSync, openSync, readdirSync } from 'node:fs';
+import type { Server } from 'node:http';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
@@ -11,9 +12,11 @@ import { conform, report } from './conform.js';
 import { crawl, CRAWL } from './crawl.js';
 import { installAndLaunch, terminate } from './devicectl.js';
 import { Game, settled, WAIT, type At, type FindOptions, type PingReply, type PrefType, type WaitOptions } from './game.js';
+import { inspect, INSPECT_PORT } from './inspect.js';
 import { instrument, instrumentGodot } from './instrument.js';
 import { driverLink, farmLink, GAME_PORT, iosLink, relayLink, tcpLink, usbLink, type Command, type Reply } from './link.js';
 import { serve, VERSION } from './mcp.js';
+import { exportTest, FILES, LANGS, replay, steps, type Lang } from './recorder.js';
 import { relay, RELAY_PORT, type GameInfo } from './relay.js';
 import { snapshot } from './snapshot.js';
 import { phone } from './usbmux.js';
@@ -27,6 +30,8 @@ interface Session {
   appium?: string;
   /** open --pc · --ios --app 으로 띄운 게임 — close 가 끈다 */
   pid?: number;
+  /** open --port 로 연 게임 포트(USB · PC · iPhone) — 뒤 명령이 --port 를 안 주면 이 포트 */
+  port?: number;
   /** open 때 ping 으로 받은 게임 SDK 의 명령 목록 — 밖의 명령은 보내기 전에 거절한다 */
   caps?: string[];
   /** config --wait — wait · wait-prop 의 기본 한도 */
@@ -40,6 +45,8 @@ export interface Options {
   env: Record<string, string | undefined>;
   /** 세션 파일 · 화면 파일을 두는 폴더 */
   dir: string;
+  /** inspect 가 띄운 서버를 받는다 — 테스트가 닫는다 */
+  onServer?: (server: Server) => void;
 }
 
 // 테스트가 줄일 수 있게 묶어 둔다
@@ -93,6 +100,9 @@ export const HELP = `control-cli [-s=<세션>] <명령>
   conform                                          표준 화면(샘플)에 명령을 차례로 보내 기대값과 견준다 — open 바로 뒤에
   conform --driver '<다리 명령>'                    같은 차례를 다른 언어 드라이버(drivers/)가 보낸다 — PC · relay 세션
   mcp                                              stdio MCP 서버 — AI 앱(Claude Desktop · Claude Code)이 띄운다. 세션 파일은 ~/.control-cli
+  inspect [--listen ${INSPECT_PORT}] [--headless]      로컬 웹 인스펙터 — 트리 · 스크린샷 · 상세 · 누르기 · Recorder. 세션이 없으면 마지막 open 연결로 연다
+  replay <기록.json>                               Recorder 기록을 지금 세션에 다시 돌린다 — 실패면 종료 코드 1
+  export <기록.json> --lang ${LANGS.join('|')} [--out <파일>]   기록을 그 언어 테스트로(게임 주소는 CONTROL_CLI_GAME)
   crawl [--max ${CRAWL.maxWindows}] [--minutes ${CRAWL.minutes}] [--exclude <정규식>]… [--out <폴더>]   창 훑기
   close                                            Appium 세션을 닫는다
   release [--udid <serial>]                        폰을 놓는다 — 팜이 깐 게임 · 데이터를 지운다
@@ -169,6 +179,9 @@ export async function run(argv: string[], o: Options): Promise<string> {
       dx: { type: 'string' },
       via: { type: 'string', multiple: true },
       driver: { type: 'string' },
+      lang: { type: 'string' },
+      listen: { type: 'string' },
+      headless: { type: 'boolean' },
     },
   });
   for (const [k, v] of Object.entries(values)) {
@@ -209,6 +222,17 @@ export async function run(argv: string[], o: Options): Promise<string> {
     ].join('\n');
   }
 
+  // 기록 파일만 읽는다 — 세션이 없어도 된다.
+  if (name === 'export') {
+    if (args.length !== 1) throw new Error(`export <기록.json> --lang ${LANGS.join('|')} [--out <파일>] 꼴이어야 합니다`);
+    const lang = values.lang as Lang;
+    if (!LANGS.includes(lang)) throw new Error(`--lang 은 ${LANGS.join(' · ')} 중 하나입니다`);
+    const code = exportTest(steps(JSON.parse(await readFile(args[0], 'utf8'))), lang);
+    if (values.out === undefined) return code.trimEnd();
+    await writeFile(values.out, code);
+    return `${values.out} 에 썼습니다 — ${FILES[lang]} 꼴(게임 주소는 CONTROL_CLI_GAME)`;
+  }
+
   // -s=probe 도 받는다 (appium-cli · playwright-cli 와 같은 꼴)
   const sname = (values.session ?? 'default').replace(/^=/, '');
   if (!/^[\w-]+$/.test(sname)) throw new Error(`세션 이름은 글자 · 숫자 · _ · - 만 씁니다: ${sname}`);
@@ -219,6 +243,7 @@ export async function run(argv: string[], o: Options): Promise<string> {
   const farm = farmOf(appium);
   const port = values.port === undefined ? GAME_PORT : Number(values.port);
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('--port 는 1~65535 정수여야 합니다');
+  const portOf = (s: Session) => (values.port === undefined ? (s.port ?? GAME_PORT) : port);
 
   if (name === 'relay') {
     if (args[0] === 'status') {
@@ -244,7 +269,7 @@ export async function run(argv: string[], o: Options): Promise<string> {
       session: (argv) => run([...globals, ...argv], o),
       game: async (command: Command): Promise<Reply> => {
         const s = await load(file);
-        const game = gameOf(s, farm, port, env);
+        const game = gameOf(s, farm, portOf(s), env);
         if (command.cmd !== 'ping') return game.call(command);
         // CLI ping 처럼 받은 caps 를 세션에 적는다 — 게임을 새 SDK 로 다시 띄웠을 수 있다.
         const reply = await game.ping();
@@ -291,7 +316,7 @@ export async function run(argv: string[], o: Options): Promise<string> {
     if (via === 'farm' && !udid) throw new Error('잡은 폰이 없습니다 — hold 부터 합니다');
     const app = local ? values.app : (values.app ?? env.PLATFORM_APP);
     if (via === 'farm' && !app) throw new Error('게임을 깔려면 --app 이나 PLATFORM_APP 이 필요합니다(QA APK 주소)');
-    const s: Session = { via, udid, refs: {} };
+    const s: Session = { via, udid, refs: {}, ...(values.port === undefined ? {} : { port }) };
     // relay 는 켜기 전에 본다 — --app 으로 켜면 켠 뒤 (다시) 붙은 게임을 고른다.
     const url = values.relay ? relayUrl(address) : undefined;
     const headers = relayHeaders(env);
@@ -306,16 +331,43 @@ export async function run(argv: string[], o: Options): Promise<string> {
     await save(file, s);
     const picked = url ? await pickGame(url, headers, values.game, before) : undefined;
     if (url && picked) s.relay = { url, key: picked.key };
-    const game = gameOf(s, farm, port, env);
+    const game = gameOf(s, farm, portOf(s), env);
     const info = await untilAnswers(game);
     s.caps = game.caps;
     await save(file, s);
+    // 마지막 연결 — inspect 가 세션이 없을 때 이 칸으로 다시 연다. 깔 앱(--app) · 토큰은 적지 않는다(켜진 게임에 붙기만).
+    const again = [
+      ...(['usb', 'pc', 'ios', 'relay'] as const).filter((k) => values[k] === true).map((k) => `--${k}`),
+      ...(address ? [address] : []),
+      ...(['game', 'udid', 'port', 'url'] as const).flatMap((k) => (values[k] === undefined ? [] : [`--${k}=${values[k]}`])),
+    ];
+    await writeFile(join(o.dir, 'last-open.json'), JSON.stringify(again));
     const pid = s.pid ? ` · 프로세스 ${s.pid}` : '';
     const where =
       picked ? `relay · ${picked.platform} · ${picked.model}${via === 'farm' ? ` · 디바이스 팜 ${udid}` : ''}${pid}`
       : via === 'farm' ? `디바이스 팜 ${udid}` : via === 'usb' ? 'USB' : via === 'pc' ? `PC${pid}` : `iPhone ${udid}${pid}`;
     const engine = info.engine ? ` · ${info.engine} ${info.engineVersion} · SDK ${info.sdkVersion}` : '';
     return `${started}세션 ${sname} 열림 — ${info.app} ${info.version} (${where})${engine}\n${await shot(game, s, appium, file, sname, o.dir)}`;
+  }
+
+  if (name === 'inspect') {
+    let reopened = '';
+    if (!existsSync(file)) {
+      const again = JSON.parse(await readFile(join(o.dir, 'last-open.json'), 'utf8').catch(() => 'null')) as string[] | null;
+      if (!again) throw new Error('열린 세션도, 지난 open 기록도 없습니다 — open 부터 합니다');
+      reopened = `${await run([`--session=${sname}`, 'open', ...again], o)}\n`;
+    }
+    const ss = await load(file);
+    const listen = values.listen === undefined ? INSPECT_PORT : Number(values.listen);
+    if (!Number.isInteger(listen) || listen < 0 || listen > 65535) throw new Error('--listen 은 0~65535 정수여야 합니다');
+    const { url, server } = await inspect(gameOf(ss, farm, portOf(ss), env), { port: listen, title: `세션 ${sname} · ${ss.via}`, env });
+    o.onServer?.(server);
+    if (!values.headless) {
+      const opener = spawn(process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'explorer' : 'xdg-open', [url], { detached: true, stdio: 'ignore' });
+      opener.on('error', () => {});
+      opener.unref();
+    }
+    return `${reopened}인스펙터 ${url} — 끝내려면 Ctrl+C (주소의 토큰이 있어야 명령이 갑니다)`;
   }
 
   const s = await load(file);
@@ -328,7 +380,7 @@ export async function run(argv: string[], o: Options): Promise<string> {
     return `세션 ${sname} 닫음${closed}${killed}${s.via === 'farm' ? ' — 폰은 아직 잡혀 있습니다(release)' : ''}`;
   }
 
-  const game = gameOf(s, farm, port, env);
+  const game = gameOf(s, farm, portOf(s), env);
   const target = (x: string | undefined, what = '주소') => {
     if (x === undefined) throw new Error(`${name} 에 ${what}(ref 나 오브젝트 이름 · 경로)가 필요합니다`);
     if (!/^e\d+$/.test(x)) return x;
@@ -691,7 +743,7 @@ export async function run(argv: string[], o: Options): Promise<string> {
     }
     case 'conform': {
       // --driver 면 명령을 그 언어 드라이버의 다리가 보낸다 — 다리는 CONTROL_CLI_GAME 주소로 직접 붙는다.
-      const driven = values.driver === undefined ? undefined : driverLink(values.driver, { ...process.env, ...env, CONTROL_CLI_GAME: driverAddress(s, port) });
+      const driven = values.driver === undefined ? undefined : driverLink(values.driver, { ...process.env, ...env, CONTROL_CLI_GAME: driverAddress(s, portOf(s)) });
       const g = driven ? new Game(driven.link, s.caps) : game;
       // 일시정지 줄은 Appium 세션이 있을 때(팜 · USB --app)만 앱을 뒤로 보낸다.
       const r = await conform(g, { background: s.appium ? async () => void (await backgroundApp(appium, s.appium!, 2)) : undefined }).finally(() => driven?.close());
@@ -700,6 +752,13 @@ export async function run(argv: string[], o: Options): Promise<string> {
       const out = (driven ? `드라이버 — ${values.driver}\n` : '') + report(r);
       // 실패가 있으면 종료 코드 1 — CI · 스크립트가 알아챈다.
       if (r.failed > 0) throw new Error(out);
+      return out;
+    }
+    case 'replay': {
+      if (args.length !== 1) throw new Error('replay <기록.json> 꼴이어야 합니다');
+      const r = await replay(game, steps(JSON.parse(await readFile(args[0], 'utf8'))), env);
+      const out = [`기록 ${args[0]} — ${r.ok ? '통과' : '실패'}`, ...r.lines].join('\n');
+      if (!r.ok) throw new Error(out);
       return out;
     }
     case 'crawl':

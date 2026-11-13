@@ -297,3 +297,24 @@
 - relay 에 같은 앱 탭이 둘이면(옛 탭이 끊긴 채 남음) `--game` 이 못 고른다 — 신호가 끊긴 쪽은 잠시 뒤 빠진다
 - Android — 미리 지은 템플릿 APK(`android_debug.apk`, gradle 빌드 없음)에 잡마다 `keytool` 로 만든 debug keystore(`GODOT_ANDROID_KEYSTORE_DEBUG_*` 환경 변수)로 서명. TCP 서버에 `permissions/internet` 이 필요하다. RF9R408GKRR 에 adb 로 깔고 `monkey` 로 켜 `open --usb` → 47/0/6. 일시정지는 adb 홈 → 다시 켜기로 `game.paused` · `game.resumed` 손 확인(Unity 는 팜 Appium 길이 conform 줄로 본다)
 - 기다림은 벽시계로 — `create_timer` 는 프레임 delta(다듬기)로 세어 xvfb 의 느린 프레임에서 1.5초 키가 1.5초 전에 끝났다(run 43403244582, 4.7.2 하나만 46/1). `Time.get_ticks_msec` 가 끝날 때까지 프레임을 넘긴다
+
+## 2026-11-14 — P5 설계 ([p5-plan.md](p5-plan.md))
+
+- 인스펙터 = CLI 가 띄우는 로컬 HTTP 서버 + HTML 한 장(`src/inspect.ts` 안 글자 — tsc 가 HTML 파일을 dist 로 옮기지 않아서). 명령은 통신 꼴(`tree` · `find-at` · `components` · `members` · `get` · `click` · `type` · `key` · `screenshot`)만 써 Unity · Godot 를 가리지 않는다
+- 보안 — `127.0.0.1` 만 듣고 띄울 때마다 새 토큰(32자). POST 는 `X-Inspect` 머리(남의 사이트는 머리를 붙이면 CORS preflight 에 막힌다), 스크린샷은 `<img>` 라 `?t=`. 다른 사이트가 localhost 로 게임 명령을 쏘는 길(CSRF · DNS rebinding)을 막는다
+- 기록 단계는 동작 셋(click · type · key) · 확인 둘(글자 「들어 있다」 · 칸 값 「같다」)만 — 좌표 · 끌기는 주소가 없어 케이스에 못 쓴다(Ran 줄 규칙). 확인은 기다림 꼴(TS 는 `waitFor` · `waitForProp`, 다른 언어는 생성 파일 안 `until` 10초 · 0.3초) — 누른 뒤 화면이 바로 안 바뀐다
+- 내보내기는 언어마다 손으로 쓴 줄 표(`recorder.ts` 의 `EXPORT`) — 드라이버 생성기(`drivers.ts`)처럼 commands.json 에서 뽑지 않았다. 기록할 수 있는 명령이 셋뿐이고 TS `Game` 메서드 꼴이 commands.json 과 달라서(click 의 옵션 묶음 · waitFor). 기록 명령을 늘리면 그때 생성으로
+- 칸 값 견주기 — Python `== json.loads(…)`, Java 는 두 쪽을 드라이버 `Json.write` 로 맞춰 글자 비교(수는 Double 로 읽혀도 정수면 `2`), C# `JsonNode.DeepEquals`(.NET 8+), Robot `${{json.loads($want)}}`
+- 비밀번호 칸 — `type` 답이 `***` 면 글자 대신 `secret: 'SECRET_<칸 이름>'` 를 적고 내보낸 파일 · replay 는 그 환경 변수에서 읽는다. 기록 파일의 secret 은 `SECRET_` 로 시작해야 한다 — 남이 고친 기록이 `PLATFORM_APPIUM_TOKEN` 같은 변수를 게임 칸에 넣지 못하게
+- 마지막 연결 — `open` 이 연결 칸(`--usb` · `--pc` · `--ios` · `--relay [주소]` · `--game` · `--udid` · `--port` · `--url`)을 `last-open.json` 에, `--app` · 토큰은 안 적는다. `inspect` 는 세션이 없으면 그것으로 `open` 을 다시 부른다(이미 켜진 게임에 붙기)
+- 세션이 `open --port` 를 기억한다(`Session.port`) — 전에는 명령마다 `--port` 를 줘야 했고, 빠뜨리면 기본 13100 으로 갔다. inspect 가 다시 연 세션이 13100(그때 USB 폰 adb forward)으로 명령을 보낸 것을 테스트가 잡았다
+
+## 2026-11-14 — P5 실측 (PR #29 · CI run 43459774194 · 이 맥)
+
+- 내보낸 TS 시험 — 저장소 안 임시 폴더(`.recorder-*`)에 써야 `import 'control-cli'` 가 package 자기 참조로 dist 를 찾는다. `node --test` 안에서 `node --test` 를 띄우면 물려받은 `NODE_TEST_CONTEXT` 때문에 안쪽 결과가 바깥으로 가고 종료 코드가 0 — 띄울 때 그 변수를 지운다(`fake-game.ts` 의 `exec`)
+- CI `drivers` 잡 — Python · Java · C# · Robot 내보낸 파일이 가짜 표준 화면에 초록(건너뜀 0). C# 는 드라이버 csproj · ControlCli.cs 옆에 Recorded.cs(최상위 문장)를 두고 `dotnet run`
+- 이 맥 — 13100 을 P6 이 남긴 `adb forward`(RF9R408GKRR · Godot 샘플)가 잡고 있어 지웠다(`adb -s RF9R408GKRR forward --remove tcp:13100`, `open --usb` 가 다시 건다)
+- Unity 6000.0 macOS 앱(P4 의 sample run 43387721549 · SDK 0.10.0) · Godot 4.7.2 macOS 앱(P6 run 43402867597 · SDK 0.1.0) 둘 다 — `inspect --headless` 의 HTTP 길로 트리(56 · 52개) · 스크린샷 · `find-at` · components 를 받고 5단계(type · click · 글자 확인 · key · 칸 값 확인)를 기록 → 앱을 새로 켜 `replay` 통과, 언어마다 앱을 새로 켜 내보낸 TS(`node --test`) · Python · Java 통과. Godot 칸은 `Node3D.position`
+- Chrome 손 확인(Godot) — 스크린샷을 눌러 LoginButton 고르기 → 누르기(게임 글자 「login qauser01 2」) → Button 칸 목록 → `Button.text` 값 확인 → TS 내보내기가 화면에 떴다. 칸 목록이 길어 Recorder 를 밀어내 목록을 32vh 상자로
+- 글자 확인은 「지금 글자」를 적어 누른 횟수(`login qauser01 1`)까지 들어간다 — 앱을 새로 켜야 다시 맞는다. 기록을 고쳐 앞부분만 남기면 된다(들어 있다 비교)
+- 판 — CLI 0.13.0(inspect · replay · export · `linkTo`), Unity SDK 0.10.0 · Godot SDK 0.1.0 그대로

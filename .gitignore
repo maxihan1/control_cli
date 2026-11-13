@@ -23,3 +23,5 @@ tools/unity-compile-check/.work/
 # 드라이버 — Python import · dotnet 빌드가 남기는 것
 __pycache__/
 drivers/csharp/bin/
+# Recorder 테스트가 저장소 안에 잠깐 두는 내보낸 TS(package 자기 참조로 control-cli 를 부른다)
+.recorder-*/
