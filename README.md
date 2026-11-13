@@ -16,7 +16,7 @@ Unity 게임을 자동화 테스트로 조작하는 SDK 와 CLI.
 | Unity 판 | 2021.3 · 2022.3 · 6000.0 | 6000.0 (Ashveil) | 2021.3 · 2022.3 |
 | UI | uGUI · TextMeshPro · UI Toolkit(UIDocument) | uGUI | TMP · UI Toolkit (`layout` 은 uGUI 만) |
 | 입력 | 옛 Input · 새 Input System · 둘 다 | 옛 Input | Input System(Touchscreen · Mouse · Keyboard) |
-| 플랫폼 | Android(팜 · USB) · PC(Windows · macOS) · iOS(USB, 17+) · WebGL(브라우저 → relay) | Android | PC · iOS (CLI 는 가짜 게임 · 가짜 usbmuxd 로 테스트) |
+| 플랫폼 | Android(팜 · USB) · PC(Windows · macOS) · iOS(USB, 17+) · WebGL(브라우저 → relay) | Android · macOS · WebGL(Chrome) | PC · iOS (CLI 는 가짜 게임 · 가짜 usbmuxd 로 테스트) |
 
 「컴파일만 확인」은 `tools/unity-compile-check` 9개 구성과 CLI 테스트까지다 — 샘플 Unity 프로젝트(`sample/`)를 CI 가 판 · 입력 · 플랫폼마다 구워(`.github/workflows/sample.yml`, Unity 라이선스 Secret 필요) 실기기에서 돌려 봐야 「실기기로 확인」으로 옮긴다.
 못 가로채는 것 — 게임 코드가 `UnityEngine.Input` 을 전체 이름으로 부르는 곳 · DLL plugin 안의 입력. 디바이스 팜은 Android 만 받는다.
@@ -134,7 +134,15 @@ npx control-cli open --relay wss://relay.<도메인>
 - iOS 는 같은 Wi-Fi 의 relay 로 걸면 「로컬 네트워크」 허락을 묻는다 — relay 주소를 구운 iOS 빌드는 SDK 빌드 훅이 `Info.plist` 에 `NSLocalNetworkUsageDescription` 을 넣는다
 - relay 는 SDK 0.9.0 부터, Unity WebGL 은 0.10.0 부터
 
-**WebGL** — 브라우저는 포트를 못 열어 WebGL 게임은 relay 길만 있다. 주소는 페이지 주소 `?controlcli=<주소>` 가 먼저이고, 없으면 `instrument --relay` 로 구운 주소다(둘 다 없으면 relay 꺼짐). https 페이지는 브라우저가 `ws://` 를 막아 `wss://` 를 쓴다. 기기 id 는 탭마다 하나(새로 고침에도 같다)라 탭 둘을 열면 게임 둘로 보인다. 탭이 뒤로 가면 브라우저가 프레임을 늦춰 명령이 10초에 실패할 수 있다 — 탭을 앞에 둔다.
+**WebGL** — 브라우저는 포트를 못 열어 WebGL 게임은 relay 길만 있다. 주소는 페이지 주소 `?controlcli=<주소>` 가 먼저이고, 없으면 `instrument --relay` 로 구운 주소다(둘 다 없으면 relay 꺼짐). https 페이지는 브라우저가 `ws://` 를 막아 `wss://` 를 쓴다. 기기 id 는 탭마다 하나(새로 고침에도 같다)라 탭 둘을 열면 게임 둘로 보인다. WebGL 은 `Application.identifier` 가 비어 앱 이름 자리에 제품 이름(`productName`)이 온다.
+
+탭이 뒤로 가거나 창이 가려지거나 화면이 잠기면 Chrome 이 게임을 **초당 1프레임**으로 늦춘다 — 1초 끌기가 수십 초 걸려 명령이 10초에 실패한다. 자동으로 돌릴 때는 늦추기를 끈 Chrome 을 따로 띄운다(사용자 프로필과 따로).
+
+```bash
+"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --user-data-dir=/tmp/control-cli-chrome --no-first-run \
+  --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-renderer-backgrounding \
+  'http://127.0.0.1:8000/?controlcli=ws://127.0.0.1:13101'
+```
 
 ```bash
 cd <WebGL 빌드 폴더> && python3 -m http.server 8000 &          # 압축을 끈 빌드는 아무 정적 서버로 열린다
