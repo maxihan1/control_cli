@@ -210,12 +210,14 @@ namespace ControlCli
             // 답을 미룬 명령이 있으면 준비될 때까지 다음 명령을 꺼내지 않는다 — 명령은 받은 차례대로 돈다.
             if (_waiting != null)
             {
-                // 시간 초과(3)면 답할 곳이 없다 — 남은 가짜 입력을 거두고 넘어간다.
-                var cancelled = Volatile.Read(ref _waiting.State) == 3;
+                // 시간 초과(3)면 답할 곳이 없다 — 남은 가짜 입력을 거두고 넘어간다. 기다리는 스레드가 없는 요청(WebGL)은 여기서 10초를 센다.
+                var cancelled = Volatile.Read(ref _waiting.State) == 3
+                    || (_waiting.Answer != null && Environment.TickCount - _waiting.Born > ReplyTimeoutMs);
                 if (cancelled)
                 {
                     _cancel?.Invoke();
                     SdkLog.Write(_waiting.Command, Error("시간 초과"));
+                    _waiting.Answer?.Invoke(Error(TimedOut));
                 }
                 else
                 {
@@ -263,9 +265,12 @@ namespace ControlCli
 
         // ping 답 — relay hello 도 이 칸으로 시작한다(Relay.cs).
         internal static string PingReply() =>
-            "{\"ok\":true,\"app\":" + Json.Str(Application.identifier) + ",\"version\":" + Json.Str(Application.version)
+            "{\"ok\":true,\"app\":" + Json.Str(AppName()) + ",\"version\":" + Json.Str(Application.version)
             + ",\"engine\":\"unity\",\"engineVersion\":" + Json.Str(Application.unityVersion) + ",\"sdkVersion\":\"" + SdkVersion
             + "\",\"protocol\":2,\"caps\":[\"" + string.Join("\",\"", Caps) + "\"]}";
+
+        // WebGL 은 identifier 가 비어 있다 — 제품 이름으로 갈음해 relay key 가 「@…」로 비지 않게.
+        private static string AppName() => string.IsNullOrEmpty(Application.identifier) ? Application.productName : Application.identifier;
 
         private static string Handle(string line)
         {
