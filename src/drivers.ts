@@ -57,7 +57,9 @@ function csharp(cmds: CommandSpec[]): string[] {
     ];
   });
   const cases = cmds.map((c) => {
-    const args = ordered(c).map(([k, a]) => `${a.required ? '' : `${csName(k)}: `}${CS_READ[a.type]}(a, "${k}")${a.required ? '!' : ''}`);
+    // 반드시 칸이 비면 .Value 가 InvalidOperationException — 다리가 실패 답으로 돌려준다.
+    const must = (a: Arg) => (a.type === 'number' || a.type === 'boolean' ? '!.Value' : '!');
+    const args = ordered(c).map(([k, a]) => `${a.required ? '' : `${csName(k)}: `}${CS_READ[a.type]}(a, "${k}")${a.required ? must(a) : ''}`);
     return `    "${c.name}" => ${pascal(c.name)}(${args.join(', ')}),`;
   });
   return [
