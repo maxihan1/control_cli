@@ -90,7 +90,7 @@
 
 ### P3-B. Unity WebGL
 - [x] 설계 · 구현 계획 — [p3b-plan.md](p3b-plan.md). 브라우저 WebSocket(jslib) 으로 P3-A relay 에, 페이지 주소 `?controlcli=<주소>` 가 먼저 · C# 이 매 프레임 받은 줄을 꺼내 간다 · SDK 0.10.0
-- [x] Unity WebGL 샘플 · 이 맥 브라우저에서 `conform` — sample run 43365234863 의 WebGL(6000.0 · 옛 Input) 을 이 맥 Chrome 157 에서 「통과 52 · 실패 0 · 미실행 1」(일시정지 — PC 와 같음). 늦추기를 끈 Chrome 을 따로 띄워서(context-notes 「P3-B 실기기」)
+- [x] Unity WebGL 샘플 · 이 맥 브라우저에서 `conform` — sample run 43365234863 의 WebGL(6000.0 · 옛 Input) 을 이 맥 Chrome 157 에서 「통과 52 · 실패 0 · 미실행 1」(일시정지 — PC 와 같음), 고친 판 run 43376280037(fb87e43)도 52/0/1. 늦추기를 끈 Chrome 을 따로 띄워서(context-notes 「P3-B 실기기」)
 
 ### P3-C. Linux
 - [ ] Linux 샘플 빌드 · `conform`
