@@ -1,0 +1,166 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://sample.gd" id="1_sample"]
+[ext_resource type="Script" path="res://touch_probe.gd" id="2_probe"]
+[ext_resource type="Script" path="res://input_probe.gd" id="3_input"]
+[ext_resource type="Script" path="res://pointer_box.gd" id="4_pointer"]
+[ext_resource type="Script" path="res://drag_item.gd" id="5_item"]
+[ext_resource type="Script" path="res://scroll_list.gd" id="6_scroll"]
+
+[sub_resource type="BoxMesh" id="BoxMesh_cube"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_cube"]
+
+[node name="Sample" type="Node"]
+script = ExtResource("1_sample")
+
+[node name="SampleCanvas" type="Control" parent="." node_paths=PackedStringArray("Output")]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("2_probe")
+Output = NodePath("TouchText")
+
+[node name="IdInput" type="LineEdit" parent="SampleCanvas"]
+layout_mode = 0
+offset_left = 20.0
+offset_top = 20.0
+offset_right = 260.0
+offset_bottom = 60.0
+placeholder_text = "id"
+max_length = 8
+
+[node name="LoginButton" type="Button" parent="SampleCanvas"]
+layout_mode = 0
+offset_left = 280.0
+offset_top = 20.0
+offset_right = 400.0
+offset_bottom = 60.0
+text = "Login"
+
+[node name="StatusText" type="Label" parent="SampleCanvas"]
+layout_mode = 0
+offset_left = 20.0
+offset_top = 70.0
+offset_right = 520.0
+offset_bottom = 98.0
+
+[node name="TouchText" type="Label" parent="SampleCanvas"]
+layout_mode = 0
+offset_left = 20.0
+offset_top = 100.0
+offset_right = 520.0
+offset_bottom = 128.0
+text = "-"
+
+[node name="InputText" type="Label" parent="SampleCanvas"]
+layout_mode = 0
+offset_left = 20.0
+offset_top = 130.0
+offset_right = 520.0
+offset_bottom = 158.0
+script = ExtResource("3_input")
+
+[node name="PointerText" type="Label" parent="SampleCanvas"]
+layout_mode = 0
+offset_left = 20.0
+offset_top = 160.0
+offset_right = 520.0
+offset_bottom = 188.0
+
+[node name="HoldBox" type="ColorRect" parent="SampleCanvas" node_paths=PackedStringArray("Output")]
+layout_mode = 0
+offset_left = 20.0
+offset_top = 200.0
+offset_right = 140.0
+offset_bottom = 280.0
+color = Color(0.25, 0.45, 0.8, 1)
+script = ExtResource("4_pointer")
+Output = NodePath("../PointerText")
+
+[node name="Bag" type="Control" parent="SampleCanvas"]
+layout_mode = 0
+offset_left = 160.0
+offset_top = 200.0
+offset_right = 520.0
+offset_bottom = 280.0
+mouse_filter = 2
+
+[node name="Slot0" type="Panel" parent="SampleCanvas/Bag"]
+layout_mode = 0
+offset_right = 80.0
+offset_bottom = 80.0
+
+[node name="Item" type="ColorRect" parent="SampleCanvas/Bag/Slot0"]
+layout_mode = 0
+offset_left = 10.0
+offset_top = 10.0
+offset_right = 70.0
+offset_bottom = 70.0
+color = Color(0.9, 0.6, 0.2, 1)
+script = ExtResource("5_item")
+
+[node name="Slot1" type="Panel" parent="SampleCanvas/Bag"]
+layout_mode = 0
+offset_left = 90.0
+offset_right = 170.0
+offset_bottom = 80.0
+
+[node name="Slot2" type="Panel" parent="SampleCanvas/Bag"]
+layout_mode = 0
+offset_left = 180.0
+offset_right = 260.0
+offset_bottom = 80.0
+
+[node name="Slot3" type="Panel" parent="SampleCanvas/Bag"]
+layout_mode = 0
+offset_left = 270.0
+offset_right = 350.0
+offset_bottom = 80.0
+
+[node name="ScrollList" type="ScrollContainer" parent="SampleCanvas"]
+layout_mode = 0
+offset_left = 20.0
+offset_top = 300.0
+offset_right = 260.0
+offset_bottom = 440.0
+horizontal_scroll_mode = 0
+script = ExtResource("6_scroll")
+
+[node name="Rows" type="VBoxContainer" parent="SampleCanvas/ScrollList"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+
+[node name="HiddenText" type="Label" parent="SampleCanvas"]
+visible = false
+layout_mode = 0
+offset_left = 280.0
+offset_top = 300.0
+offset_right = 520.0
+offset_bottom = 328.0
+text = "hidden"
+
+[node name="WorldCube" type="StaticBody3D" parent="." groups=["Player"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1.5, 0)
+collision_layer = 16
+
+[node name="Mesh" type="MeshInstance3D" parent="WorldCube"]
+mesh = SubResource("BoxMesh_cube")
+
+[node name="Shape" type="CollisionShape3D" parent="WorldCube"]
+shape = SubResource("BoxShape3D_cube")
+
+[node name="MainCamera" type="Camera3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 6)
+current = true
+
+[node name="SideCamera" type="Camera3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.5, 0, 6)
+
+[node name="Light" type="DirectionalLight3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.707107, 0.707107, 0, -0.707107, 0.707107, 0, 2, 4)

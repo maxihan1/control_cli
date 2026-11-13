@@ -1,0 +1,4 @@
+.godot/
+build/
+# CI 가 instrument 로 넣는다
+addons/control_cli/
