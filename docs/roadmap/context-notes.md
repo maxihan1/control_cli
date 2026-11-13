@@ -318,3 +318,10 @@
 - Chrome 손 확인(Godot) — 스크린샷을 눌러 LoginButton 고르기 → 누르기(게임 글자 「login qauser01 2」) → Button 칸 목록 → `Button.text` 값 확인 → TS 내보내기가 화면에 떴다. 칸 목록이 길어 Recorder 를 밀어내 목록을 32vh 상자로
 - 글자 확인은 「지금 글자」를 적어 누른 횟수(`login qauser01 1`)까지 들어간다 — 앱을 새로 켜야 다시 맞는다. 기록을 고쳐 앞부분만 남기면 된다(들어 있다 비교)
 - 판 — CLI 0.13.0(inspect · replay · export · `linkTo`), Unity SDK 0.10.0 · Godot SDK 0.1.0 그대로
+
+## 2026-11-14 — P4 C# · Robot 실기기
+
+- 사용자 「내가 원격이니깐 네가 해」로 깔기를 맡겼다 — `brew install dotnet` 은 .NET 11.0.100 이 왔다. 드라이버 csproj 가 net8.0 · `RollForward Major` 라 그대로 빌드 · 실행. brew dotnet 은 `DOTNET_ROOT=/opt/homebrew/opt/dotnet/libexec` 를 줘야 한다. robot 은 `pipx install robotframework`(7.5.1 · `~/.local/bin`)
+- 이 맥 `npm test` 의 drivers.test 가 건너뜀 0 으로 15/15
+- Unity 6000.0 macOS 앱(SDK 0.10.0) — `conform --driver 'dotnet run --project drivers/csharp'` 「통과 52 · 실패 0 · 미실행 1」, Robot `standard.robot` 7/7. Godot 4.7.2 macOS 앱(SDK 0.1.0) — C# 다리 「통과 47 · 실패 0 · 미실행 6」(Godot 기준값). Robot 표준 suite 는 Unity 이름(`//Bag/Slot`)이라 Godot 엔 안 돌렸다
+- P5 Recorder 가 내보낸 C#(`Recorded.cs` 를 드라이버 csproj 옆에 두고 `dotnet run`) · Robot 기록 — 두 앱 다 통과. 이로써 다섯 언어 모두 이 맥 실기기 초록
