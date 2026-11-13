@@ -389,17 +389,11 @@ static func box(n, cam: Camera3D = null):
 
 # 화면 좌표(통신 꼴)의 맨 위 — 마우스를 받는 Control(나중에 그린 것이 위) · 그다음 3D 물리 차례.
 static func at(p: Vector2, cam: Camera3D) -> Node:
-	var vp := tree().root
-	var local := from_window(vp, flip(p))
-	var hit: Node = null
-	for n in _controls(roots(false)):
-		if n.mouse_filter == Control.MOUSE_FILTER_IGNORE:
-			continue
-		var q: Vector2 = n.get_global_transform_with_canvas().affine_inverse() * local
-		if Rect2(Vector2.ZERO, n.size).has_point(q):
-			hit = n
+	var hit := control_at(p)
 	if hit != null:
 		return hit
+	var vp := tree().root
+	var local := from_window(vp, flip(p))
 	var c := cam if cam != null else vp.get_camera_3d()
 	if c == null:
 		return null
@@ -407,6 +401,18 @@ static func at(p: Vector2, cam: Camera3D) -> Node:
 	var query := PhysicsRayQueryParameters3D.create(from, from + c.project_ray_normal(local) * c.far)
 	var r := c.get_world_3d().direct_space_state.intersect_ray(query)
 	return r.get("collider") as Node if not r.is_empty() else null
+
+# 화면 좌표(통신 꼴)의 맨 위 Control — 마우스를 받는 것(mouse_filter 가 IGNORE 아님)만, 나중에 그린 것이 위.
+static func control_at(p: Vector2) -> Control:
+	var local := from_window(tree().root, flip(p))
+	var hit: Control = null
+	for n in _controls(roots(false)):
+		if n.mouse_filter == Control.MOUSE_FILTER_IGNORE:
+			continue
+		var q: Vector2 = n.get_global_transform_with_canvas().affine_inverse() * local
+		if Rect2(Vector2.ZERO, n.size).has_point(q):
+			hit = n
+	return hit
 
 static func _controls(under: Array) -> Array:
 	var out := []

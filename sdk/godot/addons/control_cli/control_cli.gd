@@ -565,9 +565,9 @@ func _pointer(target: String, event: String) -> Dictionary:
 		return Props.fail("%s 은 Control 이 아니라 pointer 를 못 보냅니다 — click · touch-down 으로" % target)
 	match event:
 		"enter":
-			_notify(n, Control.NOTIFICATION_MOUSE_ENTER, n.mouse_entered)
+			FakeInput.notify(n, Control.NOTIFICATION_MOUSE_ENTER, n.mouse_entered)
 		"exit":
-			_notify(n, Control.NOTIFICATION_MOUSE_EXIT, n.mouse_exited)
+			FakeInput.notify(n, Control.NOTIFICATION_MOUSE_EXIT, n.mouse_exited)
 		"down", "up":
 			var e := InputEventMouseButton.new()
 			e.button_index = MOUSE_BUTTON_LEFT
@@ -580,13 +580,3 @@ func _pointer(target: String, event: String) -> Dictionary:
 		_:
 			return Props.fail("event 는 down · up · enter · exit 중 하나입니다")
 	return {"ok": true}
-
-# 4.5 는 마우스 알림이 mouse_entered · mouse_exited 신호를 내고 4.7 은 안 낸다 — 알림 뒤 신호가 안 났을 때만 직접 낸다.
-func _notify(n: Control, what: int, sig: Signal) -> void:
-	var fired := [false]
-	var mark := func(): fired[0] = true
-	sig.connect(mark)
-	n.notification(what)
-	sig.disconnect(mark)
-	if not fired[0]:
-		sig.emit()

@@ -13,6 +13,10 @@ static var held := {}
 static var mouse := Vector2(-1, -1)
 static var buttons := 0
 static var _accel_before = null
+# Godot 가 hover 를 못 셀 때(웹 — 진짜 마우스가 캔버스 밖이면 루트 창이 hover 를 안 센다) SDK 가 enter 를 보낸 Control.
+static var _hovered: Control
+
+const Nodes := preload("nodes.gd")
 
 static func _tree() -> SceneTree:
 	return Engine.get_main_loop() as SceneTree
@@ -106,6 +110,33 @@ static func mouse_to(p: Vector2, s: float) -> void:
 		await frames(1)
 	_motion(p)
 	await frames(2)
+	_hover(p)
+
+# Godot 가 스스로 hover 를 잡았으면 그대로 둔다. 못 잡았으면 그 자리 맨 위 Control 에 mouse_entered · 앞 것에 mouse_exited 를 낸다.
+static func _hover(p: Vector2) -> void:
+	if not is_instance_valid(_hovered):
+		_hovered = null
+	var want := Nodes.control_at(Nodes.flip(p))
+	var vp = _tree().root
+	if _hovered == null and vp.has_method("gui_get_hovered_control") and vp.gui_get_hovered_control() == want:
+		return
+	if _hovered == want:
+		return
+	if is_instance_valid(_hovered):
+		notify(_hovered, Control.NOTIFICATION_MOUSE_EXIT, _hovered.mouse_exited)
+	_hovered = want
+	if want != null:
+		notify(want, Control.NOTIFICATION_MOUSE_ENTER, want.mouse_entered)
+
+# 4.5 는 마우스 알림이 mouse_entered · mouse_exited 신호를 내고 4.7 은 안 낸다 — 알림 뒤 신호가 안 났을 때만 직접 낸다.
+static func notify(n: Control, what: int, sig: Signal) -> void:
+	var fired := [false]
+	var mark := func(): fired[0] = true
+	sig.connect(mark)
+	n.notification(what)
+	sig.disconnect(mark)
+	if not fired[0]:
+		sig.emit()
 
 # 바퀴 — dy 는 위가 +(Unity mouseScrollDelta 꼴), 한 칸이 바퀴 한 번(factor).
 static func scroll(at, d: Vector2, s: float) -> void:
@@ -238,3 +269,6 @@ static func reset() -> void:
 	for n in held.values():
 		release(n)
 	_restore_tilt()
+	if is_instance_valid(_hovered):
+		notify(_hovered, Control.NOTIFICATION_MOUSE_EXIT, _hovered.mouse_exited)
+	_hovered = null
