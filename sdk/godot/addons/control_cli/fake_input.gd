@@ -25,9 +25,11 @@ static func frames(n: int) -> void:
 	for i in n:
 		await _tree().process_frame
 
+# 벽시계로 센다 — create_timer 는 프레임 delta(다듬기)로 세어 느린 프레임에서 벽시계보다 일찍 끝날 수 있다(CI 4.7.2 의 1.5초 키가 모자랐다).
 static func seconds(s: float) -> void:
-	if s > 0:
-		await _tree().create_timer(s, true, false, true).timeout
+	var end := Time.get_ticks_msec() + s * 1000.0
+	while Time.get_ticks_msec() < end:
+		await _tree().process_frame
 
 static func free_finger() -> int:
 	for i in FINGERS:
