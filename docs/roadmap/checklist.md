@@ -2,10 +2,10 @@
 
 ## ▶ 다음 세션은 여기부터 (2026-11-13)
 
-- **이어달리기(test_platform 방식, 사용자 2026-11-13)** — 단계 하나(`## P4` · `## P6` …) = main 에서 뗀 브랜치 하나 · PR 하나 · 세션 하나. 끝나면 묻지 않고 `gh pr merge --merge` 로 main 에 합치고(사용자 「작업 끝나면 메인에 머지까지」), 판을 올렸으면 그 main 커밋에 tag, 진척 페이지 db 갱신, 이 블록을 다음 단계로 고쳐 PR 에 싣고, `claude --bg "<다음 단계> — 이어 달리기: …"` 로 다음 세션을 띄운다. 차례 P4 → P6 → P5 → P7 → P8 → P9. P10 은 「할지 말지」 사용자 결정이라 띄우지 않는다. 막히면(사용자 결정 · 라이선스 · 실기기) 띄우지 않고 까닭을 보고한다. 서버를 다시 빌드하거나 배포하지 않는다
+- **이어달리기(test_platform 방식, 사용자 2026-11-13)** — 단계 하나(`## P6` · `## P5` …) = main 에서 뗀 브랜치 하나 · PR 하나 · 세션 하나. 끝나면 묻지 않고 `gh pr merge --merge` 로 main 에 합치고(사용자 「작업 끝나면 메인에 머지까지」), 판을 올렸으면 그 main 커밋에 tag, 진척 페이지 db 갱신, 이 블록을 다음 단계로 고쳐 PR 에 싣고, `claude --bg "<다음 단계> — 이어 달리기: …"` 로 다음 세션을 띄운다. 차례 P6 → P5 → P7 → P8 → P9. P10 은 「할지 말지」 사용자 결정이라 띄우지 않는다. 막히면(사용자 결정 · 라이선스 · 실기기) 띄우지 않고 까닭을 보고한다. 서버를 다시 빌드하거나 배포하지 않는다
 - **끝난 세션 닫기(사용자 2026-11-13 「작업 끝난 세션은 닫아줘」)** — 새 세션은 시작하면 앞 세션을 `claude stop <앞 job id>` 로 멈춘다(대화 · worktree 는 남는다, `claude rm` 은 안 함). `claude agents --json` 의 `state: done` 이 끝난 세션
-- **P3-C Linux 끝** — PR #26 합침 · 판은 그대로(SDK · CLI 안 바뀜, tag 없음). sample `StandaloneLinux64` 는 **IL2CPP**(Mono JIT 는 이 맥 Docker 의 Rosetta 흉내에서 죽는다). 이 맥 Docker `linux/amd64`(Xvfb · Mesa)에서 52/0/1 — README 「루프 — PC」 Linux 절
-- **다음 P4 드라이버** — 이 파일 P4 「설계 · 구현 계획(생성기)」. 설계 · 구현 계획(`p4-plan.md`)부터 쓰고 바로 구현. 짐작 — `protocol/commands.json` 에서 언어마다 얇은 드라이버를 만든다(TCP · relay 한 줄 JSON), 언어마다 `conform` 을 그 언어로 돌린다. 이 맥에 python3 3.14 · java 21 은 있고 dotnet · mvn · robot 은 없다 — 깔기는 Homebrew · pip 로 되는지부터 보고, 넷을 한 PR 에 다 못 넣으면 Python 먼저 하고 남은 언어를 체크리스트 칸으로 나눈다. 실측은 이 맥 macOS 앱(`open --pc` 길과 같은 TCP 13100) 또는 Docker Linux
+- **P4 드라이버 끝** — PR #27 합침 · `v0.11.0`(CLI 0.11.0 · SDK 0.10.0 그대로). `drivers/` 에 Python · C# · Java(파일 하나씩, `npm run drivers` 가 commands.json 에서 생성 칸을 다시 씀) · Robot(Python 드라이버를 라이브러리로). conform 은 `conform --driver '<다리 명령>'` — 이 맥 macOS 앱 Python · Java 52/0/1, C# · Robot 은 CI `drivers` 잡(가짜 표준 화면). 남은 칸 하나 — C# · Robot 실기기(이 맥에 dotnet · robot 깔기를 자동 권한이 막음 → 사용자 몫). `protocol/commands.json` 에 명령을 더하면 `npm run drivers` 도 같이 — `drivers.test` 가 잡는다
+- **다음 P6 Godot** — 이 파일 P6 「설계 · 구현 계획(Godot 4.3+ · 엔진 낱말 표 확정)」. 설계 · 구현 계획(`p6-plan.md`)부터 쓰고 바로 구현. 짐작 — `sdk/godot/` GDScript 애드온(autoload 하나가 TCP 13100 · relay WebSocket, 같은 한 줄 JSON 꼴 · `ping` 의 `engine: godot` · `caps` 는 할 수 있는 명령만), 표준 화면(`sample-godot/` — Unity 표준 화면과 같은 이름 · 같은 반응, plan.md 「공통 낱말」 표), CI 는 Godot headless 를 받아 export(PC · 웹 먼저, Android 는 뒤). **이 맥에 godot 이 없고 brew · pip 깔기는 자동 권한이 막는다(P4)** — Godot 은 CI 에서 받고, 실측은 CI 결과물(macOS 앱 · 웹)을 받아 `open --pc --app` · relay 로 conform. 한 PR 에 다 못 넣으면 PC 먼저, 웹 · Android 는 체크리스트 칸으로 나눈다
 - 진척 페이지(전체) — https://claude.ai/artifact/Y4ZUdJiXPeE4NGSx8oxNWK (db 의 `meta/state` · `phases`(U0~U8 · P0~P10 · 번외, `done`/`total` 은 체크리스트 칸 수) · `tasks`(지금 단계 Task) · `log`). 체크리스트 칸을 바꾸거나 Task 가 끝날 때마다 ArtifactData 로 고친다(`status` 는 done · partial · doing · blocked · todo) — 페이지는 다시 publish 하지 않는다
 - 실기기 길 — 팜 토큰 길이 401(아래 「팜 연결」)이라 이 맥에 USB 로 꽂힌 폰에 adb 로 깔고 켠다(`open --relay` 는 깔기와 상관없이 붙는다). CI APK 는 잡마다 서명 키가 달라 다른 빌드로 바꿀 때 `adb uninstall` 이 먼저다 — 자동 권한이 막아 사용자가 `! ~/Library/Android/sdk/platform-tools/adb -s <serial> uninstall com.maxihan1.controlcli.sample` 로 지운다. `adb install` 출력은 자르지 말고 끝까지 본다(실패를 놓치면 옛 앱이 돈다)
 - 밖 공개 relay 시험 — cloudflared quick tunnel(`cloudflared tunnel --url http://127.0.0.1:<토큰 relay 포트>`, 계정 없는 임시 `trycloudflare.com` 주소)이 `wss` 를 그대로 넘긴다. 토큰은 job tmp 에만, 시험 뒤 터널 · relay 를 끈다. `farm.maxihan.com` 은 Devicefarm 의 SSH 터널이라 손대지 않는다
@@ -98,8 +98,10 @@
 - [x] Linux 샘플 빌드 · `conform` — sample run 43387721549(IL2CPP · a4f15de)을 이 맥 Docker `linux/amd64` 컨테이너(Xvfb · Mesa llvmpipe)에서 CLI 와 함께 돌려 「통과 52 · 실패 0 · 미실행 1」(일시정지 — PC 와 같음) 두 번. 첫 Mono 판(run 43381678078)은 Rosetta 위 Mono JIT 가 죽어 IL2CPP 로 바꿨다(context-notes 「P3-C 실기기」)
 
 ## P4. 드라이버
-- [ ] 설계 · 구현 계획(생성기)
-- [ ] Python · C# · Java · Robot — 언어마다 `conform` 을 그 언어로
+- [x] 설계 · 구현 계획(생성기) — [p4-plan.md](p4-plan.md). 언어마다 의존 없는 파일 하나, `npm run drivers` 가 「생성」 표시 줄 사이만 다시 쓴다. conform 은 다리(`conform --driver`)로 — 차례 · 기대값은 TS 한 벌, 명령은 그 언어 드라이버가 보낸다. CLI 0.11.0
+- [x] Python · Java — 가짜 표준 화면(TCP · 토큰 relay) 52/0/1 · 이 맥 macOS 앱(sample run 43387721549 · 6000.0 옛 Input) `conform --driver` 「통과 52 · 실패 0 · 미실행 1」
+- [x] C# · Robot — CI `drivers` 잡(run 43396730311): C# 다리 TCP · 토큰 relay 52/0/1 · Robot suite(Python 드라이버를 라이브러리로) 7줄 초록
+- [ ] C# · Robot 실기기 — 이 맥에 dotnet · robot 이 없고 깔기(`brew install dotnet` · venv pip · dotnet 컨테이너)를 자동 권한이 막았다. 사용자가 `! brew install dotnet` · `! pipx install robotframework` 로 깔면 README 「드라이버」 명령 그대로
 
 ## P5. 인스펙터 · Recorder
 - [ ] 설계 · 구현 계획
