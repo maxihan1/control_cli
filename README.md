@@ -16,7 +16,7 @@ Unity 게임을 자동화 테스트로 조작하는 SDK 와 CLI.
 | Unity 판 | 2021.3 · 2022.3 · 6000.0 | 6000.0 (Ashveil) | 2021.3 · 2022.3 |
 | UI | uGUI · TextMeshPro · UI Toolkit(UIDocument) | uGUI | TMP · UI Toolkit (`layout` 은 uGUI 만) |
 | 입력 | 옛 Input · 새 Input System · 둘 다 | 옛 Input | Input System(Touchscreen · Mouse · Keyboard) |
-| 플랫폼 | Android(팜 · USB) · PC(Windows · macOS) · iOS(USB, 17+) | Android | PC · iOS (CLI 는 가짜 게임 · 가짜 usbmuxd 로 테스트) |
+| 플랫폼 | Android(팜 · USB) · PC(Windows · macOS) · iOS(USB, 17+) · WebGL(브라우저 → relay) | Android · macOS · WebGL(Chrome) | PC · iOS (CLI 는 가짜 게임 · 가짜 usbmuxd 로 테스트) |
 
 「컴파일만 확인」은 `tools/unity-compile-check` 9개 구성과 CLI 테스트까지다 — 샘플 Unity 프로젝트(`sample/`)를 CI 가 판 · 입력 · 플랫폼마다 구워(`.github/workflows/sample.yml`, Unity 라이선스 Secret 필요) 실기기에서 돌려 봐야 「실기기로 확인」으로 옮긴다.
 못 가로채는 것 — 게임 코드가 `UnityEngine.Input` 을 전체 이름으로 부르는 곳 · DLL plugin 안의 입력. 디바이스 팜은 Android 만 받는다.
@@ -132,7 +132,23 @@ npx control-cli open --relay wss://relay.<도메인>
 - 권한 — 토큰 없이 띄운 relay 는 이 컴퓨터에서 온 명령만 받는다. `relay --token <비밀값>`(또는 `CONTROL_CLI_RELAY_TOKEN` · Keychain `control-cli-relay`)으로 띄우면 모든 명령에 `Authorization: Bearer` 를 본다 — 터널은 요청을 `127.0.0.1` 에서 온 것처럼 넘기므로 밖 공개는 늘 토큰이다. 게임 입구(`/game`)는 토큰을 받지 않는다(APK 를 풀면 구운 값이 다 보인다)
 - 시간 초과 — 게임 10초 → relay 15초 → CLI 20초. 명령 중 게임이 끊기면 「명령이 실행됐을 수도 있습니다」로 실패한다
 - iOS 는 같은 Wi-Fi 의 relay 로 걸면 「로컬 네트워크」 허락을 묻는다 — relay 주소를 구운 iOS 빌드는 SDK 빌드 훅이 `Info.plist` 에 `NSLocalNetworkUsageDescription` 을 넣는다
-- relay 는 SDK 0.9.0 부터. Unity WebGL(브라우저 WebSocket)은 P3-B
+- relay 는 SDK 0.9.0 부터, Unity WebGL 은 0.10.0 부터
+
+**WebGL** — 브라우저는 포트를 못 열어 WebGL 게임은 relay 길만 있다. 주소는 페이지 주소 `?controlcli=<주소>` 가 먼저이고, 없으면 `instrument --relay` 로 구운 주소다(둘 다 없으면 relay 꺼짐). https 페이지는 브라우저가 `ws://` 를 막아 `wss://` 를 쓴다. 기기 id 는 탭마다 하나(새로 고침에도 같다)라 탭 둘을 열면 게임 둘로 보인다. WebGL 은 `Application.identifier` 가 비어 앱 이름 자리에 제품 이름(`productName`)이 온다.
+
+탭이 뒤로 가거나 창이 가려지거나 화면이 잠기면 Chrome 이 게임을 **초당 1프레임**으로 늦춘다 — 1초 끌기가 수십 초 걸려 명령이 10초에 실패한다. 자동으로 돌릴 때는 늦추기를 끈 Chrome 을 따로 띄운다(사용자 프로필과 따로).
+
+```bash
+"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --user-data-dir=/tmp/control-cli-chrome --no-first-run \
+  --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-renderer-backgrounding \
+  'http://127.0.0.1:8000/?controlcli=ws://127.0.0.1:13101'
+```
+
+```bash
+cd <WebGL 빌드 폴더> && python3 -m http.server 8000 &          # 압축을 끈 빌드는 아무 정적 서버로 열린다
+open 'http://127.0.0.1:8000/?controlcli=ws://127.0.0.1:13101'
+npx control-cli open --relay                                       # 세션 … (relay · WebGL · …)
+```
 
 이 맥에 relay 를 늘 켜 두기(밖 공개) — `~/Library/LaunchAgents/com.control-cli.relay.plist` 를 두고 `launchctl load` 한다. 토큰은 Keychain `control-cli-relay` 에 한 번 넣는다(`security add-generic-password -U -a <맥 사용자> -s control-cli-relay -w "$(pbpaste)"`).
 
@@ -291,7 +307,7 @@ Desktop 은 셸의 PATH 를 안 볼 수 있다 — `control-cli` · `node` 를 �
 명령은 JSON 객체 한 줄, 답도 JSON 객체 한 줄이다. 디바이스 팜 게임 명령 주소는 본문을 그대로 한 줄로 넘기고 답을 `{"value": …}` 로 싼다(Devicefarm ADR-048).
 실패는 `{"ok":false,"error":"…"}`. 명령은 게임 프레임에서 받은 차례대로 돈다. 10초 안에 게임이 못 받으면 실패로 답하고 그 명령은 버린다.
 
-**relay 통신 꼴**(SDK 0.9.0) — 게임이 `ws(s)://<relay>/game` 에 WebSocket 을 걸고 첫 글로 `hello <ping 답 JSON 에 platform · model · device · deviceId 를 더한 것>` 을 보낸다. 그 뒤 relay → 게임 `<번호> <명령 JSON>`, 게임 → relay `<번호> <답 JSON>` — 번호로 늦은 답이 다음 명령의 답이 되는 일을 막는다. CLI → relay 는 `GET /games`(붙은 게임 `{value:[{key, app, version, platform, model, device, engine?, engineVersion?, sdkVersion?, since, lastSeen}]}`) · `POST /games/<key>/command`(본문은 명령, 답은 `{value: 게임 답}` — 디바이스 팜 게임 명령 주소와 같은 꼴. 403 권한 · 404 그 게임 없음 · 504 게임이 15초 안에 답 없음 · 502 명령 중 끊김). relay 는 15초마다 ping 해 답 없는 게임을 뺀다.
+**relay 통신 꼴**(SDK 0.9.0 · WebGL 은 0.10.0 — 같은 꼴) — 게임이 `ws(s)://<relay>/game` 에 WebSocket 을 걸고 첫 글로 `hello <ping 답 JSON 에 platform · model · device · deviceId 를 더한 것>` 을 보낸다. 그 뒤 relay → 게임 `<번호> <명령 JSON>`, 게임 → relay `<번호> <답 JSON>` — 번호로 늦은 답이 다음 명령의 답이 되는 일을 막는다. CLI → relay 는 `GET /games`(붙은 게임 `{value:[{key, app, version, platform, model, device, engine?, engineVersion?, sdkVersion?, since, lastSeen}]}`) · `POST /games/<key>/command`(본문은 명령, 답은 `{value: 게임 답}` — 디바이스 팜 게임 명령 주소와 같은 꼴. 403 권한 · 404 그 게임 없음 · 504 게임이 15초 안에 답 없음 · 502 명령 중 끊김). relay 는 15초마다 ping 해 답 없는 게임을 뺀다.
 
 | `cmd` | 칸 | 답 |
 |---|---|---|

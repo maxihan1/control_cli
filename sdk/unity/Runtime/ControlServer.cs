@@ -39,7 +39,7 @@ namespace ControlCli
             "rect",
         };
         // sdk/unity/package.json 의 version 과 같다(src/protocol.test.ts 가 본다).
-        public const string SdkVersion = "0.9.0";
+        public const string SdkVersion = "0.10.0";
 
         private sealed class Request
         {
@@ -50,6 +50,9 @@ namespace ControlCli
             public Command Command;
             // 0 기다림 · 1 게임이 가져감 · 2 시간 초과로 버림 · 3 답을 미룬 동안(터치 · 키 · 스크린샷) 시간 초과 — 먼저 바꾼 쪽만 이긴다.
             public int State;
+            // WebGL — 기다릴 스레드가 없어 Update 가 답을 정할 때 부른다(Relay.Tick). Born 은 넣은 때(10초 규칙).
+            public Action<string> Answer;
+            public int Born;
         }
 
         // 디바이스 팜은 본문 JSON 객체를 그대로 한 줄로 넘긴다(Devicefarm ADR-048). 쓰는 칸만 읽고 없는 칸은 기본값이다.
@@ -125,13 +128,16 @@ namespace ControlCli
 
         private void Awake()
         {
+#if UNITY_WEBGL && !UNITY_EDITOR
+            // 브라우저는 포트 · 스레드가 없다 — 페이지에서 relay 로만 건다(P3-B).
+            Relay.StartWeb();
+#else
             _listener = new TcpListener(IPAddress.Loopback, Port);
             _listener.Start();
             _acceptThread = new Thread(AcceptLoop) { IsBackground = true, Name = "ControlCli" };
             _acceptThread.Start();
             Debug.Log($"[ControlCli] 127.0.0.1:{Port} 에서 명령을 받습니다");
-#if !UNITY_WEBGL || UNITY_EDITOR
-            // instrument --relay 로 주소를 구운 빌드만 — 없으면 아무것도 안 한다. WebGL 은 브라우저 WebSocket(P3-B).
+            // instrument --relay 로 주소를 구운 빌드만 — 없으면 아무것도 안 한다.
             Relay.Start(Ask);
 #endif
         }
@@ -179,28 +185,45 @@ namespace ControlCli
             // 게임이 가져간 명령이 답을 미룬 채 멈추면(백그라운드) Done 이 안 온다 — 버림으로 바꾸면 Update 가 남은 가짜 입력을 거둔다.
             if (!timedOut && !request.Done.IsSet) timedOut = Interlocked.CompareExchange(ref request.State, 3, 1) == 1;
             if (!timedOut) request.Done.Wait();
-            return timedOut ? Error("게임이 10초 안에 답하지 않았습니다(멈췄거나 일시정지)") : request.Reply;
+            return timedOut ? Error(TimedOut) : request.Reply;
+        }
+
+        private const string TimedOut = "게임이 10초 안에 답하지 않았습니다(멈췄거나 일시정지)";
+
+        // 답을 기다리지 않고 넣는다 — WebGL relay(Relay.Tick)가 메인 스레드에서 부른다. 답은 Update 가 answer 로 준다.
+        internal static void Post(string line, Action<string> answer) =>
+            _self._requests.Enqueue(new Request { Line = line, Answer = answer, Born = Environment.TickCount });
+
+        private static void Finish(Request request, string reply)
+        {
+            SdkLog.Write(request.Command, reply);
+            request.Reply = reply;
+            request.Done.Set();
+            request.Answer?.Invoke(reply);
         }
 
         private void Update()
         {
+#if UNITY_WEBGL && !UNITY_EDITOR
+            Relay.Tick();
+#endif
             // 답을 미룬 명령이 있으면 준비될 때까지 다음 명령을 꺼내지 않는다 — 명령은 받은 차례대로 돈다.
             if (_waiting != null)
             {
-                // 시간 초과(3)면 답할 곳이 없다 — 남은 가짜 입력을 거두고 넘어간다.
-                var cancelled = Volatile.Read(ref _waiting.State) == 3;
+                // 시간 초과(3)면 답할 곳이 없다 — 남은 가짜 입력을 거두고 넘어간다. 기다리는 스레드가 없는 요청(WebGL)은 여기서 10초를 센다.
+                var cancelled = Volatile.Read(ref _waiting.State) == 3
+                    || (_waiting.Answer != null && Environment.TickCount - _waiting.Born > ReplyTimeoutMs);
                 if (cancelled)
                 {
                     _cancel?.Invoke();
                     SdkLog.Write(_waiting.Command, Error("시간 초과"));
+                    _waiting.Answer?.Invoke(Error(TimedOut));
                 }
                 else
                 {
                     var reply = _ready();
                     if (reply == null) return;
-                    SdkLog.Write(_waiting.Command, reply);
-                    _waiting.Reply = reply;
-                    _waiting.Done.Set();
+                    Finish(_waiting, reply);
                 }
                 _waiting = null;
                 _ready = null;
@@ -211,6 +234,12 @@ namespace ControlCli
             while (_requests.TryDequeue(out var request))
             {
                 if (Interlocked.CompareExchange(ref request.State, 1, 0) != 0) continue;
+                // 기다리는 스레드가 없는 요청(WebGL)은 여기서 10초를 센다 — 늦게 돌려 엉뚱한 화면에서 누르지 않는다.
+                if (request.Answer != null && Environment.TickCount - request.Born > ReplyTimeoutMs)
+                {
+                    request.Answer(Error(TimedOut));
+                    continue;
+                }
                 string reply;
                 _parsed = null;
                 try { reply = Handle(request.Line.Trim()); }
@@ -230,17 +259,18 @@ namespace ControlCli
                     _waiting = request;
                     return;
                 }
-                SdkLog.Write(request.Command, reply);
-                request.Reply = reply;
-                request.Done.Set();
+                Finish(request, reply);
             }
         }
 
         // ping 답 — relay hello 도 이 칸으로 시작한다(Relay.cs).
         internal static string PingReply() =>
-            "{\"ok\":true,\"app\":" + Json.Str(Application.identifier) + ",\"version\":" + Json.Str(Application.version)
+            "{\"ok\":true,\"app\":" + Json.Str(AppName()) + ",\"version\":" + Json.Str(Application.version)
             + ",\"engine\":\"unity\",\"engineVersion\":" + Json.Str(Application.unityVersion) + ",\"sdkVersion\":\"" + SdkVersion
             + "\",\"protocol\":2,\"caps\":[\"" + string.Join("\",\"", Caps) + "\"]}";
+
+        // WebGL 은 identifier 가 비어 있다 — 제품 이름으로 갈음해 relay key 가 「@…」로 비지 않게.
+        private static string AppName() => string.IsNullOrEmpty(Application.identifier) ? Application.productName : Application.identifier;
 
         private static string Handle(string line)
         {

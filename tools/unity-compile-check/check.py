@@ -42,6 +42,8 @@ INPUTS = {
     "legacy": (["ENABLE_LEGACY_INPUT_MANAGER"], False),
     "both": (["ENABLE_LEGACY_INPUT_MANAGER", "ENABLE_INPUT_SYSTEM"], True),
     "new": (["ENABLE_INPUT_SYSTEM"], True),
+    # WebGL 플레이어(P3-B) — TCP · 스레드 대신 브라우저 relay 쪽이 컴파일된다. 입력은 옛 Input 하나만 본다.
+    "webgl": (["ENABLE_LEGACY_INPUT_MANAGER", "UNITY_WEBGL"], False),
 }
 # QA Android 플레이어 빌드 — 플랫폼 API 차이는 실빌드(샘플 CI)가 잡는다.
 PLAYER = ["UNITY_ANDROID", "ENABLE_IL2CPP", "DEVELOPMENT_BUILD", "CONTROL_CLI", "NET_STANDARD_2_1", "NET_STANDARD", "CSHARP_7_3_OR_NEWER"]
@@ -173,7 +175,7 @@ def included(a, defs):
 def configure(line, inp):
     input_defines, registry = INPUTS[inp]
     base = [f"UNITY_{x.replace('.', '_')}_OR_NEWER" for x in LINES if vkey(x) <= vkey(line)]
-    base += [f"UNITY_{line.replace('.', '_')}", *PLAYER, *input_defines]
+    base += [f"UNITY_{line.replace('.', '_')}", *[d for d in PLAYER if not (inp == "webgl" and d == "UNITY_ANDROID")], *input_defines]
     pkgs = packages(line, registry)
     every, guids = {}, {}
     for _, folder in sorted(pkgs.values(), key=lambda p: str(p[1])):

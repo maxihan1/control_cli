@@ -42,6 +42,13 @@ public static class SampleBuild
             PlayerSettings.defaultScreenWidth = 540;
             PlayerSettings.defaultScreenHeight = 1200;
         }
+        // WebGL(P3-B) — 아무 정적 서버(python3 -m http.server)로 열리게 압축을 끄고, 캔버스는 폰 · PC 와 같은 세로(노트북 화면에 들게 조금 작게).
+        if (target == BuildTarget.WebGL)
+        {
+            PlayerSettings.WebGL.compressionFormat = WebGLCompressionFormat.Disabled;
+            PlayerSettings.defaultWebScreenWidth = 405;
+            PlayerSettings.defaultWebScreenHeight = 900;
+        }
         // 큐브의 BoxCollider 는 코드가 안 불러 엔진 코드 줄이기가 뺀다(실기기 「class 'BoxCollider' doesn't exist」) — 샘플은 줄이지 않는다.
         PlayerSettings.stripEngineCode = false;
 
