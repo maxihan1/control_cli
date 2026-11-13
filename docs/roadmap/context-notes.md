@@ -244,3 +244,18 @@
 - 걸린 것 — 처음 두 번은 「C drag Item via … duration」부터 줄줄이 15초 시간 초과(통과 35 · 33). 게임 안에서 재 보니 5초에 frameCount 8 · `unscaledDeltaTime` 1.0 — Chrome 이 가려진 창(이 맥은 사람이 없어 다른 창 · 잠금 화면 뒤)의 timer 를 초당 1번으로 늦췄다. `runInBackground` 가 켜져 있어 rAF 대신 setTimeout 으로 돌다가 그 1초 늦추기에 걸린다. 1초 끌기가 24초 걸려 답을 미룬 채 다음 명령이 다 막혔다. Chrome 확장 도구가 탭을 건드리면 120fps 로 돌아와 「멈췄다 풀린」 것처럼 보였다
 - 해결 — 사용자 Chrome 대신 `--user-data-dir=<job tmp>` · `--disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-renderer-backgrounding` 로 따로 띄운 Chrome 에서 60fps · 52/0/1. README WebGL 절에 같은 명령을 적었다
 - 그래서 고친 SDK(7500c42) — ① WebGL 은 답을 미룬 명령을 거둘 스레드가 없어(TCP 는 `Ask` 가 10초 뒤 State 3) 미룬 명령 하나가 멈추면 뒤가 끝없이 막혔다 → `Update` 가 `Answer` 요청의 나이를 보고 10초 넘으면 남은 가짜 입력을 거두고 시간 초과로 답한다 ② WebGL `Application.identifier` 가 비어 relay key 가 `@<id>` · conform 머리가 「 1.0」이었다 → 비면 `productName`. 고친 판(sample run 43376280037 · fb87e43)도 같은 Chrome 에서 52/0/1, conform 머리가 「control_cli sample 1.0」
+
+## 2026-11-13 — P3-C 설계 ([p3c-plan.md](p3c-plan.md))
+
+- SDK · CLI 는 그대로 — Linux 플레이어는 데스크톱 길(`TcpListener` · 스레드 · `ClientWebSocket`)이고 `Relay.cs` 가 이미 `LinuxPlayer` 를 「Linux」로 부른다. 없던 것은 Linux 빌드와 그 빌드로 돈 conform 뿐이라 판을 올리지 않는다(tag 없음)
+- 실측 자리 — 이 맥엔 리눅스 기계가 없다. Docker Desktop 의 `--platform linux/amd64` 컨테이너(Apple Silicon 위 Rosetta 흉내, `uname -m` 이 `x86_64`) + Xvfb + Mesa llvmpipe(OpenGL 4.5 Core)
+- CLI 도 같은 컨테이너에서 — SDK 가 `127.0.0.1` 에만 열어 `docker -p` 로는 못 닿는다. CLI 는 JS 라 컨테이너 안 node 22 로 `open --pc --app` 이 그대로 돈다. Linux 의 `launch` · `stop` 도 함께 본다
+- sample 잡은 6000.0 · 옛 Input 하나 — PC Input System 길은 macOS 잡이 실측했고 C# 이 같다
+
+## 2026-11-13 — P3-C 실기기 (이 맥 Docker · sample run 43381678078 → 43387721549)
+
+- 첫 빌드(Mono)는 Docker 에서 못 뜬다 — 그래픽(Mesa llvmpipe · OpenGL 4.5 Core)까지 뜬 뒤 `MonoManager ReloadAssembly` 에서 `x86-codegen.h:410 offset == (gint32)offset` 으로 죽는다. Rosetta 가 mmap 을 실제 x86-64 리눅스와 다른 자리에 줘 Mono JIT 의 32비트 상대 호출이 안 닿는 것으로 보인다. `MONO_ENV_OPTIONS=--interpreter` · `--aot=full` 은 Unity 플레이어가 안 먹는다. Docker 설정을 Rosetta → QEMU 로 바꾸는 길은 이 맥의 다른 컨테이너까지 다시 띄워 쓰지 않았다
+- 그래서 Linux sample 은 IL2CPP — JIT 가 없고, game-ci 의 Linux 이미지가 이미 `ubuntu-6000.0.84f1-linux-il2cpp-3` 라 그대로 굽는다. 폰 QA 빌드와 같은 백엔드라 실제 게임에도 가깝다. mac · Windows 는 리눅스 CI 가 그 IL2CPP 를 못 구워 Mono 그대로
+- 결과 — IL2CPP 판(run 43387721549 · a4f15de)을 같은 컨테이너에서 `open --pc --app /game/control-cli-sample.x86_64` → conform 「통과 52 · 실패 0 · 미실행 1」, 두 번 돌려 두 번 같다(일시정지 — PC 와 같음). 그래픽은 Vulkan 이 아니라 OpenGL 4.5 Core(llvmpipe)로 떴다
+- 위험 셋 — ① Rosetta 위 프레임: llvmpipe 소프트웨어 그리기로도 끌기 · 길게 누르기 duration 줄이 시간 한도 안 ② 스크린샷 · PNG 는 검지 않다(540×1200 세로 창 그대로) ③ Xvfb 에 창 관리자가 없어도 초점 · 마우스 좌표 줄이 다 초록. CLI 의 Linux `launch` · `close`(SIGTERM) 도 됐다
+- 남은 흠 — Mesa GL 에서 WorldCube 가 분홍(셰이더 변형 없음)으로 그려진다. 누르기 · 찾기와는 상관없어 그대로 둔다. 소리 장치가 없어 FMOD 오류가 개발 콘솔에 뜨지만 `errors`(예외)에는 안 든다

@@ -12,14 +12,14 @@ Linux 게임은 PC 게임과 같다 — SDK 는 `127.0.0.1:13100` 에 TCP 를 �
 
 ```
 [이 맥 Docker — linux/amd64 컨테이너]
-  Xvfb :99 ── control-cli-sample.x86_64 (Unity 6000.0 · Mono · SDK 127.0.0.1:13100)
+  Xvfb :99 ── control-cli-sample.x86_64 (Unity 6000.0 · IL2CPP · SDK 127.0.0.1:13100)
                      ▲ TCP
   node dist/main.js open --pc --app … → conform      (CLI 도 같은 컨테이너 — 게임 포트가 루프백이라)
 ```
 
 ## 설계
 
-1. **sample 빌드** — `SampleBuild.cs` 의 PC 묶음(Mono · 540×1200 창)에 `StandaloneLinux64` 를 더한다. 리눅스 CI 러너가 바로 굽는 대상이다
+1. **sample 빌드** — `SampleBuild.cs` 의 PC 묶음(540×1200 창)에 `StandaloneLinux64` 를 더한다. 백엔드는 IL2CPP — 처음엔 mac · Windows 처럼 Mono 로 구웠다가 Mono JIT 가 Docker 의 Rosetta 흉내에서 죽어 바꿨다(game-ci Linux 이미지가 `linux-il2cpp` 라 리눅스 CI 가 바로 굽는다)
 2. **sample CI** — `StandaloneLinux64`(6000.0 · 옛 Input) 잡 하나. PC 의 Input System 길은 macOS 잡이 이미 실측했고 Linux 도 같은 C# 이라 늘리지 않는다
 3. **CLI 를 컨테이너 안에서** — SDK 가 루프백에만 열어 `docker -p` 로는 못 닿는다. CLI(node)는 플랫폼과 무관한 JS 라 같은 컨테이너에서 돌리면 `--pc` 길이 그대로다. 이 김에 Linux 에서 CLI 의 `launch` · `stop` 도 함께 본다
 4. **판** — SDK · CLI 코드가 안 바뀌어 판을 올리지 않는다(tag 없음)
@@ -38,8 +38,8 @@ Linux 게임은 PC 게임과 같다 — SDK 는 `127.0.0.1:13100` 에 TCP 를 �
 
 ## 범위 밖
 
-- relay 를 구운 Linux 빌드 — 같은 Mono `ClientWebSocket` 길을 macOS 가 실측했다(P3-A)
-- 진짜 리눅스 기계 · GPU, Linux IL2CPP, Linux Input System 잡
+- relay 를 구운 Linux 빌드 — 같은 `ClientWebSocket` 길을 macOS(Mono) · Android(IL2CPP) 가 실측했다(P3-A)
+- 진짜 리눅스 기계 · GPU, Linux Mono(진짜 x86-64 에서는 뜰 것), Linux Input System 잡
 
 # 구현 계획
 

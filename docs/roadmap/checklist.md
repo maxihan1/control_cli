@@ -2,9 +2,10 @@
 
 ## ▶ 다음 세션은 여기부터 (2026-11-13)
 
-- **이어달리기(test_platform 방식, 사용자 2026-11-13)** — 단계 하나(`### P3-C` · `## P4` …) = main 에서 뗀 브랜치 하나 · PR 하나 · 세션 하나. 끝나면 묻지 않고 `gh pr merge --merge` 로 main 에 합치고(사용자 「작업 끝나면 메인에 머지까지」), 판을 올렸으면 그 main 커밋에 tag, 진척 페이지 db 갱신, 이 블록을 다음 단계로 고쳐 PR 에 싣고, `claude --bg "<다음 단계> — 이어 달리기: …"` 로 다음 세션을 띄운다. 차례 P3-C → P4 → P6 → P5 → P7 → P8 → P9. P10 은 「할지 말지」 사용자 결정이라 띄우지 않는다. 막히면(사용자 결정 · 라이선스 · 실기기) 띄우지 않고 까닭을 보고한다. 서버를 다시 빌드하거나 배포하지 않는다
-- **P3-B WebGL 끝** — PR #25 합침 · `v0.10.0`(SDK 0.10.0). 이 맥 Chrome 52/0/1. WebGL conform 은 늦추기를 끈 Chrome 을 따로 띄워야 한다(README WebGL 절 — 사람 없는 이 맥은 창이 가려져 초당 1프레임)
-- **다음 P3-C Linux** — 이 파일 P3-C 「Linux 샘플 빌드 · `conform`」. 설계 · 구현 계획(`p3c-plan.md`)부터 쓰고 바로 구현. 짐작 — sample CI 에 `StandaloneLinux64`(Mono) 잡, SDK 는 PC 길 그대로(TCP 13100 · relay), 실측은 이 맥 Docker 리눅스 컨테이너(Xvfb)에서 게임을 켜고 `--pc` 또는 relay 로 conform. 리눅스 기계가 없으면 Docker 길이 되는지부터 본다
+- **이어달리기(test_platform 방식, 사용자 2026-11-13)** — 단계 하나(`## P4` · `## P6` …) = main 에서 뗀 브랜치 하나 · PR 하나 · 세션 하나. 끝나면 묻지 않고 `gh pr merge --merge` 로 main 에 합치고(사용자 「작업 끝나면 메인에 머지까지」), 판을 올렸으면 그 main 커밋에 tag, 진척 페이지 db 갱신, 이 블록을 다음 단계로 고쳐 PR 에 싣고, `claude --bg "<다음 단계> — 이어 달리기: …"` 로 다음 세션을 띄운다. 차례 P4 → P6 → P5 → P7 → P8 → P9. P10 은 「할지 말지」 사용자 결정이라 띄우지 않는다. 막히면(사용자 결정 · 라이선스 · 실기기) 띄우지 않고 까닭을 보고한다. 서버를 다시 빌드하거나 배포하지 않는다
+- **끝난 세션 닫기(사용자 2026-11-13 「작업 끝난 세션은 닫아줘」)** — 새 세션은 시작하면 앞 세션을 `claude stop <앞 job id>` 로 멈춘다(대화 · worktree 는 남는다, `claude rm` 은 안 함). `claude agents --json` 의 `state: done` 이 끝난 세션
+- **P3-C Linux 끝** — PR #26 합침 · 판은 그대로(SDK · CLI 안 바뀜, tag 없음). sample `StandaloneLinux64` 는 **IL2CPP**(Mono JIT 는 이 맥 Docker 의 Rosetta 흉내에서 죽는다). 이 맥 Docker `linux/amd64`(Xvfb · Mesa)에서 52/0/1 — README 「루프 — PC」 Linux 절
+- **다음 P4 드라이버** — 이 파일 P4 「설계 · 구현 계획(생성기)」. 설계 · 구현 계획(`p4-plan.md`)부터 쓰고 바로 구현. 짐작 — `protocol/commands.json` 에서 언어마다 얇은 드라이버를 만든다(TCP · relay 한 줄 JSON), 언어마다 `conform` 을 그 언어로 돌린다. 이 맥에 python3 3.14 · java 21 은 있고 dotnet · mvn · robot 은 없다 — 깔기는 Homebrew · pip 로 되는지부터 보고, 넷을 한 PR 에 다 못 넣으면 Python 먼저 하고 남은 언어를 체크리스트 칸으로 나눈다. 실측은 이 맥 macOS 앱(`open --pc` 길과 같은 TCP 13100) 또는 Docker Linux
 - 진척 페이지(전체) — https://claude.ai/artifact/Y4ZUdJiXPeE4NGSx8oxNWK (db 의 `meta/state` · `phases`(U0~U8 · P0~P10 · 번외, `done`/`total` 은 체크리스트 칸 수) · `tasks`(지금 단계 Task) · `log`). 체크리스트 칸을 바꾸거나 Task 가 끝날 때마다 ArtifactData 로 고친다(`status` 는 done · partial · doing · blocked · todo) — 페이지는 다시 publish 하지 않는다
 - 실기기 길 — 팜 토큰 길이 401(아래 「팜 연결」)이라 이 맥에 USB 로 꽂힌 폰에 adb 로 깔고 켠다(`open --relay` 는 깔기와 상관없이 붙는다). CI APK 는 잡마다 서명 키가 달라 다른 빌드로 바꿀 때 `adb uninstall` 이 먼저다 — 자동 권한이 막아 사용자가 `! ~/Library/Android/sdk/platform-tools/adb -s <serial> uninstall com.maxihan1.controlcli.sample` 로 지운다. `adb install` 출력은 자르지 말고 끝까지 본다(실패를 놓치면 옛 앱이 돈다)
 - 밖 공개 relay 시험 — cloudflared quick tunnel(`cloudflared tunnel --url http://127.0.0.1:<토큰 relay 포트>`, 계정 없는 임시 `trycloudflare.com` 주소)이 `wss` 를 그대로 넘긴다. 토큰은 job tmp 에만, 시험 뒤 터널 · relay 를 끈다. `farm.maxihan.com` 은 Devicefarm 의 SSH 터널이라 손대지 않는다
@@ -93,7 +94,8 @@
 - [x] Unity WebGL 샘플 · 이 맥 브라우저에서 `conform` — sample run 43365234863 의 WebGL(6000.0 · 옛 Input) 을 이 맥 Chrome 157 에서 「통과 52 · 실패 0 · 미실행 1」(일시정지 — PC 와 같음), 고친 판 run 43376280037(fb87e43)도 52/0/1. 늦추기를 끈 Chrome 을 따로 띄워서(context-notes 「P3-B 실기기」)
 
 ### P3-C. Linux
-- [ ] Linux 샘플 빌드 · `conform`
+- [x] 설계 · 구현 계획 — [p3c-plan.md](p3c-plan.md). SDK · CLI 는 그대로(PC 길), sample 에 `StandaloneLinux64` 잡
+- [x] Linux 샘플 빌드 · `conform` — sample run 43387721549(IL2CPP · a4f15de)을 이 맥 Docker `linux/amd64` 컨테이너(Xvfb · Mesa llvmpipe)에서 CLI 와 함께 돌려 「통과 52 · 실패 0 · 미실행 1」(일시정지 — PC 와 같음) 두 번. 첫 Mono 판(run 43381678078)은 Rosetta 위 Mono JIT 가 죽어 IL2CPP 로 바꿨다(context-notes 「P3-C 실기기」)
 
 ## P4. 드라이버
 - [ ] 설계 · 구현 계획(생성기)
