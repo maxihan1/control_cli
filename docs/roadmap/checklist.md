@@ -2,10 +2,11 @@
 
 ## ▶ 다음 세션은 여기부터 (2026-11-13)
 
-- **이어달리기(test_platform 방식, 사용자 2026-11-13)** — 단계 하나(`## P6` · `## P5` …) = main 에서 뗀 브랜치 하나 · PR 하나 · 세션 하나. 끝나면 묻지 않고 `gh pr merge --merge` 로 main 에 합치고(사용자 「작업 끝나면 메인에 머지까지」), 판을 올렸으면 그 main 커밋에 tag, 진척 페이지 db 갱신, 이 블록을 다음 단계로 고쳐 PR 에 싣고, `claude --bg "<다음 단계> — 이어 달리기: …"` 로 다음 세션을 띄운다. 차례 P6 → P5 → P7 → P8 → P9. P10 은 「할지 말지」 사용자 결정이라 띄우지 않는다. 막히면(사용자 결정 · 라이선스 · 실기기) 띄우지 않고 까닭을 보고한다. 서버를 다시 빌드하거나 배포하지 않는다
+- **이어달리기(test_platform 방식, 사용자 2026-11-13)** — 단계 하나(`## P5` · `## P7` …) = main 에서 뗀 브랜치 하나 · PR 하나 · 세션 하나. 끝나면 묻지 않고 `gh pr merge --merge` 로 main 에 합치고(사용자 「작업 끝나면 메인에 머지까지」), 판을 올렸으면 그 main 커밋에 tag, 진척 페이지 db 갱신, 이 블록을 다음 단계로 고쳐 PR 에 싣고, `claude --bg "<다음 단계> — 이어 달리기: …"` 로 다음 세션을 띄운다. 차례 P5 → P7 → P8 → P9(P6 끝). P10 은 「할지 말지」 사용자 결정이라 띄우지 않는다. 막히면(사용자 결정 · 라이선스 · 실기기) 띄우지 않고 까닭을 보고한다. 서버를 다시 빌드하거나 배포하지 않는다
 - **끝난 세션 닫기(사용자 2026-11-13 「작업 끝난 세션은 닫아줘」)** — 새 세션은 시작하면 앞 세션을 `claude stop <앞 job id>` 로 멈춘다(대화 · worktree 는 남는다, `claude rm` 은 안 함). `claude agents --json` 의 `state: done` 이 끝난 세션
 - **P4 드라이버 끝** — PR #27 합침 · `v0.11.0`(CLI 0.11.0 · SDK 0.10.0 그대로). `drivers/` 에 Python · C# · Java(파일 하나씩, `npm run drivers` 가 commands.json 에서 생성 칸을 다시 씀) · Robot(Python 드라이버를 라이브러리로). conform 은 `conform --driver '<다리 명령>'` — 이 맥 macOS 앱 Python · Java 52/0/1, C# · Robot 은 CI `drivers` 잡(가짜 표준 화면). 남은 칸 하나 — C# · Robot 실기기(이 맥에 dotnet · robot 깔기를 자동 권한이 막음 → 사용자 몫). `protocol/commands.json` 에 명령을 더하면 `npm run drivers` 도 같이 — `drivers.test` 가 잡는다
-- **다음 P6 Godot** — 이 파일 P6 「설계 · 구현 계획(Godot 4.3+ · 엔진 낱말 표 확정)」. 설계 · 구현 계획(`p6-plan.md`)부터 쓰고 바로 구현. 짐작 — `sdk/godot/` GDScript 애드온(autoload 하나가 TCP 13100 · relay WebSocket, 같은 한 줄 JSON 꼴 · `ping` 의 `engine: godot` · `caps` 는 할 수 있는 명령만), 표준 화면(`sample-godot/` — Unity 표준 화면과 같은 이름 · 같은 반응, plan.md 「공통 낱말」 표), CI 는 Godot headless 를 받아 export(PC · 웹 먼저, Android 는 뒤). **이 맥에 godot 이 없고 brew · pip 깔기는 자동 권한이 막는다(P4)** — Godot 은 CI 에서 받고, 실측은 CI 결과물(macOS 앱 · 웹)을 받아 `open --pc --app` · relay 로 conform. 한 PR 에 다 못 넣으면 PC 먼저, 웹 · Android 는 체크리스트 칸으로 나눈다
+- **P6 Godot 끝** — PR #28 합침 · `v0.12.0`(CLI 0.12.0 · Unity SDK 0.10.0 그대로 · Godot SDK 0.1.0). `sdk/godot/addons/control_cli` GDScript autoload, `instrument <Godot 프로젝트>` 가 실린 애드온을 넣는다. conform 은 `ping.engine` 으로 표준 화면 낱말 표(`src/conform.ts` 의 `UNITY` · `GODOT`)를 고른다. CI `godot` 잡 · 이 맥 macOS 앱 · 웹 모두 47/0/6. 남은 칸 하나 — Android export · 팜 conform(P6 맨 끝 칸). Godot 은 이 맥에 없다 — CI 결과물(`godot-sample-4.7.2`)을 받아 실측(README 「개발」)
+- **다음 P5 인스펙터 · Recorder** — 이 파일 P5 「설계 · 구현 계획」. 설계 · 구현 계획(`p5-plan.md`)부터 쓰고 바로 구현. 짐작 — `control-cli inspect` 는 로컬 웹 화면(plan.md 「인스펙터 모양」 — 설치 없음, CLI 가 HTTP 서버를 띄우고 브라우저로 연다): 트리(`tree`) · 상세(`components` · `members` · `get`) · 스크린샷 · 누르면 명령(`find-at` → `click`). Recorder 는 누른 차례를 단계로 적어 TS(`Ran:` 줄 꼴) · Python · C# · Java · Robot 테스트로 내보낸다(드라이버 메서드 이름은 `src/drivers.ts` 가 아는 꼴). 「기록 돌리기」는 내보낸 TS 를 다시 돌려 초록. Unity 가짜 표준 화면(`src/fake-game.ts`)으로 테스트하고, 실측은 이 맥 macOS 앱(Unity sample · Godot 결과물 둘 다)으로. 한 PR 에 다 못 넣으면 inspect 먼저, Recorder 는 칸으로 나눈다
 - 진척 페이지(전체) — https://claude.ai/artifact/Y4ZUdJiXPeE4NGSx8oxNWK (db 의 `meta/state` · `phases`(U0~U8 · P0~P10 · 번외, `done`/`total` 은 체크리스트 칸 수) · `tasks`(지금 단계 Task) · `log`). 체크리스트 칸을 바꾸거나 Task 가 끝날 때마다 ArtifactData 로 고친다(`status` 는 done · partial · doing · blocked · todo) — 페이지는 다시 publish 하지 않는다
 - 실기기 길 — 팜 토큰 길이 401(아래 「팜 연결」)이라 이 맥에 USB 로 꽂힌 폰에 adb 로 깔고 켠다(`open --relay` 는 깔기와 상관없이 붙는다). CI APK 는 잡마다 서명 키가 달라 다른 빌드로 바꿀 때 `adb uninstall` 이 먼저다 — 자동 권한이 막아 사용자가 `! ~/Library/Android/sdk/platform-tools/adb -s <serial> uninstall com.maxihan1.controlcli.sample` 로 지운다. `adb install` 출력은 자르지 말고 끝까지 본다(실패를 놓치면 옛 앱이 돈다)
 - 밖 공개 relay 시험 — cloudflared quick tunnel(`cloudflared tunnel --url http://127.0.0.1:<토큰 relay 포트>`, 계정 없는 임시 `trycloudflare.com` 주소)이 `wss` 를 그대로 넘긴다. 토큰은 job tmp 에만, 시험 뒤 터널 · relay 를 끈다. `farm.maxihan.com` 은 Devicefarm 의 SSH 터널이라 손대지 않는다
@@ -110,10 +111,11 @@
 - [ ] 기록 돌리기 · 마지막 연결 기억
 
 ## P6. Godot
-- [ ] 설계 · 구현 계획(Godot 4.3+ · 엔진 낱말 표 확정)
-- [ ] `sdk/godot/` 애드온 · instrument
-- [ ] 표준 화면 · CI headless export(Android · PC · 웹)
-- [ ] `conform` 초록 · 맞출 수 없는 칸 표에 적기
+- [x] 설계 · 구현 계획 — [p6-plan.md](p6-plan.md). Godot 4.5 이상(로그를 받는 `Logger` 가 4.5 부터) · 낱말 표(Node · group · 이름 붙인 layer · `[클래스.]칸` · ConfigFile · `.tscn` 이름) · conform 엔진 표
+- [x] `sdk/godot/` 애드온 · instrument — GDScript autoload `ControlCli`(TCP 13100 · relay `WebSocketPeer`) · 46 명령 + rect · SDK 0.1.0. `instrument` 가 `project.godot` 를 알아보고 CLI 에 실린 애드온을 넣는다(`--ref` 없음) · CLI 0.12.0
+- [x] 표준 화면 · CI export(PC · 웹) — `sample-godot/`(Unity 표준 화면과 같은 이름 · 같은 반응, Bag 칸은 `Slot0~3`). CI `godot.yml` 이 Godot 4.5.2 · 4.7.2 를 받아 xvfb 위에서 conform · 4.7.2 로 macOS 앱(ad-hoc 서명 universal) · 웹(스레드 없음) export
+- [x] `conform` 초록 · 맞출 수 없는 칸 표에 적기 — CI 4.5.2 · 4.7.2(run 43402118931) · 이 맥 macOS 앱 · 이 맥 Chrome 웹(relay) 모두 「통과 47 · 실패 0 · 미실행 6」. 미실행 = TMP · UI Toolkit 줄 다섯(Godot UI 는 Control 한 벌) + 일시정지(PC · 웹은 앱을 뒤로 보낼 길 없음) — p6-plan.md 「맞출 수 없는 칸」 · README 지원 표
+- [ ] Android export · 팜(USB) conform — CI 에 Android export(디버그 keystore · build-tools)를 더하고 RF9R408GKRR 에 깔아 일시정지 줄까지
 
 ## P7. Unreal
 - [ ] 설계 · 구현 계획(판 · CI 러너 정함)

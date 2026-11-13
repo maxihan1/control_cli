@@ -97,7 +97,7 @@
 | 결정 | 기본값 | 물을 때 |
 |---|---|---|
 | `sdk/` 를 `sdk/unity/` 로 옮기나 | 옮긴다(박힌 ref 는 그대로 돈다) | P0 |
-| 엔진 판 | Unreal 5.4 이상 · Godot 4.3 이상 · GameMaker LTS · RPG Maker MZ(MV 는 뒤) · CryEngine 5.7.1 | 각 엔진 단계 |
+| 엔진 판 | Unreal 5.4 이상 · Godot 4.5 이상(Logger — P6) · GameMaker LTS · RPG Maker MZ(MV 는 뒤) · CryEngine 5.7.1 | 각 엔진 단계 |
 | Unreal CI | 자체 러너(Epic 컨테이너는 Epic–GitHub 계정 잇기 필요, 디스크 100GB+) | P7 |
 | GameMaker · RPG Maker CI | 사용자 라이선스로 빌드(GameMaker Igor CLI) | P8 · P9 |
 | 드라이버 만드는 법 | `protocol/commands.json` 에서 생성 | P4 |

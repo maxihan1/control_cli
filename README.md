@@ -1,7 +1,8 @@
 # control_cli
 
-Unity 게임을 자동화 테스트로 조작하는 SDK 와 CLI.
+Unity · Godot 게임을 자동화 테스트로 조작하는 SDK 와 CLI.
 
+- **Godot SDK** (GDScript 애드온 · `sdk/godot`) — 같은 통신 꼴 · 같은 명령. 아래 「Godot 에 넣기」
 - **SDK** (Unity UPM 패키지) — QA 빌드에서만 게임 안 `127.0.0.1` 에 포트를 열고, 오브젝트 트리 읽기 · 찾기 · 누르기 · 끌기 · 글자 넣기 · 키 · 속성 읽기 · 스크린샷을 받는다. 터치는 빌드 때 이름이 같은 가짜 `Input` 으로 바꿔치기하고, 새 Input System 게임에는 장치 이벤트로 넣는다
 - **CLI** — appium-cli 꼴. snapshot(줄인 트리 + 스크린샷) → ref → 액션, 액션마다 케이스에 붙일 코드 한 줄(`Ran:`)을 찍는다. 디바이스 팜 게임 명령 주소 · USB `adb forward` · PC(TCP) · USB iPhone(usbmuxd) 로 잇고, 길이 없는 게임은 게임이 relay 로 WebSocket 을 건다
 - **MCP** — `control-cli mcp`. AI 앱(Claude Desktop · Claude Code)이 띄우는 stdio MCP 서버로, 같은 명령을 도구로 내준다 — 셸 없는 AI 앱도 게임을 조작한다
@@ -19,6 +20,7 @@ Unity 게임을 자동화 테스트로 조작하는 SDK 와 CLI.
 | 입력 | 옛 Input · 새 Input System · 둘 다 | 옛 Input | Input System(Touchscreen · Mouse · Keyboard) |
 | 플랫폼 | Android(팜 · USB) · PC(Windows · macOS · Linux) · iOS(USB, 17+) · WebGL(브라우저 → relay) | Android · macOS · Linux(Docker) · WebGL(Chrome) | Windows · iOS (CLI 는 가짜 게임 · 가짜 usbmuxd 로 테스트) |
 | 드라이버 | Python · C# · Java · Robot Framework (TCP · relay) | Python · Java (macOS 앱 conform) | C# · Robot (CI 가짜 표준 화면) |
+| Godot | 4.5 이상 · Control UI · 3D 물리 · PC · 웹(relay) | 4.5.2 · 4.7.2 Linux(CI xvfb) · 4.7.2 macOS 앱 · 웹(Chrome) — conform 47/0/6 | Android · iOS(빌드 안 함) |
 
 「컴파일만 확인」은 `tools/unity-compile-check` 9개 구성과 CLI 테스트까지다 — 샘플 Unity 프로젝트(`sample/`)를 CI 가 판 · 입력 · 플랫폼마다 구워(`.github/workflows/sample.yml`, Unity 라이선스 Secret 필요) 실기기에서 돌려 봐야 「실기기로 확인」으로 옮긴다.
 못 가로채는 것 — 게임 코드가 `UnityEngine.Input` 을 전체 이름으로 부르는 곳 · DLL plugin 안의 입력. 디바이스 팜은 Android 만 받는다.
@@ -48,6 +50,23 @@ node /tmp/control_cli/dist/main.js instrument <Unity 프로젝트 폴더> --ref 
 
 가짜 `Input` 은 `UnityEngine.Input` 의 멤버를 다 감싼다(펜 · `mousePositionDelta` · `location` 은 빠짐 — `location` 은 적기만 해도 Android 에 위치 권한이 붙고 iOS 빌드가 위치 사용 문구를 요구해서다. 쓰는 게임은 `UnityEngine.Input.location` 으로 적는다). 터치만 가짜를 섞고(진짜 폰처럼 `simulateMouseWithTouches` 가 켜져 있으면 마우스 왼쪽 단추에도 비춘다) 나머지는 그대로 넘긴다. 새 Input System 을 쓰는 게임에는 같은 터치를 `Touchscreen` 장치 이벤트로 넣는다 — `InputSystemUIInputModule` · EnhancedTouch · `Touchscreen.current` 가 같이 본다. UI Toolkit 화면은 EventSystem 이 있으면 그 입력 모듈로 같은 터치가 닿고, 없으면(옛 Input) UI Toolkit 이 `UnityEngine.Input` 을 바로 읽어 SDK 가 panel 에 Pointer 이벤트를 보낸다. `touchSupported` 는 늘 `true` 다.
 알려진 한계 — `Assets/Plugins` 의 스크립트(Assembly-CSharp-firstpass)도 가짜 `Input` 을 보게 되어, 빠진 멤버를 쓰면 QA 빌드에서만 컴파일이 깨진다. 그런 게임이 오면 그 멤버를 더한다.
+
+## Godot 에 넣기 (QA 빌드만)
+
+Godot 4.5 이상 — 게임 로그를 받는 `Logger`(`OS.add_logger`)가 4.5 부터다. CI 가 4.5.2 · 4.7.2 로 표준 화면(`sample-godot/`) conform 을 돌린다(`.github/workflows/godot.yml`).
+
+```bash
+node /tmp/control_cli/dist/main.js instrument <Godot 프로젝트 폴더> [--relay <주소>]
+```
+
+1. `project.godot` 가 있으면 Godot 로 본다 — 이 CLI 에 실린 애드온(`sdk/godot/addons/control_cli`)을 `addons/control_cli` 에 새로 넣는다. CLI 판 = SDK 판이라 `--ref` 는 받지 않는다(다른 판은 그 판의 CLI 로)
+2. `[autoload]` 에 `ControlCli="*res://addons/control_cli/control_cli.gd"` 한 줄 — 켜지자마자 `127.0.0.1:13100` 을 연다(웹은 relay 만)
+3. `--relay <주소>` 를 주면 `[control_cli] relay="<주소>"` — 게임이 그 relay 로 건다. 웹은 페이지 주소 `?controlcli=ws://<relay>:13101` 이 먼저다(Unity WebGL 과 같음). 안 주면 지운다
+
+Release 빌드에서는 instrument 를 안 돌리면 된다. 에디터에서 손으로 넣을 때는 같은 폴더를 `addons/` 에 두고 「프로젝트 설정 → 플러그인」에서 control_cli 를 켠다(autoload 를 더한다).
+
+Unity 와 낱말이 다른 곳 — 주소는 노드 경로(Godot 는 같은 이름 형제가 없어 `[순번]` 이 거의 안 붙는다), 「꺼짐」은 `visible` 이 꺼진 노드, `@tag` 는 group, `@layer` 는 이름 붙인 렌더 · 물리 layer, `@component` 는 노드 클래스 줄기와 스크립트 `class_name`. 칸 주소는 `[클래스.]칸[.칸…]` — `Label.text` · `Node3D.position.y` · `TouchProbe.Say`(앞 낱말이 노드 클래스 · 스크립트 이름이면 뗀다). static 은 autoload · 엔진 싱글턴 · `class_name` 스크립트(`Engine.time_scale` · `TouchProbe.Add`). 저장 값은 `ConfigFile` — 프로젝트 설정 `control_cli/prefs_file`(기본 `user://prefs.cfg`), 키는 `구역/키`(구역이 없으면 `prefs`). 장면 이름은 `.tscn` 파일 이름.
+입력 — 손가락은 `InputEventScreenTouch` · `ScreenDrag`, 단추 · Control 은 Godot 의 「터치로 마우스 흉내」(`input_devices/pointing/emulate_mouse_from_touch`, 기본 켬)로 눌린다 — 끈 게임은 click 이 Control 에 안 닿는다. 키는 Unity KeyCode 이름(`LeftShift` · `Alpha1` · `JoystickButton0` …)과 Godot 키 이름을 다 받는다. 기울기 단위는 g(Godot `get_accelerometer` 는 m/s²로 받는다). `type` 은 입력칸에 초점을 주고 글자마다 키 이벤트를 넣어 `max_length` · `text_changed` 거르기가 사람이 칠 때 차례로 돈다.
 
 ## CLI
 
@@ -411,7 +430,8 @@ python3 tools/unity-compile-check/check.py 6000.0   # SDK · 샘플을 입력 �
 
 컴파일 검사는 Unity 라이선스 없이 PR 마다 돈다(`.github/workflows/sdk-compile.yml`). 로그의 `== <판> · <입력>` 줄에 SDK 에 켜진 정의(`CONTROL_CLI_TMP` · `CONTROL_CLI_INPUTSYSTEM` …)가 찍힌다.
 `sdk/unity/` 에 파일을 더하면 `.meta` 도 같이 넣는다 — git 으로 받은 UPM 패키지는 Unity 가 `.meta` 를 못 만든다(`src/sdk-meta.test.ts` 가 잡는다).
-명령을 더하거나 바꾸면 `protocol/commands.json` 과 Unity SDK 의 `Caps`(`sdk/unity/Runtime/ControlServer.cs`)를 같이 고친다 — `src/protocol.test.ts` 가 잡는다.
+명령을 더하거나 바꾸면 `protocol/commands.json` 과 Unity SDK 의 `Caps`(`sdk/unity/Runtime/ControlServer.cs`) · Godot SDK 의 `CAPS`(`sdk/godot/addons/control_cli/control_cli.gd`)를 같이 고친다 — `src/protocol.test.ts` 가 잡는다.
+Godot 은 이 맥에 깔지 않고 CI 가 받는다 — `godot.yml` 이 xvfb 위에서 표준 화면을 띄워 conform 하고, macOS 앱 · 웹을 결과물로 굽는다. 이 맥에서는 `gh run download <run> -n godot-sample-4.7.2` 로 받아 `open --pc --app <…>/control-cli-sample.app`, 웹은 `python3 -m http.server` 로 열고 `?controlcli=ws://127.0.0.1:13101` 뒤 `open --relay --game control-cli-sample`(늦추기를 끈 Chrome — 「루프 — relay」 WebGL 과 같은 명령).
 
 ## License
 
