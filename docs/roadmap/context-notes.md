@@ -226,3 +226,14 @@
 - 위험 셋 — ① IL2CPP `ClientWebSocket` 의 `wss` TLS: 6000.0 · Android 13 에서 됨(2021.3 · 2022.3 은 안 봄) ② Android cleartext 막기: Unity 소켓의 `ws://` 에 안 걸림(Android 13) ③ 일시정지: 홈 키로 5초 뒤로 보내도 WebSocket 은 안 끊긴다 — 그동안 명령은 게임 10초 한도로 「멈췄거나 일시정지」, 돌아오면 같은 연결로 바로 답하고 `events` 에 `game.paused` · `game.resumed`
 - 걸린 것 — 폰에 다른 서명의 옛 샘플 앱이 있어 `adb install -r` 이 `INSTALL_FAILED_UPDATE_INCOMPATIBLE` 로 거절됐는데 출력을 잘라 놓쳤다 → 옛 앱(SDK 0.8.0)이 돌아 relay 줄이 안 나왔다. CI APK 는 잡마다 서명 키가 달라 빌드를 바꿀 때마다 `adb uninstall` 이 먼저(자동 권한이 막아 사용자가 두 번 지웠다). 고칠 수 있는 것 — sample 빌드에 고정 디버그 keystore
 
+
+## 2026-11-13 — P3-B 설계 ([p3b-plan.md](p3b-plan.md))
+
+- 이어달리기 — 사용자 「남은 작업 이어서 진행하고 이어달리기로 … test_platform 의 방식으로」. 단계 하나(`### P3-B`) = 브랜치 하나 · PR 하나 · 세션 하나, 끝나면 이 세션이 병합하고 다음 단계(P3-C)를 `claude --bg` 로 띄운다. 설계는 사용자에게 묻지 않고 여기 적는다
+- jslib → C# 은 콜백 없이 **C# 이 매 프레임 꺼내 간다**(`ControlCliRelayNext`). `dynCall` 문법은 Unity 판(emscripten)마다 다르고, `MonoPInvokeCallback` 은 compile-check 의 참조에 없을 수 있고, `SendMessage` 는 jslib 안에서 보이는지가 판마다 흐리다. 꺼내 가기는 Unity 문서의 「string 돌려주기」 예(`_malloc` + `stringToUTF8`)만 쓴다. 처리가 늘 `Update` 차례 안에 들어 TCP 와 같은 순서를 지킨다
+- 답 기다리기 — TCP · 데스크톱 relay 의 `Ask` 는 스레드가 `Done` 을 막고 기다린다. WebGL 은 스레드가 없어 요청에 `Answer` 콜백을 달고(`ControlServer.Post`), `Update` 가 답을 정하는 두 곳을 `Finish` 하나로 모았다. 10초 규칙은 꺼낼 때 센다(10초 넘게 묵은 요청은 돌리지 않고 시간 초과). 답을 미룬 명령이 멈춘 경우는 relay 15초 504 + 번호 거르기에 맡긴다
+- 기기 id — `SystemInfo.deviceUniqueIdentifier` 대신 탭마다 하나(`sessionStorage`). 같은 브라우저의 탭 둘이 같은 key 면 relay 가 「같은 key 가 다시 붙으면 옛 연결을 닫는다」로 2초마다 서로를 밀어낸다
+- WebGL 에서도 `Relay.cs` 한 파일 — hello · 플랫폼 이름 · 구운 주소 읽기를 같이 쓰고, 스레드 쪽과 브라우저 쪽만 `#if` 로 가른다. 0.9.0 은 파일 전체가 `#if !UNITY_WEBGL` 이었다
+- jslib `.meta` 에 `defineConstraints: CONTROL_CLI` 를 걸지 않았다 — Release 빌드에서 jslib 가 빠지는데 C# 의 `DllImport` 도 빠지니 걸어도 되지만, `extraScriptingDefines` 로 켠 정의를 plugin 판정이 보는지 확인할 길이 CI 뿐이라 위험을 안 산다. 안 불리는 함수 몇 개라 Release 크기에 거의 안 든다
+- compile-check 에 `webgl` 구성(판마다 `UNITY_WEBGL` · 옛 Input, `UNITY_ANDROID` 를 뺌) — 이 맥 6000.0 네 구성 초록
+- sample WebGL — 6000.0 · 옛 Input 하나. 압축 끔(`python3 -m http.server` 로 열리게) · 캔버스 405×900(폰 · PC 와 같은 세로, 노트북 화면에 들게)
