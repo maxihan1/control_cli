@@ -88,7 +88,7 @@
 - [-] iOS 역방향(케이블 없는 iPhone → relay) 실측 — 안 함(iPhone 실측 못 함 · U7 과 같은 결정, 2026-11-11). 빌드 훅까지만
 
 ### P3-B. Unity WebGL
-- [ ] 설계 · 구현 계획 — 브라우저 WebSocket 으로 P3-A relay 에, 페이지 주소 `?controlcli=<주소>` 가 먼저
+- [x] 설계 · 구현 계획 — [p3b-plan.md](p3b-plan.md). 브라우저 WebSocket(jslib) 으로 P3-A relay 에, 페이지 주소 `?controlcli=<주소>` 가 먼저 · C# 이 매 프레임 받은 줄을 꺼내 간다 · SDK 0.10.0
 - [ ] Unity WebGL 샘플 · 이 맥 브라우저에서 `conform`
 
 ### P3-C. Linux
