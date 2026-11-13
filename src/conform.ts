@@ -11,6 +11,8 @@ interface Step {
   label: string;
   /** 게임 밖 길 — conform 을 부른 쪽이 주지 않으면 미실행 */
   needs?: keyof ConformHooks;
+  /** 이 UI 갈래가 있는 표준 화면에서만(Unity TMP · UI Toolkit) — 없는 엔진은 미실행 */
+  ui?: Ui;
   run: (game: Game, hooks: ConformHooks) => Promise<void>;
 }
 
@@ -32,14 +34,101 @@ function same(what: string, got: unknown, want: unknown): void {
   if (JSON.stringify(got) !== JSON.stringify(want)) throw new Error(`${what}: ${JSON.stringify(got)} — 기대 ${JSON.stringify(want)}`);
 }
 
-const typed = (target: string, want: string): Step => ({
+type Ui = 'tmp' | 'uitk';
+const UI_NAME: Record<Ui, string> = { tmp: 'TMP', uitk: 'UI Toolkit' };
+
+/** 표준 화면 낱말 — 엔진마다 같은 화면 · 같은 반응이지만 이름 꼴이 다르다(docs/roadmap/p6-plan.md 「conform 엔진 표」). ping 의 engine 으로 고른다 */
+export interface Sample {
+  engine: string;
+  /** tree 뿌리에 있어야 하는 것 */
+  roots: string[];
+  /** / 로 시작하는 경로로 찾을 것 */
+  deep: string;
+  /** 이 엔진 표준 화면에 있는 UI 갈래 */
+  ui: Ui[];
+  /** Bag 의 k 번째 칸(넷을 돈다) · Item 경로에서 칸 번호 · 칸 넷을 찾는 선택자 · 마지막 칸 */
+  slot: (k: number) => string;
+  slotOf: RegExp;
+  slots: string;
+  lastSlot: string;
+  /** 글자 · 자리 칸 주소, ScrollList 위치(맨 위 1 · 맨 아래 0) 칸 */
+  text: string;
+  position: string;
+  listPos: string;
+  /** 단추 글자로 찾기 — 선택자 · 그 경로 · 부모 경로 */
+  byText: [string, string, string];
+  loginButtons: string[];
+  /** find-at · rect 를 볼 것 */
+  pointed: string[];
+  textSet: string[];
+  /** TouchProbe 의 static 타입 이름 · components 의 type · Output 칸 타입 · Say 인자 타입 */
+  probe: string;
+  probeType: string;
+  outputType: string;
+  sayArgs: string[];
+  /** Second 장면 SecondScroll 의 세로 스크롤 양 */
+  secondScroll: (g: Game) => Promise<number>;
+}
+
+export const UNITY: Sample = {
+  engine: 'unity',
+  roots: ['SampleCanvas', 'UitkDocument'],
+  deep: '/UitkDocument/UitkPanel/UitkIdInput',
+  ui: ['tmp', 'uitk'],
+  slot: (k) => `/SampleCanvas/Bag/Slot[${k % 4}]`,
+  slotOf: /\/Bag\/Slot\[(\d)\]\/Item$/,
+  slots: '//Bag/Slot',
+  lastSlot: '//Bag/Slot[-1]',
+  text: 'Text.text',
+  position: 'Transform.position',
+  listPos: 'ScrollRect.verticalNormalizedPosition',
+  byText: ['//*[@text=UITK Login]', '/UitkDocument/UitkPanel/UitkLoginButton', '/UitkDocument/UitkPanel'],
+  loginButtons: ['/SampleCanvas/LoginButton', '/SampleCanvas/TmpLoginButton', '/UitkDocument/UitkPanel/UitkLoginButton'],
+  pointed: ['LoginButton', 'UitkLoginButton', 'WorldCube'],
+  textSet: ['StatusText', 'TmpStatusText', 'UitkStatusText'],
+  probe: 'Sample.TouchProbe',
+  probeType: 'Sample.TouchProbe',
+  outputType: 'Text',
+  sayArgs: ['String', 'Int32'],
+  secondScroll: async (g) => ((await g.get('SecondScroll', 'scrollOffset')) as number[] | null)?.[1] ?? 0,
+};
+
+// Godot 는 같은 이름 형제를 못 둬 Bag 칸이 Slot0~3 이다. 칸 주소는 [클래스.]칸 — Label.text · Node3D.position(sample-godot/).
+export const GODOT: Sample = {
+  engine: 'godot',
+  roots: ['SampleCanvas', 'WorldCube'],
+  deep: '/SampleCanvas/IdInput',
+  ui: [],
+  slot: (k) => `/SampleCanvas/Bag/Slot${k % 4}`,
+  slotOf: /\/Bag\/Slot(\d)\/Item$/,
+  slots: '//Bag/*',
+  lastSlot: '//Bag/*[-1]',
+  text: 'Label.text',
+  position: 'Node3D.position',
+  listPos: 'vertical_normalized',
+  byText: ['//*[@text=Login]', '/SampleCanvas/LoginButton', '/SampleCanvas'],
+  loginButtons: ['/SampleCanvas/LoginButton'],
+  pointed: ['LoginButton', 'WorldCube'],
+  textSet: ['StatusText'],
+  probe: 'TouchProbe',
+  probeType: 'res://touch_probe.gd',
+  outputType: 'Label',
+  sayArgs: ['String', 'int'],
+  secondScroll: async (g) => (await g.get('SecondScroll', 'scroll_vertical')) as number,
+};
+
+const SAMPLES: Record<string, Sample> = { unity: UNITY, godot: GODOT };
+
+const typed = (target: string, want: string, ui?: Ui): Step => ({
+  ui,
   cmds: ['type'],
   label: `type ${target} 'qa_user01!' → ${want}`,
   run: async (g) => same(target, await g.type(target, 'qa_user01!'), want),
 });
 
 // 상태 글자가 누르기 전과 달라지고 이 글자가 들어 있어야 통과 — 다시 돌려 앞 판 글자가 남아 있어도 이번 누르기를 본다(샘플은 누를 때마다 번호가 늘거나 글자가 바뀐다).
-const pressed = (cmd: 'click' | 'key', target: string, status: string, text: string): Step => ({
+const pressed = (cmd: 'click' | 'key', target: string, status: string, text: string, ui?: Ui): Step => ({
+  ui,
   cmds: [cmd, 'find'],
   label: `${cmd} ${target} → ${status} 에 「${text}」`,
   run: async (g) => {
@@ -71,14 +160,13 @@ const textOf = (g: Game, target: string) => async () => (await g.find(target))?.
 const part = (text: string, name: string) => text.split(' · ').find((p) => p.startsWith(`${name} `))?.slice(name.length + 1);
 const shows = (g: Game, target: string, name: string, value: string) => poll(`${target} 의 ${name} — 기대 ${value}`, textOf(g, target), (t) => part(t, name) === value);
 // Item 이 든 칸 번호 — 끌기 줄은 늘 다른 칸으로 옮겨 다시 돌려도 움직임을 본다
-async function slotOf(g: Game): Promise<number> {
+async function slotOf(g: Game, s: Sample): Promise<number> {
   const path = (await g.find('Item'))?.path ?? '없음';
-  const k = Number(/\/Bag\/Slot\[(\d)\]\/Item$/.exec(path)?.[1]);
+  const k = Number(s.slotOf.exec(path)?.[1]);
   if (!Number.isInteger(k)) throw new Error(`Item 자리: ${path}`);
   return k;
 }
-const slot = (k: number) => `/SampleCanvas/Bag/Slot[${k % 4}]`;
-const listPos = (g: Game) => async () => (await g.get('ScrollList', 'ScrollRect.verticalNormalizedPosition')) as number;
+const listPos = (g: Game, s: Sample) => async () => (await g.get('ScrollList', s.listPos)) as number;
 // 눌러 둔 채 실패하면 다음 줄이 갇힌다 — 끝에 거둔다.
 const released = (run: (g: Game) => Promise<void>) => async (g: Game) => {
   try {
@@ -88,29 +176,29 @@ const released = (run: (g: Game) => Promise<void>) => async (g: Game) => {
   }
 };
 
-// 표준 화면 — Unity 는 sample/Assets/Sample. 다른 엔진 샘플도 같은 이름 · 같은 반응을 만든다.
-export const STEPS: Step[] = [
+// 표준 화면 — Unity 는 sample/Assets/Sample, Godot 는 sample-godot. 엔진마다 같은 이름 · 같은 반응을 만들고 이름 꼴은 s(Sample)에서.
+const stepsFor = (s: Sample): Step[] => [
   {
     cmds: ['tree'],
-    label: 'tree 뿌리에 SampleCanvas · UitkDocument',
+    label: `tree 뿌리에 ${s.roots.join(' · ')}`,
     run: async (g) => {
       const roots = (await g.tree()).tree.map((n) => n.name);
-      same('없는 뿌리', ['SampleCanvas', 'UitkDocument'].filter((n) => !roots.includes(n)), []);
+      same('없는 뿌리', s.roots.filter((n) => !roots.includes(n)), []);
     },
   },
-  { cmds: ['find'], label: 'find /UitkDocument/UitkPanel/UitkIdInput', run: async (g) => same('찾음', (await g.find('/UitkDocument/UitkPanel/UitkIdInput')) !== null, true) },
+  { cmds: ['find'], label: `find ${s.deep}`, run: async (g) => same('찾음', (await g.find(s.deep)) !== null, true) },
   typed('IdInput', 'qauser01'),
-  typed('TmpIdInput', 'qauser01'),
-  typed('UitkIdInput', 'qa_user0'),
+  typed('TmpIdInput', 'qauser01', 'tmp'),
+  typed('UitkIdInput', 'qa_user0', 'uitk'),
   pressed('click', 'LoginButton', 'StatusText', 'login qauser01'),
-  pressed('click', 'TmpLoginButton', 'TmpStatusText', 'tmp login qauser01'),
-  pressed('click', 'UitkLoginButton', 'UitkStatusText', 'uitk login qa_user0'),
+  pressed('click', 'TmpLoginButton', 'TmpStatusText', 'tmp login qauser01', 'tmp'),
+  pressed('click', 'UitkLoginButton', 'UitkStatusText', 'uitk login qa_user0', 'uitk'),
   {
     cmds: ['drag', 'find'],
     label: 'drag Item → 다른 칸',
     run: async (g) => {
-      // 처음엔 Slot[0] → Slot[3]. 다시 돌려 이미 Slot[3] 에 있으면 Slot[2] 로 — 옮겨졌는지를 본다.
-      const to = `/SampleCanvas/Bag/Slot[${(await g.find('/SampleCanvas/Bag/Slot[3]/Item')) ? 2 : 3}]`;
+      // 처음엔 0 번 칸 → 3 번 칸. 다시 돌려 이미 3 번 칸에 있으면 2 번 칸으로 — 옮겨졌는지를 본다.
+      const to = s.slot((await g.find(`${s.slot(3)}/Item`)) ? 2 : 3);
       await g.drag('Item', to);
       same(`${to}/Item 있음`, (await g.find(`${to}/Item`)) !== null, true);
     },
@@ -119,9 +207,9 @@ export const STEPS: Step[] = [
   pressed('key', 'I', 'TouchText', 'key I'),
   {
     cmds: ['get'],
-    label: 'get WorldCube Transform.position → 숫자 셋',
+    label: `get WorldCube ${s.position} → 숫자 셋`,
     run: async (g) => {
-      const v = await g.get('WorldCube', 'Transform.position');
+      const v = await g.get('WorldCube', s.position);
       if (!(Array.isArray(v) && v.length === 3 && v.every((n) => typeof n === 'number'))) throw new Error(`값 ${JSON.stringify(v)} — 숫자 셋이어야 합니다`);
     },
   },
@@ -139,25 +227,25 @@ export const STEPS: Step[] = [
   },
   {
     cmds: ['set', 'get', 'find'],
-    label: 'A set StatusText Text.text · WorldCube Transform.position.y 를 바꿨다 되돌린다',
+    label: `A set StatusText ${s.text} · WorldCube ${s.position}.y 를 바꿨다 되돌린다`,
     run: async (g) => {
-      same('StatusText', await g.set('StatusText', 'Text.text', 'set by conform'), 'set by conform');
+      same('StatusText', await g.set('StatusText', s.text, 'set by conform'), 'set by conform');
       same('StatusText 글자', (await g.find('StatusText'))?.text, 'set by conform');
       // 값 타입 칸(Vector3.y)을 바꾸면 SDK 가 position 에 다시 써 넣어야 큐브가 움직인다.
-      const p = (await g.get('WorldCube', 'Transform.position')) as number[];
-      same('position.y', await g.set('WorldCube', 'Transform.position.y', String(p[1] + 0.5)), p[1] + 0.5);
-      same('position', await g.get('WorldCube', 'Transform.position'), [p[0], p[1] + 0.5, p[2]]);
-      same('되돌림', await g.set('WorldCube', 'Transform.position', JSON.stringify(p)), p);
+      const p = (await g.get('WorldCube', s.position)) as number[];
+      same('position.y', await g.set('WorldCube', `${s.position}.y`, String(p[1] + 0.5)), p[1] + 0.5);
+      same('position', await g.get('WorldCube', s.position), [p[0], p[1] + 0.5, p[2]]);
+      same('되돌림', await g.set('WorldCube', s.position, JSON.stringify(p)), p);
     },
   },
   {
     cmds: ['static-call', 'static-get', 'static-set'],
-    label: 'A static-call Sample.TouchProbe.Add 2 3 → 5 · static-set/get Sample.TouchProbe.Note',
+    label: `A static-call ${s.probe}.Add 2 3 → 5 · static-set/get ${s.probe}.Note`,
     run: async (g) => {
-      same('Add', await g.callStatic('Sample.TouchProbe.Add', [2, 3]), 5);
+      same('Add', await g.callStatic(`${s.probe}.Add`, [2, 3]), 5);
       const note = `note ${Date.now()}`;
-      same('static-set', await g.setStatic('Sample.TouchProbe.Note', note), note);
-      same('static-get', await g.getStatic('Sample.TouchProbe.Note'), note);
+      same('static-set', await g.setStatic(`${s.probe}.Note`, note), note);
+      same('static-get', await g.getStatic(`${s.probe}.Note`), note);
     },
   },
   {
@@ -190,10 +278,10 @@ export const STEPS: Step[] = [
   // B — 찾기 · 설정(P2-B). 표준 화면의 WorldCube(태그 Player · 레이어 Water) · SideCamera(꺼진 Camera) · HiddenText(꺼짐) · Second 의 SecondSaved(장면에 저장).
   {
     cmds: ['find-all', 'find'],
-    label: 'B find-all //Bag/Slot → 넷 · //Bag/Slot[-1] → Slot[3]',
+    label: `B find-all ${s.slots} → 넷 · ${s.lastSlot} → ${s.slot(3)}`,
     run: async (g) => {
-      same('Slot', (await g.findAll('//Bag/Slot')).map((f) => f.path), [0, 1, 2, 3].map((i) => `/SampleCanvas/Bag/Slot[${i}]`));
-      same('마지막', (await g.find('//Bag/Slot[-1]'))?.path, '/SampleCanvas/Bag/Slot[3]');
+      same('Slot', (await g.findAll(s.slots)).map((f) => f.path), [0, 1, 2, 3].map(s.slot));
+      same('마지막', (await g.find(s.lastSlot))?.path, s.slot(3));
     },
   },
   {
@@ -204,24 +292,24 @@ export const STEPS: Step[] = [
       same('layer', (await g.find('//*[@layer=Water]'))?.path, '/WorldCube');
       same('tag + layer', (await g.findAll('//*[@tag=Player][@layer=Water]')).length, 1);
       same('component', (await g.find('//*[@component=TouchProbe]'))?.path, '/SampleCanvas');
-      same('text', (await g.find('//*[@text=UITK Login]'))?.path, '/UitkDocument/UitkPanel/UitkLoginButton');
-      same('contains', (await g.findAll('//*[contains(@name,LoginButton)]')).map((f) => f.path).sort(), ['/SampleCanvas/LoginButton', '/SampleCanvas/TmpLoginButton', '/UitkDocument/UitkPanel/UitkLoginButton']);
+      same('text', (await g.find(s.byText[0]))?.path, s.byText[1]);
+      same('contains', (await g.findAll('//*[contains(@name,LoginButton)]')).map((f) => f.path).sort(), s.loginButtons);
     },
   },
   {
     cmds: ['find'],
-    label: 'B //*[@text=UITK Login]/.. → UitkPanel · parent Item → Bag/Slot',
+    label: `B ${s.byText[0]}/.. → ${s.byText[2]} · parent Item → Bag 칸`,
     run: async (g) => {
-      same('..', (await g.find('//*[@text=UITK Login]/..'))?.path, '/UitkDocument/UitkPanel');
+      same('..', (await g.find(`${s.byText[0]}/..`))?.path, s.byText[2]);
       const p = (await g.parent('Item'))?.path ?? '';
-      if (!/^\/SampleCanvas\/Bag\/Slot\[\d\]$/.test(p)) throw new Error(`Item 의 부모 ${JSON.stringify(p)} — /SampleCanvas/Bag/Slot[n] 이어야 합니다`);
+      if (!s.slotOf.test(`${p}/Item`)) throw new Error(`Item 의 부모 ${JSON.stringify(p)} — ${s.slot(0)} 꼴이어야 합니다`);
     },
   },
   {
     cmds: ['find', 'find-at'],
     label: 'B find 의 x,y 로 find-at → 같은 것 · camera SideCamera 는 다른 x',
     run: async (g) => {
-      for (const name of ['LoginButton', 'UitkLoginButton', 'WorldCube']) {
+      for (const name of s.pointed) {
         const f = (await g.find(name))!;
         const at = (await g.findAt(f.x!, f.y!))?.path ?? '';
         // 버튼 속 글자가 맞을 수 있다 — 그 버튼이거나 그 아래면 된다.
@@ -235,9 +323,9 @@ export const STEPS: Step[] = [
   },
   {
     cmds: ['find', 'rect'],
-    label: 'find 의 rect 가 x,y 를 품는다 — uGUI · UI Toolkit · 월드 오브젝트',
+    label: `find 의 rect 가 x,y 를 품는다 — ${s.pointed.join(' · ')}`,
     run: async (g) => {
-      for (const name of ['LoginButton', 'UitkLoginButton', 'WorldCube']) {
+      for (const name of s.pointed) {
         const f = (await g.find(name))!;
         const [x, y, w, h] = f.rect ?? [0, 0, 0, 0];
         if (!(w > 0 && h > 0 && f.x! >= x && f.x! <= x + w && f.y! >= y && f.y! <= y + h && f.screen?.length === 2))
@@ -252,7 +340,7 @@ export const STEPS: Step[] = [
       same('켜진 것만', await g.find('HiddenText'), null);
       const f = await g.find('HiddenText', { inactive: true });
       same('inactive', [f?.active, f?.text], [false, 'hidden']);
-      same('get', await g.get('HiddenText', 'Text.text', { inactive: true }), 'hidden');
+      same('get', await g.get('HiddenText', s.text, { inactive: true }), 'hidden');
     },
   },
   {
@@ -273,16 +361,17 @@ export const STEPS: Step[] = [
   },
   {
     cmds: ['components', 'members'],
-    label: 'B components SampleCanvas · members TouchProbe → Output · Say(String, Int32)',
+    label: `B components SampleCanvas · members TouchProbe → Output · Say(${s.sayArgs.join(', ')})`,
     run: async (g) => {
       const c = await g.components('SampleCanvas');
-      same('TouchProbe', c.some((x) => x.name === 'TouchProbe' && x.type === 'Sample.TouchProbe'), true);
+      same('TouchProbe', c.some((x) => x.name === 'TouchProbe' && x.type === s.probeType), true);
       const m = await g.members('SampleCanvas', 'TouchProbe');
-      same('Output', m.fields.some((f) => f.name === 'Output' && f.type === 'Text'), true);
-      same('Say', m.methods.some((x) => x.name === 'Say' && JSON.stringify(x.args) === '["String","Int32"]' && x.returns === 'String'), true);
+      same('Output', m.fields.some((f) => f.name === 'Output' && f.type === s.outputType), true);
+      same('Say', m.methods.some((x) => x.name === 'Say' && JSON.stringify(x.args) === JSON.stringify(s.sayArgs) && x.returns === 'String'), true);
     },
   },
   {
+    ui: 'uitk',
     cmds: ['get'],
     label: 'B UI Toolkit get UitkLoginButton text · UitkPanel layout.height · wait-prop',
     run: async (g) => {
@@ -294,13 +383,13 @@ export const STEPS: Step[] = [
   },
   {
     cmds: ['text-set', 'find', 'get'],
-    label: 'B text-set StatusText · TmpStatusText · UitkStatusText · 입력칸은 type 으로',
+    label: `B text-set ${s.textSet.join(' · ')} · 입력칸은 type 으로`,
     run: async (g) => {
-      for (const name of ['StatusText', 'TmpStatusText', 'UitkStatusText']) {
+      for (const name of s.textSet) {
         same(name, await g.setText(name, 'text-set ok'), 'text-set ok');
         same(`${name} 글자`, (await g.find(name))?.text, 'text-set ok');
       }
-      await g.waitForProp('StatusText', 'Text.text', 'text-set ok', { timeoutMs: CONFORM.waitMs });
+      await g.waitForProp('StatusText', s.text, 'text-set ok', { timeoutMs: CONFORM.waitMs });
       const refused = await g.setText('IdInput', 'x').then(() => '', (e: unknown) => (e instanceof Error ? e.message : String(e)));
       if (!refused.includes('type')) throw new Error(`IdInput text-set — 「type 으로 넣습니다」 실패여야 합니다 (받은 것 ${JSON.stringify(refused)})`);
     },
@@ -339,7 +428,7 @@ export const STEPS: Step[] = [
     cmds: ['touch-down', 'touch-move', 'touch-up', 'input-reset', 'find'],
     label: 'C touch-down Item · touch-move 다음 칸 · touch-up → Item 이 그 칸',
     run: released(async (g) => {
-      const to = slot((await slotOf(g)) + 1);
+      const to = s.slot((await slotOf(g, s)) + 1);
       const f = await g.touchDown('Item');
       await g.touchMove(f, to);
       await g.touchUp(f);
@@ -350,11 +439,11 @@ export const STEPS: Step[] = [
     cmds: ['drag', 'find', 'touch-down'],
     label: 'C drag Item via 다음 칸 → 그다음 칸 · duration 만큼 걸림',
     run: async (g) => {
-      const k = await slotOf(g);
+      const k = await slotOf(g, s);
       const t0 = Date.now();
-      await g.drag('Item', slot(k + 2), { via: [slot(k + 1)], duration: CONFORM.dragS });
+      await g.drag('Item', s.slot(k + 2), { via: [s.slot(k + 1)], duration: CONFORM.dragS });
       same('걸린 초가 duration 이상', (Date.now() - t0) / 1000 >= CONFORM.dragS, true);
-      same(`${slot(k + 2)}/Item 있음`, (await g.find(`${slot(k + 2)}/Item`)) !== null, true);
+      same(`${s.slot(k + 2)}/Item 있음`, (await g.find(`${s.slot(k + 2)}/Item`)) !== null, true);
     },
   },
   {
@@ -363,12 +452,12 @@ export const STEPS: Step[] = [
     run: async (g) => {
       const list = await g.find('ScrollList');
       if (list?.x === undefined || list.y === undefined) throw new Error(`ScrollList 자리: ${JSON.stringify(list)}`);
-      const before = await listPos(g)();
+      const before = await listPos(g, s)();
       // 위로 밀면 아래 것이 올라와 위치가 준다 — 이미 아래쪽이면 아래로 민다.
       const up = before > 0.5 ? 1 : -1;
       // 누른 자리가 끌 대상이라 가운데에서 시작한다 — 목록은 140 높이라 가운데 ± 150 은 밖이다.
       await g.swipe([{ x: list.x, y: list.y }, { x: list.x, y: list.y + 150 * up }], { duration: 0.3 });
-      await poll(`ScrollList 위치 — 기대 ${up > 0 ? '줄어듦' : '늚'}(앞 ${before})`, listPos(g), (v) => (up > 0 ? v < before : v > before));
+      await poll(`ScrollList 위치 — 기대 ${up > 0 ? '줄어듦' : '늚'}(앞 ${before})`, listPos(g, s), (v) => (up > 0 ? v < before : v > before));
     },
   },
   {
@@ -410,10 +499,10 @@ export const STEPS: Step[] = [
     cmds: ['scroll', 'get', 'touch-down'],
     label: 'C scroll ScrollList → 위치가 바뀜',
     run: async (g) => {
-      const before = await listPos(g)();
+      const before = await listPos(g, s)();
       const dy = before > 0.5 ? -10 : 10;
       await g.scroll(dy, { at: 'ScrollList' });
-      await poll(`ScrollList 위치 — 기대 ${dy < 0 ? '줄어듦' : '늚'}(앞 ${before})`, listPos(g), (v) => (dy < 0 ? v < before : v > before));
+      await poll(`ScrollList 위치 — 기대 ${dy < 0 ? '줄어듦' : '늚'}(앞 ${before})`, listPos(g, s), (v) => (dy < 0 ? v < before : v > before));
     },
   },
   {
@@ -513,7 +602,7 @@ export const STEPS: Step[] = [
         await g.mouseMove('SecondButton');
         await poll('SecondText — 기대 「enter」', textOf(g, 'SecondText'), (t) => t === 'enter');
         await g.scroll(-10, { at: 'SecondScroll' });
-        await poll('SecondScroll 의 scrollOffset y — 기대 0 보다 큼', async () => (await g.get('SecondScroll', 'scrollOffset')) as number[], (v) => Array.isArray(v) && v[1] > 0);
+        await poll('SecondScroll 의 세로 스크롤 — 기대 0 보다 큼', () => s.secondScroll(g), (v) => v > 0);
       } finally {
         await g.resetInput().catch(() => undefined);
         await g.loadScene('Sample');
@@ -535,11 +624,11 @@ export const STEPS: Step[] = [
   },
   {
     cmds: ['logs', 'static-call'],
-    label: `D 로그 — static-call Sample.TouchProbe.Log 'conform-<n> token=<x×48>' → Log 「conform-<n> token=***」`,
+    label: `D 로그 — static-call ${s.probe}.Log 'conform-<n> token=<x×48>' → Log 「conform-<n> token=***」`,
     run: async (g) => {
       const from = (await g.logs()).last;
       const n = Date.now();
-      await g.callStatic('Sample.TouchProbe.Log', [`conform-${n} token=${'x'.repeat(48)}`]);
+      await g.callStatic(`${s.probe}.Log`, [`conform-${n} token=${'x'.repeat(48)}`]);
       const got = (await g.logs(from)).logs.filter((l) => l.message.startsWith(`conform-${n}`)).map((l) => `${l.type} ${l.message}`);
       same('로그', got, [`Log conform-${n} token=***`]);
     },
@@ -581,10 +670,13 @@ export const STEPS: Step[] = [
 export async function conform(game: Game, hooks: ConformHooks = {}): Promise<ConformResult> {
   const ping = await game.ping();
   const r: ConformResult = { ping, lines: [], passed: 0, failed: 0, skipped: 0 };
-  for (const step of STEPS) {
+  // 옛 SDK(engine 없음)는 Unity 다. 모르는 엔진도 Unity 낱말로 본다 — 틀린 줄은 실패로 드러난다.
+  const s = SAMPLES[ping.engine ?? 'unity'] ?? UNITY;
+  for (const step of stepsFor(s)) {
     // caps 는 ping 이 꼴을 보고 game 에 적은 것 — 옛 SDK(caps 없음)는 다 보낸다.
     const missing = step.cmds.filter((c) => game.caps && !game.caps.includes(c));
-    const why = missing.length ? `이 SDK 의 caps 에 ${missing.join(' · ')} 없음` : step.needs && !hooks[step.needs] ? '앱을 뒤로 보낼 길 없음: PC · iPhone · Appium 없는 USB' : undefined;
+    const why = step.ui && !s.ui.includes(step.ui) ? `${s.engine} 표준 화면에 없음(${UI_NAME[step.ui]})`
+      : missing.length ? `이 SDK 의 caps 에 ${missing.join(' · ')} 없음` : step.needs && !hooks[step.needs] ? '앱을 뒤로 보낼 길 없음: PC · iPhone · Appium 없는 USB' : undefined;
     if (why) {
       r.skipped++;
       r.lines.push(`- ${step.label} (미실행 — ${why})`);
