@@ -98,6 +98,13 @@ jobs:
             input: 0
             inputsystem: ''
             target: iOS
+          # WebGL(P3-B) — 브라우저 WebSocket 으로 relay 에 붙는다. 이 맥에서 정적 서버로 열고 ?controlcli= 로 실측.
+          - unity: 6000.0.84f1
+            ugui: 2.0.0
+            tmp: ''
+            input: 0
+            inputsystem: ''
+            target: WebGL
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
