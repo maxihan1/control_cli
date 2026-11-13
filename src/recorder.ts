@@ -35,7 +35,7 @@ export function steps(v: unknown): Step[] {
   return list.map((s: Record<string, unknown>, i) => {
     const ok =
       s?.do === 'click' ? str(s.target)
-      : s?.do === 'type' ? str(s.target) && (str(s.text) || (str(s.secret) && /^\w+$/.test(s.secret as string)))
+      : s?.do === 'type' ? str(s.target) && (str(s.text) || (str(s.secret) && /^SECRET_\w+$/.test(s.secret as string)))
       : s?.do === 'key' ? str(s.key)
       : s?.check === 'text' ? str(s.target) && str(s.contains)
       : s?.check === 'prop' ? str(s.target) && str(s.prop) && 'equals' in s
