@@ -94,7 +94,7 @@
 - [x] Unity WebGL 샘플 · 이 맥 브라우저에서 `conform` — sample run 43365234863 의 WebGL(6000.0 · 옛 Input) 을 이 맥 Chrome 157 에서 「통과 52 · 실패 0 · 미실행 1」(일시정지 — PC 와 같음), 고친 판 run 43376280037(fb87e43)도 52/0/1. 늦추기를 끈 Chrome 을 따로 띄워서(context-notes 「P3-B 실기기」)
 
 ### P3-C. Linux
-- [x] 설계 · 구현 계획 — [p3c-plan.md](p3c-plan.md). SDK · CLI 는 그대로(PC 길), sample 에 `StandaloneLinux64` 잡
+- [x] 설계 · 구현 계획 — [p3c-plan.md](p3c-plan.md). SDK · CLI 는 그대로(PC 길), sample 에 `StandaloneLinux64` 잡. PR sample run 43387721549 11개 잡 초록(a4f15de)
 - [x] Linux 샘플 빌드 · `conform` — sample run 43387721549(IL2CPP · a4f15de)을 이 맥 Docker `linux/amd64` 컨테이너(Xvfb · Mesa llvmpipe)에서 CLI 와 함께 돌려 「통과 52 · 실패 0 · 미실행 1」(일시정지 — PC 와 같음) 두 번. 첫 Mono 판(run 43381678078)은 Rosetta 위 Mono JIT 가 죽어 IL2CPP 로 바꿨다(context-notes 「P3-C 실기기」)
 
 ## P4. 드라이버
