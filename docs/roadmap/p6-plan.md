@@ -52,4 +52,4 @@ CI godot.yml    Godot 4.5 · 최신 판으로 xvfb 위에서 샘플을 띄워 co
 
 - CI `godot` 잡 — Godot 4.5 · 최신 판에서 샘플 conform 실패 0(미실행은 위 「맞출 수 없는 칸」만)
 - 이 맥 — CI 의 macOS 앱을 `open --pc --app` 으로 conform 실패 0
-- 웹 · Android 는 다음 칸(체크리스트)
+- 웹 · Android 도 같은 PR 에서 — 이 맥 Chrome(relay) · RF9R408GKRR(USB) 47/0/6
