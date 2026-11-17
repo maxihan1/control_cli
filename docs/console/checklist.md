@@ -31,7 +31,7 @@
 - [x] README(입력 설명 · 지원 표) · `docs/unity/context-notes.md` 12행 결정 고치기 · CLI 0.15.0 · SDK 0.12.0
 
 ## C2. Windows 에서 도는 CLI
-- [ ] 설계 · 구현 계획 — `c2-plan.md`
+- [x] 설계 · 구현 계획 — `c2-plan.md`
 - [ ] `launch()` — `windowsHide` · 작업 폴더 · 끝의 `\` · relay 띄우기 `windowsHide` · `launch` · `stop` 을 라이브러리로 내보내기
 - [ ] 테스트를 Windows 에서 돌거나 건너뛰게 — `cli.test.ts`(가짜 앱 · usbmuxd) · `drivers.test.ts`
 - [ ] `.gitattributes`
