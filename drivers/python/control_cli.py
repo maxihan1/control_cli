@@ -143,7 +143,7 @@ class Game:
     def key(self, key, *, duration=None, power=None):
         """키 누르기 — duration 동안(기본 한 프레임) 누르고 뗀다. A+LeftShift 처럼 + 로 여럿을 함께
 
-        key: KeyCode 이름 — Escape · Space · Return · I · Alpha1 · Mouse0 · JoystickButton0, 여럿은 A+LeftShift
+        key: KeyCode 이름 — Escape · Space · Return · I · Alpha1 · Mouse0 · JoystickButton0, 여럿은 A+LeftShift. Pad.<이름> 은 지금 가상 패드의 글자(Pad.Cross · Pad.A · Pad.Up · Pad.LX) — 그 패드에 없는 이름은 거절한다
         duration: 누르고 있는 초(0~8, 기본 0 — 한 프레임)
         power: 세기 -1~1(기본 1) — GetAxis 값 · JoystickButton16~19 는 스틱 값
         """
@@ -426,6 +426,13 @@ class Game:
         """가짜 입력을 다 거둔다 — 눌러 둔 손가락 · 키 · 가짜 마우스 · 기울기
         """
         return self.send('input-reset')
+
+    def pad(self, *, type=None):
+        """가상 패드 종류 — type 을 주면 앞 가상 패드를 없애고 그 콘솔 패드의 layout 으로 새로 만든다. 없으면 지금 패드와 붙은 패드 장치 목록만 답한다(Input System 게임만)
+
+        type: xbox · ps5 · ps4 · switch · generic(종류 없는 패드) · off(가상 패드 없음) — xbox · ps5 · ps4 · switch · generic · off
+        """
+        return self.send('pad', {'type': type})
 
     def logs(self, *, since=None):
         """게임 로그 전부(Log · Warning · Error · Assert · Exception, 최근 500개) — 40자 넘는 영숫자 토막(토큰)은 ***
