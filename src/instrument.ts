@@ -8,7 +8,8 @@ export const INPUT_ASSEMBLY = 'ControlCli.Input';
 // CLI 에 실린 Unity SDK — npm 패키지 files 에 sdk/unity 가 든다. --ref 가 없으면 이것을 프로젝트의 Packages/ 에 넣는다(Godot 와 같은 길).
 export const UNITY_SDK = join(import.meta.dirname, '..', 'sdk', 'unity');
 export const UNITY_SDK_VERSION = (JSON.parse(readFileSync(join(UNITY_SDK, 'package.json'), 'utf8')) as { version: string }).version;
-export const EMBEDDED = join('Packages', PACKAGE);
+// 폴더 이름은 패키지 이름과 달라도 된다(Unity 는 안의 package.json 으로 알아본다) — 개발사에는 QA Hub 라는 이름만 보인다.
+export const EMBEDDED = join('Packages', 'QAHubSDK');
 
 // 저장소는 package.json 의 repository 에서 읽는다 — 개발사에 파일로 넘기는 tarball(tools/handoff.mjs)은 그 칸을 지워 저장소를 모른다.
 const REPOSITORY = (JSON.parse(readFileSync(join(import.meta.dirname, '..', 'package.json'), 'utf8')) as { repository?: string }).repository;
@@ -128,7 +129,7 @@ export function instrument(project: string, ref: string | undefined, relayAddres
         writes.push([path, JSON.stringify(asmdef, null, 4) + '\n']);
         asmdefs.push(relative(project, path));
       } else if (f.endsWith('.cs') && shadowsFakeInput(readFileSync(path, 'utf8'))) {
-        warnings.push(`${relative(project, path)} — 이 파일에서는 터치 입력이 전달되지 않습니다. using UnityEngine;을 파일 최상단으로 옮기거나 코드를 namespace UnityEngine 밖으로 옮기십시오.`);
+        warnings.push(`${relative(project, path)} — 이 파일에서는 터치 입력이 들어가지 않습니다. using UnityEngine;을 파일 맨 위로 옮기거나, 코드를 namespace UnityEngine 밖으로 빼세요.`);
       }
     }
   }

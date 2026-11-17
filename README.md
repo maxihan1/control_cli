@@ -30,7 +30,7 @@ Unity · Godot 게임을 자동화 테스트로 조작하는 SDK 와 CLI.
 
 Unity 2021.3 LTS 이상 — 2021.3 · 2022.3 · 6000.0 에서 컴파일을 검사한다(`tools/unity-compile-check`).
 
-게임 저장소에는 SDK 를 넣지 않는다. QA 빌드 잡에서 Unity 를 켜기 전에 한 번 돌린다. 다른 개발사에는 저장소 대신 파일 둘을 넘긴다 — 안내 한 장([docs/sdk-integration.md](docs/sdk-integration.md))과 `npm run handoff` 가 만든 `control-cli.zip`. zip 에는 README · 테스트 · 주석 · 저장소 주소가 없고(`tools/handoff.mjs` 가 남은 주소를 잡는다), 받은 쪽은 풀어서 `node control-cli/dist/main.js instrument <폴더>` 로 돌린다.
+게임 저장소에는 SDK 를 넣지 않는다. QA 빌드 잡에서 Unity 를 켜기 전에 한 번 돌린다. 다른 개발사에는 저장소 대신 파일 둘을 넘긴다 — 안내 한 장([docs/sdk-integration.md](docs/sdk-integration.md))과 `npm run handoff` 가 만든 `QAhub.zip`. 개발사에는 QA Hub 라는 이름만 쓰고 Unity 만 받는다 — zip 에는 README · 테스트 · 주석 · 저장소 주소 · Godot SDK 가 없고(`tools/handoff.mjs` 가 남은 주소를 잡는다), 받은 쪽은 풀어서 `node QAhub/dist/main.js instrument <폴더>` 로 돌린다.
 
 ```bash
 git clone -q https://github.com/maxihan1/control_cli.git /tmp/control_cli
@@ -41,7 +41,7 @@ node /tmp/control_cli/dist/main.js instrument <Unity 프로젝트 폴더> --ref 
 
 `npx github:maxihan1/control_cli` 는 쓰지 않는다 — npm 10 이 git 패키지를 npx 로 받을 때 「GitFetcher requires an Arborist constructor」로 멈춘다(GitHub Actions 에서 확인).
 
-1. `--ref` 를 주면 `Packages/manifest.json` 에 SDK 패키지를 그 tag · 커밋의 git 주소로 고정해 더한다. 안 주면 이 CLI 에 실린 SDK(`sdk/unity`)를 `Packages/com.maxihan1.control-cli` 에 넣는다 — Unity 가 저장소에서 받지 않고, CLI 판과 SDK 가 늘 맞는다(Godot 와 같은 길). 두 길을 바꿔 돌리면 앞 길이 남긴 것(manifest 줄 · 넣은 폴더)을 치운다
+1. `--ref` 를 주면 `Packages/manifest.json` 에 SDK 패키지를 그 tag · 커밋의 git 주소로 고정해 더한다. 안 주면 이 CLI 에 실린 SDK(`sdk/unity`)를 `Packages/QAHubSDK` 에 넣는다(폴더 이름만 다르고 패키지 이름은 `com.maxihan1.control-cli` 그대로) — Unity 가 저장소에서 받지 않고, CLI 판과 SDK 가 늘 맞는다(Godot 와 같은 길). 두 길을 바꿔 돌리면 앞 길이 남긴 것(manifest 줄 · 넣은 폴더)을 치운다
 2. `Assets/` · `Packages/`(내장 패키지) 아래 asmdef 의 `references` 에 `ControlCli.Input` 을 더한다 — 에디터 전용 · `noEngineReferences` 는 건너뛴다. asmdef 없는 스크립트(Assembly-CSharp)는 자동으로 참조한다
 3. `namespace` 안에 `using UnityEngine;` 을 둔 파일 · `namespace UnityEngine.*` 안의 파일은 `UnityEngine.Input` 이 먼저 잡혀 가짜 터치를 못 본다 — 경고로 알려 준다
 4. 깨진 asmdef 가 있으면 파일 이름을 알리고 아무것도 바꾸지 않는다
