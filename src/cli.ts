@@ -212,13 +212,13 @@ export async function run(argv: string[], o: Options): Promise<string> {
     }
     const { asmdefs, warnings, define } = instrument(folders[0], values.ref, gameAddress);
     return [
-      values.ref ? `SDK(${values.ref}) 를 Packages/manifest.json 에 더했습니다` : `SDK(${UNITY_SDK_VERSION}) 를 ${EMBEDDED} 에 넣었습니다`,
+      values.ref ? `SDK(${values.ref})를 Packages/manifest.json에 추가했습니다` : `SDK(${UNITY_SDK_VERSION})를 ${EMBEDDED}에 추가했습니다`,
       ...(gameAddress ? [`relay 주소를 구웠습니다 — 게임이 ${gameAddress} 로 겁니다`] : []),
-      ...asmdefs.map((a) => `asmdef 참조 더함: ${a}`),
+      ...asmdefs.map((a) => `asmdef 참조 추가: ${a}`),
       ...warnings.map((w) => `경고: ${w}`),
       define
-        ? `정의 심볼 CONTROL_CLI 를 ${SETTINGS_FILE} 에 더했습니다 — 이대로 빌드하면 SDK 가 들어갑니다. 이 파일들은 커밋하지 않습니다`
-        : `${SETTINGS_FILE} 을 고치지 못했습니다(없거나 글자 꼴이 아님) — QA 빌드 정의 심볼에 CONTROL_CLI 를 직접 더해야 SDK 가 빌드에 들어갑니다`,
+        ? `Scripting Define Symbols에 CONTROL_CLI를 추가했습니다(${SETTINGS_FILE}). 이대로 빌드하면 SDK가 포함됩니다. 변경된 파일은 커밋하지 마십시오.`
+        : `${SETTINGS_FILE} 파일을 수정하지 못했습니다(파일이 없거나 텍스트 형식이 아님). 빌드 스크립트에서 CONTROL_CLI를 직접 추가해야 SDK가 빌드에 포함됩니다.`,
     ].join('\n');
   }
 

@@ -128,7 +128,7 @@ export function instrument(project: string, ref: string | undefined, relayAddres
         writes.push([path, JSON.stringify(asmdef, null, 4) + '\n']);
         asmdefs.push(relative(project, path));
       } else if (f.endsWith('.cs') && shadowsFakeInput(readFileSync(path, 'utf8'))) {
-        warnings.push(`${relative(project, path)} — UnityEngine.Input 이 먼저 잡혀 가짜 터치를 못 봅니다. using UnityEngine; 을 파일 맨 위로 옮기거나 namespace UnityEngine 밖으로 빼세요`);
+        warnings.push(`${relative(project, path)} — 이 파일에서는 터치 입력이 전달되지 않습니다. using UnityEngine;을 파일 최상단으로 옮기거나 코드를 namespace UnityEngine 밖으로 옮기십시오.`);
       }
     }
   }

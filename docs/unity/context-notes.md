@@ -155,3 +155,10 @@
 - 실측 — zip 의 CLI 로 instrument → Unity 6000.3.10f1 macOS 빌드. `packages-lock.json` 에 `"source": "embedded"`, `Managed/` 에 SDK DLL 셋, zip 의 CLI 로 `open --pc --app` → conform 「통과 52 · 실패 0 · 미실행 1」
 - 남는 것 — 패키지 id `com.maxihan1.control-cli` · LICENSE · Godot `plugin.cfg` 의 `maxihan1`, SDK C# · GDScript 주석의 내부 낱말(`test_platform kit` · `Issue Bunker`). 저장소가 public 인 한 이 이름으로 찾을 수 있다 — 숨기려면 저장소를 private 으로(사용자 결정 · 하면 `npm i github:…` 과 Unity `--ref` 길이 인증을 요구한다)
 
+## 2026-11-17 — 개발사 가이드 문체 · Unity 만 (사용자 「워딩이 개판 · NHN Cloud 가이드 보고 다시 · 유니티만 지원」)
+
+- 개발사 가이드(`docs/sdk-integration.md` · 같은 내용의 artifact · PDF)는 이 저장소의 말투(조사 띄어 쓰기 · 「넘길 것」 · 「걸릴 수 있는 곳」 · 「가짜」)를 쓰지 않는다 — NHN Cloud 빠른 시작 가이드(docs.nhncloud.com/ko/quickstarts)를 따른다. 합니다체, 조사를 붙여 쓴다(`SDK를`), 「시작하기 전에」 → 「단계 N. ~하기」 → 「알아두기」 · 「주의」 상자, Unity 낱말은 Unity 것 그대로(Scripting Define Symbols · Input Manager · TextMesh Pro)
+- 개발사가 화면에서 보는 instrument 의 Unity 출력 · 경고 문구도 같은 문체로 고쳤다(`…에 추가했습니다` · `수정하지 못했습니다` · `터치 입력이 전달되지 않습니다`). 다른 명령의 출력은 그대로다
+- 개발사에는 Unity 만 받는다 — 가이드에서 Godot 절을 빼고 `control-cli.zip` 에 `sdk/godot` 을 싣지 않는다. 이 저장소의 Godot SDK · CI 는 그대로 둔다(뺄지는 사용자가 정한다)
+- 가이드 끝의 판 · 문의 문구는 뺀다(사용자)
+
