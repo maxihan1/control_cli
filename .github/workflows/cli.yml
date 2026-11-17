@@ -1,0 +1,27 @@
+# CLI 테스트 전체(npm test)를 Linux · Windows 에서 돈다 — CLI 가 Windows 에서 도는지의 기록(가짜 게임 · 가짜 팜)
+name: cli
+
+on:
+  pull_request:
+    paths: ['src/**', 'protocol/**', 'drivers/**', 'sdk/**', 'package.json', 'package-lock.json', 'tsconfig.json', '.gitattributes', '.github/workflows/cli.yml']
+  push:
+    branches: [main]
+    paths: ['src/**', 'protocol/**', 'drivers/**', 'sdk/**', 'package.json', 'package-lock.json', 'tsconfig.json', '.gitattributes', '.github/workflows/cli.yml']
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - run: npm ci
+      # 드라이버 시험은 runner 에 있는 언어 도구로 돈다 — C# 다리는 첫 dotnet run 이 빌드까지 해 먼저 굽는다(drivers 잡과 같다).
+      - run: dotnet build drivers/csharp
+      - run: npm test

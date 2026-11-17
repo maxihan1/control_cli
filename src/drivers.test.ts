@@ -20,7 +20,8 @@ Object.assign(WAIT, { intervalMs: 5 });
 Object.assign(CONFORM, { waitMs: 200, holdS: 0.1, dragS: 0, keyS: 0 });
 
 const ROOT = join(import.meta.dirname, '..');
-const has = (tool: string) => spawnSync('sh', ['-c', `command -v ${tool}`]).status === 0;
+// Windows 에는 sh 가 없다 — where 가 같은 일을 한다.
+const has = (tool: string) => (process.platform === 'win32' ? spawnSync('where', [tool]) : spawnSync('sh', ['-c', `command -v ${tool}`])).status === 0;
 
 test('드라이버 파일의 생성 칸이 protocol/commands.json 과 같다 — 다르면 npm run drivers', () => {
   for (const d of drivers()) assert.equal(d.now, d.want, `${d.file} 가 commands.json 과 다릅니다 — npm run drivers`);
