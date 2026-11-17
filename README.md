@@ -30,7 +30,7 @@ Unity · Godot 게임을 자동화 테스트로 조작하는 SDK 와 CLI.
 
 Unity 2021.3 LTS 이상 — 2021.3 · 2022.3 · 6000.0 에서 컴파일을 검사한다(`tools/unity-compile-check`).
 
-게임 저장소에는 SDK 를 넣지 않는다. QA 빌드 잡에서 Unity 를 켜기 전에 한 번 돌린다.
+게임 저장소에는 SDK 를 넣지 않는다. QA 빌드 잡에서 Unity 를 켜기 전에 한 번 돌린다. 다른 개발사에 넘기는 안내 한 장은 [docs/sdk-integration.md](docs/sdk-integration.md).
 
 ```bash
 git clone -q https://github.com/maxihan1/control_cli.git /tmp/control_cli
@@ -72,7 +72,7 @@ Unity 와 낱말이 다른 곳 — 주소는 노드 경로(Godot 는 같은 이�
 ## CLI
 
 ```bash
-npm i -D github:maxihan1/control_cli#v0.8.0
+npm i -D github:maxihan1/control_cli#v0.13.0
 npx control-cli help
 ```
 
@@ -304,7 +304,7 @@ npx control-cli crawl --max 30 --minutes 5 --exclude '/설정|settings/i' --excl
 `control-cli mcp` 는 stdio MCP 서버다 — 따로 띄워 두는 프로그램이 아니라 AI 앱이 이 명령을 실행해 붙는다.
 
 ```bash
-npm i -g github:maxihan1/control_cli#v0.9.0      # control-cli 를 PATH 에
+npm i -g github:maxihan1/control_cli#v0.13.0     # control-cli 를 PATH 에
 claude mcp add control-cli -- control-cli mcp     # Claude Code
 ```
 
@@ -464,6 +464,7 @@ python3 tools/unity-compile-check/check.py 6000.0   # SDK · 샘플을 입력 �
 컴파일 검사는 Unity 라이선스 없이 PR 마다 돈다(`.github/workflows/sdk-compile.yml`). 로그의 `== <판> · <입력>` 줄에 SDK 에 켜진 정의(`CONTROL_CLI_TMP` · `CONTROL_CLI_INPUTSYSTEM` …)가 찍힌다.
 `sdk/unity/` 에 파일을 더하면 `.meta` 도 같이 넣는다 — git 으로 받은 UPM 패키지는 Unity 가 `.meta` 를 못 만든다(`src/sdk-meta.test.ts` 가 잡는다).
 명령을 더하거나 바꾸면 `protocol/commands.json` 과 Unity SDK 의 `Caps`(`sdk/unity/Runtime/ControlServer.cs`) · Godot SDK 의 `CAPS`(`sdk/godot/addons/control_cli/control_cli.gd`)를 같이 고친다 — `src/protocol.test.ts` 가 잡는다.
+판을 올리면 README · `docs/sdk-integration.md` 의 설치 예시 tag 도 같이 올린다 — `src/docs-tag.test.ts` 가 잡는다.
 Godot 은 이 맥에 깔지 않고 CI 가 받는다 — `godot.yml` 이 xvfb 위에서 표준 화면을 띄워 conform 하고, macOS 앱 · 웹을 결과물로 굽는다. 이 맥에서는 `gh run download <run> -n godot-sample-4.7.2` 로 받아 `open --pc --app <…>/control-cli-sample.app`, 웹은 `python3 -m http.server` 로 열고 `?controlcli=ws://127.0.0.1:13101` 뒤 `open --relay --game control-cli-sample`(늦추기를 끈 Chrome — 「루프 — relay」 WebGL 과 같은 명령).
 
 ## License

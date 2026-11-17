@@ -124,3 +124,11 @@
 - 346a64c run 의 iOS 잡도 같은 LocationService 로 빨강 — location 을 뺀 3e98be8 전 커밋이라 예상대로
 - 세 고침 확인(run 41618229974 · d645827) — 7개 초록(iOS 포함). APK 권한은 `INTERNET` 만(6000.0 · 2021.3). 팜에서 6000.0 · 2021.3 APK 모두 uGUI `qauser01` · `login qauser01 1` 까지 전 단계 통과. 폰을 놓았다 다시 잡아도 전체 화면 안내 창은 다시 안 떴다(팜 정리가 그 기억을 안 지운다)
 - **macOS 게임이 디스플레이가 꺼지면 멈춘다** — 새 PC 빌드(run 41619067888)를 `open --pc --app` 하니 세로 창(「화면 540×1200」)으로 떠 첫 화면은 읽었으나 그 뒤 모든 명령이 「멈췄거나 일시정지」. `sample <pid>` 로 main thread 를 뜨니 `ExecutePlayerLoop` → `TimeUpdateWaitForLastPresentation…` → `GfxDeviceMetal::WaitForLastPresentationAndGetTimestamp` 의 세마포어에서 서 있다 — Metal 이 직전 프레임을 화면에 못 내보냈다. `pmset -g log` 에 19:43(로컬) 「Display is turned off」, 세로 창이 됐던 시험은 19:23. 아까 됐던 옛 빌드(전체 화면)도 지금은 같은 자리에서 멈춰 창 모양 탓이 아니다. App Nap 을 끄는 `-NSAppSleepDisabled YES` 로는 안 풀린다(가설 버림). README PC 절에 「화면은 켜져 있어야 한다」를 적었다. ponytail: CLI 가 PC 세션 동안 `caffeinate -d` 로 디스플레이를 켜 둘 수도 있다 — 화면 없는 맥에서 돌릴 일이 생기면 더한다
+
+## 2026-11-17 — 다른 개발사 게임에 SDK 붙이기 (사용자 결정)
+
+- 흐름 — 개발사는 SDK 를 붙인 QA 빌드만 넘기고, 테스트 작성 · 실행은 사용자가 한다(사용자). 그래서 개발사용 안내(`docs/sdk-integration.md`)는 `instrument` · `CONTROL_CLI` · 시작 로그 확인 · 넘길 것까지만 적고 팜 · relay · 케이스 작성은 뺐다
+- 배포는 GitHub tag 그대로 — 저장소가 public · MIT 라 막는 것이 없다. npm 의 `control-cli` 이름은 다른 사람 패키지라 올리려면 scope 이름이 필요하다. 한 줄 설치를 바라는 개발사가 생기면 그때 한다
+- 안내의 세 줄(`git clone --depth 1 --branch v0.13.0` → `npm ci` → `instrument <폴더>`)은 빈 폴더에서 `sample/` 복사본에 돌려 확인했다 — `--ref` 없이 `v0.13.0` 으로 고정된다
+- SDK `package.json` 판(0.10.0)이 CLI 판(0.13.0)과 다른 것은 그대로 둔다 — SDK 는 SDK 가 바뀔 때만 올린다(사용자 「걱정 안 해도 돼」 — 「비전」을 판 번호로 읽은 것은 내 해석)
+- README 의 설치 예시 tag 가 `v0.8.0` · `v0.9.0` 으로 두 번 낡아 있었다 — `src/docs-tag.test.ts` 가 README · 안내의 예시 tag 를 `package.json` 판과 견준다
