@@ -388,6 +388,17 @@ test('instrument 는 --ref 가 없으면 이 CLI 판 tag 로 SDK 를 고정한�
   assert.ok((await readFile(join(root, 'Packages', 'manifest.json'), 'utf8')).includes(`?path=/sdk/unity#v${version}"`));
 });
 
+test('instrument 는 CONTROL_CLI 를 썼는지 · 못 썼는지를 마지막 줄에 알린다', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'instrument-cli-'));
+  await mkdir(join(root, 'Packages'));
+  await mkdir(join(root, 'Assets'));
+  await mkdir(join(root, 'ProjectSettings'));
+  await writeFile(join(root, 'Packages', 'manifest.json'), JSON.stringify({ dependencies: {} }));
+  assert.match(await cli('instrument', root), /고치지 못했습니다.*CONTROL_CLI 를 직접 더해야/);
+  await writeFile(join(root, 'ProjectSettings', 'ProjectSettings.asset'), 'PlayerSettings:\n  scriptingDefineSymbols: {}\n');
+  assert.match(await cli('instrument', root), /정의 심볼 CONTROL_CLI 를 .* 에 더했습니다/);
+});
+
 test('relay 로 연 게임은 conform 이 일시정지 줄(Appium 없음) 말고 모두 통과하고, 다시 붙어도 같은 세션으로 간다', async () => {
   const r = relay();
   await new Promise<void>((ok) => r.listen(0, '127.0.0.1', ok));

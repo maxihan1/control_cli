@@ -10,7 +10,7 @@ const ROOT = join(import.meta.dirname, '..');
 for (const file of ['README.md', join('docs', 'sdk-integration.md')]) {
   test(`${file} 의 설치 예시 tag 는 v${VERSION} 이다`, () => {
     const text = readFileSync(join(ROOT, file), 'utf8');
-    const tags = [...text.matchAll(/(?:control_cli#|--branch |SDK\()(v\d+\.\d+\.\d+)/g)].map((m) => m[1]);
+    const tags = [...text.matchAll(/(?:control_cli#|releases\/download\/|SDK\()(v\d+\.\d+\.\d+)/g)].map((m) => m[1]);
     assert.ok(tags.length > 0, '설치 예시를 못 찾았습니다');
     assert.deepEqual(tags.filter((t) => t !== `v${VERSION}`), [], `v${VERSION} 로 고칩니다`);
   });

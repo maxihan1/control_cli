@@ -1,4 +1,4 @@
-// QA 빌드 직전에 Unity 프로젝트에 SDK 패키지와 asmdef 참조를, Godot 프로젝트에 애드온과 autoload 를 더한다 — 게임 저장소에는 SDK 를 넣지 않고 빌드 잡에서만
+// QA 빌드 직전에 Unity 프로젝트에 SDK 패키지 · asmdef 참조 · 정의 심볼 CONTROL_CLI 를, Godot 프로젝트에 애드온과 autoload 를 더한다 — 게임 저장소에는 SDK 를 넣지 않고 빌드 잡에서만
 import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 
@@ -46,6 +46,34 @@ export function shadowsFakeInput(source: string): boolean {
 export interface InstrumentResult {
   asmdefs: string[];
   warnings: string[];
+  // CONTROL_CLI 를 ProjectSettings.asset 에 썼는지 — false 면 QA 빌드 스크립트가 직접 더해야 한다.
+  define: boolean;
+}
+
+export const DEFINE = 'CONTROL_CLI';
+export const SETTINGS_FILE = join('ProjectSettings', 'ProjectSettings.asset');
+// SDK 가 받는 플랫폼 — 정의 심볼이 하나도 없는 플랫폼은 줄이 없어 새로 더한다.
+const DEFINE_PLATFORMS = ['Android', 'iPhone', 'Standalone', 'WebGL'];
+
+// PlayerSettings 의 정의 심볼에 CONTROL_CLI 를 더한다 — Unity 2021.2 부터 플랫폼 이름마다 한 줄(`    Android: A;B`), 없으면 `{}`.
+// 못 알아보는 꼴(이진 직렬화 · git LFS 포인터 · 옛 판의 숫자 키)은 undefined — 틀리게 고치느니 손으로 더하라고 알린다.
+export function addDefine(settings: string): string | undefined {
+  const eol = settings.includes('\r\n') ? '\r\n' : '\n';
+  const lines = settings.split(eol);
+  const head = lines.findIndex((l) => /^  scriptingDefineSymbols:\s*(\{\})?$/.test(l));
+  if (head < 0) return undefined;
+  let end = head + 1;
+  while (end < lines.length && lines[end].startsWith('    ')) end++;
+  const symbols = new Map<string, string[]>();
+  for (const line of lines.slice(head + 1, end)) {
+    const m = /^    ([^:]+):\s*(.*)$/.exec(line);
+    if (!m || /^\d+$/.test(m[1])) return undefined;
+    symbols.set(m[1], m[2].split(';').filter(Boolean));
+  }
+  for (const platform of DEFINE_PLATFORMS) if (!symbols.has(platform)) symbols.set(platform, []);
+  const block = [...symbols].map(([platform, list]) => `    ${platform}: ${(list.includes(DEFINE) ? list : [...list, DEFINE]).join(';')}`);
+  lines.splice(head, end - head, '  scriptingDefineSymbols:', ...block);
+  return lines.join(eol);
 }
 
 // Visual Studio · Rider 가 붙이는 BOM 은 JSON.parse 가 못 읽는다.
@@ -80,13 +108,16 @@ export function instrument(project: string, ref: string, relayAddress?: string):
       }
     }
   }
+  const settingsPath = join(project, SETTINGS_FILE);
+  const settings = existsSync(settingsPath) ? addDefine(readFileSync(settingsPath, 'utf8')) : undefined;
+  if (settings !== undefined) writes.push([settingsPath, settings]);
   for (const [path, text] of writes) writeFileSync(path, text);
   const relayPath = join(project, RELAY_FILE);
   if (relayAddress) {
     mkdirSync(dirname(relayPath), { recursive: true });
     writeFileSync(relayPath, relayAddress + '\n');
   } else if (existsSync(relayPath)) rmSync(relayPath);
-  return { asmdefs, warnings };
+  return { asmdefs, warnings, define: settings !== undefined };
 }
 
 // ── Godot ──────────────────────────────────────────────

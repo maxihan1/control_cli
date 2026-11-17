@@ -3,7 +3,7 @@
 QA 빌드에 control_cli SDK 를 넣어 빌드 파일을 넘기는 안내다. 테스트 작성과 실행은 빌드를 받은 쪽이 한다.
 
 - **게임 코드는 고치지 않는다.** SDK 는 게임이 켜질 때 스스로 시작한다. 초기화 호출도, 장면에 놓을 prefab 도 없다
-- **QA 빌드에만 들어간다.** define symbol `CONTROL_CLI` 가 없는 빌드(Release)에는 SDK 코드가 컴파일되지 않는다
+- **QA 빌드에만 들어간다.** define symbol(빌드에 특정 코드를 넣을지 정하는 스위치) `CONTROL_CLI` 가 없는 빌드(Release)에는 SDK 코드가 컴파일되지 않는다
 - **기기 안에서만 연다.** SDK 는 `127.0.0.1:13100` 만 열어 기기 밖에서 바로 붙을 수 없다
 
 ## 준비
@@ -11,41 +11,45 @@ QA 빌드에 control_cli SDK 를 넣어 빌드 파일을 넘기는 안내다. �
 | 무엇 | 조건 |
 |---|---|
 | Unity | 2021.3 LTS 이상 (2021.3 · 2022.3 · 6000.0) |
-| Node.js | 22 이상 — SDK 를 넣는 도구를 돌린다 |
+| Node.js | 22 이상 — SDK 를 넣는 도구를 `npx` 로 돌린다 |
 | git | 빌드 기계에서 `github.com` 에 닿아야 한다 — Unity 가 SDK 패키지를 git 주소로 받는다 |
 
 Godot 게임은 맨 아래 「Godot」 절을 본다.
 
 ## 1. SDK 넣기
 
-Unity 를 켜기 전에 한 번 돌린다.
+Unity 를 켜기 전에 프로젝트 폴더에 한 번 돌린다. 이 한 줄이 연동의 전부다.
 
 ```bash
-git clone -q --depth 1 --branch v0.13.0 https://github.com/maxihan1/control_cli.git /tmp/control_cli
-npm --prefix /tmp/control_cli ci
-node /tmp/control_cli/dist/main.js instrument <Unity 프로젝트 폴더>
+npx -y https://github.com/maxihan1/control_cli/releases/download/v0.14.0/control-cli.tgz instrument <Unity 프로젝트 폴더>
 ```
 
 이렇게 나오면 됐다.
 
 ```
-SDK(v0.13.0) 를 Packages/manifest.json 에 더했습니다
+SDK(v0.14.0) 를 Packages/manifest.json 에 더했습니다
 asmdef 참조 더함: Assets/…/Game.asmdef
-QA 빌드 정의 심볼에 CONTROL_CLI 가 있어야 SDK 가 빌드에 들어갑니다
+정의 심볼 CONTROL_CLI 를 ProjectSettings/ProjectSettings.asset 에 더했습니다 — 이대로 빌드하면 SDK 가 들어갑니다. 이 파일들은 커밋하지 않습니다
 ```
 
-이 명령이 바꾸는 파일은 두 가지다.
+이 명령이 바꾸는 파일은 세 가지다.
 
 - `Packages/manifest.json` — SDK 패키지 `com.maxihan1.control-cli` 한 줄을 더한다
 - `Assets/` · `Packages/` 아래 게임 asmdef — `references` 에 `ControlCli.Input` 을 더한다(에디터 전용 asmdef 는 건너뛴다)
+- `ProjectSettings/ProjectSettings.asset` — define symbol 에 `CONTROL_CLI` 를 더한다
 
-**바뀐 파일은 게임 저장소에 커밋하지 않는다.** CI 가 있으면 QA 빌드 잡에서만 이 세 줄을 돌리고, 손으로 빌드하면 빌드 뒤에 되돌린다(Unity 가 고친 `Packages/packages-lock.json` 도 같이).
+**바뀐 파일은 게임 저장소에 커밋하지 않는다 — 커밋하면 Release 빌드에도 SDK 가 들어간다.** CI 가 있으면 QA 빌드 잡에서만 이 한 줄을 돌리고, 손으로 빌드하면 빌드 뒤에 되돌린다(Unity 가 고친 `Packages/packages-lock.json` 도 같이).
 
 `경고:` 줄이 나오면 그 파일에서는 터치가 안 먹는다. 아래 「걸릴 수 있는 곳」의 1번을 본다.
 
-## 2. QA 빌드에 `CONTROL_CLI` 켜기
+## 2. 평소대로 QA 빌드
 
-빌드 스크립트가 있으면 한 줄을 더한다.
+빌드 스크립트도, 에디터 설정도 고칠 것이 없다. 평소 하던 대로 빌드한다. Release 빌드는 1번을 돌리지 않으면 된다.
+
+다음 두 경우에만 `CONTROL_CLI` 를 직접 더한다.
+
+- 1번의 마지막 줄이 `…고치지 못했습니다` 일 때 — `ProjectSettings.asset` 이 글자 꼴이 아니다(이진 직렬화 · git LFS 를 받지 않은 포인터 파일)
+- 빌드 스크립트가 define symbol 을 통째로 바꿔 쓸 때(`PlayerSettings.SetScriptingDefineSymbols`) — 1번이 넣은 값이 지워진다
 
 ```csharp
 var options = new BuildPlayerOptions
@@ -55,10 +59,6 @@ var options = new BuildPlayerOptions
 };
 BuildPipeline.BuildPlayer(options);
 ```
-
-에디터에서 손으로 빌드하면 Edit → Project Settings → Player → Other Settings → Scripting Define Symbols 에 `CONTROL_CLI` 를 더한다. 이 값도 커밋하지 않는다.
-
-Release 빌드는 아무것도 하지 않으면 된다.
 
 ## 3. 들어갔는지 확인
 
@@ -76,14 +76,15 @@ Release 빌드는 아무것도 하지 않으면 된다.
 | iOS | Xcode 콘솔 |
 | WebGL | 브라우저 콘솔 — 포트를 못 열어 `[ControlCli] relay …` 줄이 대신 나온다 |
 
-이 줄이 없으면 `CONTROL_CLI` 가 빠진 빌드다.
+이 줄이 없으면 `CONTROL_CLI` 가 빠진 빌드다. 2번의 두 경우를 본다.
 
 명령까지 보내 보려면(선택) 같은 도구로 붙는다. `ping` 이 게임 이름과 SDK 버전을 답하면 된다.
 
 ```bash
-node /tmp/control_cli/dist/main.js open --usb      # Android — USB 로 이은 폰에서 켜 둔 게임. PC 빌드는 --pc
-node /tmp/control_cli/dist/main.js ping
-node /tmp/control_cli/dist/main.js close
+CLI=https://github.com/maxihan1/control_cli/releases/download/v0.14.0/control-cli.tgz
+npx -y $CLI open --usb      # Android — USB 로 이은 폰에서 켜 둔 게임. PC 빌드는 --pc
+npx -y $CLI ping
+npx -y $CLI close
 ```
 
 ## 4. 넘길 것
@@ -109,21 +110,29 @@ SDK 는 빌드 때 `Input` 을 이름이 같은 가짜로 바꿔 터치를 넣�
 
 ## 확인된 범위
 
+Unity 2021.3 LTS 이상을 받는다. 2020.3 이하는 받지 않는다.
+
+| Unity | 무엇으로 확인했나 |
+|---|---|
+| 2021.3 · 2022.3 | 바뀔 때마다 컴파일 검사 · 샘플 Android 빌드를 실기기에서 |
+| 6000.0 | 바뀔 때마다 컴파일 검사 · 실제 게임(Android)과 샘플(macOS · Linux · WebGL)을 실기기에서 |
+| 6000.3 | 샘플 macOS 빌드를 실기기에서(6000.3.10f1) |
+| 2023.1 · 2023.2 · 6000.1 · 6000.2 | 확인한 적 없다 — 양옆 버전이 되므로 될 것으로 보지만 처음 붙일 때 문제가 나올 수 있다 |
+
 | 무엇 | 실기기로 확인 | 컴파일만 확인 |
 |---|---|---|
-| Unity | 6000.0 | 2021.3 · 2022.3 |
 | UI | uGUI | TextMeshPro · UI Toolkit |
 | 입력 | 옛 Input | Input System |
 | 플랫폼 | Android · macOS · Linux · WebGL(Chrome) | Windows · iOS |
 
-「컴파일만 확인」 칸의 게임은 처음 붙일 때 문제가 나올 수 있다. 4번 「넘길 것」의 게임 정보로 미리 가른다.
+「확인한 적 없다」 · 「컴파일만 확인」에 드는 게임은 4번 「넘길 것」의 게임 정보로 미리 가른다.
 
 ## Godot
 
 Godot 4.5 이상. 같은 도구가 `project.godot` 를 보고 Godot 로 알아본다.
 
 ```bash
-node /tmp/control_cli/dist/main.js instrument <Godot 프로젝트 폴더>
+npx -y https://github.com/maxihan1/control_cli/releases/download/v0.14.0/control-cli.tgz instrument <Godot 프로젝트 폴더>
 ```
 
 `addons/control_cli` 에 애드온을 넣고 `project.godot` 의 `[autoload]` 에 한 줄을 더한다. define symbol 은 없다 — Release 빌드에서는 이 명령을 돌리지 않으면 된다. 바뀐 파일은 Unity 와 같이 커밋하지 않는다.

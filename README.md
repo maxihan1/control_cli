@@ -15,7 +15,7 @@ Unity · Godot 게임을 자동화 테스트로 조작하는 SDK 와 CLI.
 
 | 무엇 | 받는 것 | 실기기로 확인 | 컴파일만 확인 |
 |---|---|---|---|
-| Unity 판 | 2021.3 · 2022.3 · 6000.0 | 6000.0 (Ashveil) | 2021.3 · 2022.3 |
+| Unity 판 | 2021.3 · 2022.3 · 6000.0 | 6000.0 (Ashveil) · 6000.3 (샘플 macOS — conform 52/0/1) | 2021.3 · 2022.3 |
 | UI | uGUI · TextMeshPro · UI Toolkit(UIDocument) | uGUI | TMP · UI Toolkit (`layout` 은 uGUI 만) |
 | 입력 | 옛 Input · 새 Input System · 둘 다 | 옛 Input | Input System(Touchscreen · Mouse · Keyboard) |
 | 플랫폼 | Android(팜 · USB) · PC(Windows · macOS · Linux) · iOS(USB, 17+) · WebGL(브라우저 → relay) | Android · macOS · Linux(Docker) · WebGL(Chrome) | Windows · iOS (CLI 는 가짜 게임 · 가짜 usbmuxd 로 테스트) |
@@ -33,6 +33,12 @@ Unity 2021.3 LTS 이상 — 2021.3 · 2022.3 · 6000.0 에서 컴파일을 검�
 게임 저장소에는 SDK 를 넣지 않는다. QA 빌드 잡에서 Unity 를 켜기 전에 한 번 돌린다. 다른 개발사에 넘기는 안내 한 장은 [docs/sdk-integration.md](docs/sdk-integration.md).
 
 ```bash
+npx -y https://github.com/maxihan1/control_cli/releases/download/v0.14.0/control-cli.tgz instrument <Unity 프로젝트 폴더>
+```
+
+tag 마다 CLI tarball 이 GitHub Release 에 올라간다(`.github/workflows/release.yml`). tag 가 없는 커밋은 받아서 빌드한다.
+
+```bash
 git clone -q https://github.com/maxihan1/control_cli.git /tmp/control_cli
 git -C /tmp/control_cli checkout -q <커밋>
 npm --prefix /tmp/control_cli ci          # 받으면서 CLI 를 빌드한다
@@ -46,8 +52,9 @@ node /tmp/control_cli/dist/main.js instrument <Unity 프로젝트 폴더> --ref 
 3. `namespace` 안에 `using UnityEngine;` 을 둔 파일 · `namespace UnityEngine.*` 안의 파일은 `UnityEngine.Input` 이 먼저 잡혀 가짜 터치를 못 본다 — 경고로 알려 준다
 4. 깨진 asmdef 가 있으면 파일 이름을 알리고 아무것도 바꾸지 않는다
 5. `--relay <주소>` 를 주면 `Assets/ControlCli/Resources/ControlCliRelay.txt` 에 주소 한 줄을 넣는다 — 게임이 켜질 때 그 relay 로 건다(아래 「루프 — relay」). 안 주면 그 파일을 지운다(relay 꺼짐)
+6. `ProjectSettings/ProjectSettings.asset` 의 정의 심볼에 `CONTROL_CLI` 를 더한다 — 이미 있는 플랫폼 줄마다, 그리고 Android · iPhone · Standalone · WebGL 에. 파일이 없거나 못 알아보는 꼴(이진 직렬화 · git LFS 포인터 · Unity 2021.1 까지의 숫자 키)이면 고치지 않고 마지막 줄로 알린다
 
-그리고 **QA 빌드 스크립트가 정의 심볼 `CONTROL_CLI` 를 더한다** — 없으면 SDK 코드가 빌드에 아예 안 들어간다. Release 빌드는 손대지 않으면 된다.
+**SDK 는 정의 심볼 `CONTROL_CLI` 가 있는 빌드에만 들어간다** — 6번이 켜므로 instrument 뒤에는 평소대로 빌드하면 된다. 빌드 스크립트가 정의 심볼을 통째로 바꿔 쓰거나(`PlayerSettings.SetScriptingDefineSymbols`) 6번이 못 고쳤으면 빌드 스크립트가 직접 더한다(`extraScriptingDefines`). Release 빌드는 instrument 를 돌리지 않으면 된다 — instrument 가 바꾼 파일을 커밋하면 Release 에도 SDK 가 들어간다.
 
 가짜 `Input` 은 `UnityEngine.Input` 의 멤버를 다 감싼다(펜 · `mousePositionDelta` · `location` 은 빠짐 — `location` 은 적기만 해도 Android 에 위치 권한이 붙고 iOS 빌드가 위치 사용 문구를 요구해서다. 쓰는 게임은 `UnityEngine.Input.location` 으로 적는다). 터치만 가짜를 섞고(진짜 폰처럼 `simulateMouseWithTouches` 가 켜져 있으면 마우스 왼쪽 단추에도 비춘다) 나머지는 그대로 넘긴다. 새 Input System 을 쓰는 게임에는 같은 터치를 `Touchscreen` 장치 이벤트로 넣는다 — `InputSystemUIInputModule` · EnhancedTouch · `Touchscreen.current` 가 같이 본다. UI Toolkit 화면은 EventSystem 이 있으면 그 입력 모듈로 같은 터치가 닿고, 없으면(옛 Input) UI Toolkit 이 `UnityEngine.Input` 을 바로 읽어 SDK 가 panel 에 Pointer 이벤트를 보낸다. `touchSupported` 는 늘 `true` 다.
 알려진 한계 — `Assets/Plugins` 의 스크립트(Assembly-CSharp-firstpass)도 가짜 `Input` 을 보게 되어, 빠진 멤버를 쓰면 QA 빌드에서만 컴파일이 깨진다. 그런 게임이 오면 그 멤버를 더한다.
@@ -72,7 +79,7 @@ Unity 와 낱말이 다른 곳 — 주소는 노드 경로(Godot 는 같은 이�
 ## CLI
 
 ```bash
-npm i -D github:maxihan1/control_cli#v0.13.0
+npm i -D github:maxihan1/control_cli#v0.14.0
 npx control-cli help
 ```
 
@@ -304,7 +311,7 @@ npx control-cli crawl --max 30 --minutes 5 --exclude '/설정|settings/i' --excl
 `control-cli mcp` 는 stdio MCP 서버다 — 따로 띄워 두는 프로그램이 아니라 AI 앱이 이 명령을 실행해 붙는다.
 
 ```bash
-npm i -g github:maxihan1/control_cli#v0.13.0     # control-cli 를 PATH 에
+npm i -g github:maxihan1/control_cli#v0.14.0     # control-cli 를 PATH 에
 claude mcp add control-cli -- control-cli mcp     # Claude Code
 ```
 

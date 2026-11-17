@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { addInputReference, addPackage, godotSetting, instrument, instrumentGodot, packageUrl, shadowsFakeInput, INPUT_ASSEMBLY, PACKAGE, RELAY_FILE } from './instrument.js';
+import { addDefine, addInputReference, addPackage, godotSetting, instrument, instrumentGodot, packageUrl, shadowsFakeInput, INPUT_ASSEMBLY, PACKAGE, RELAY_FILE, SETTINGS_FILE } from './instrument.js';
 
 test('패키지는 다른 의존을 남기고 고른 ref 로 더한다', () => {
   const out = addPackage({ dependencies: { 'com.unity.ugui': '2.0.0' } }, 'abc123');
@@ -79,6 +79,38 @@ test('프로젝트 폴더를 고치고 무엇을 바꿨는지 돌려준다', () 
   assert.equal(manifest.dependencies[PACKAGE], packageUrl('v1'));
   const editor = JSON.parse(readFileSync(join(root, 'Assets', 'Game', 'Editor', 'Game.Editor.asmdef'), 'utf8'));
   assert.equal(editor.references, undefined);
+});
+
+const settings = (symbols: string) => `PlayerSettings:\n  productName: Game\n  scriptingDefineSymbols:${symbols}\n  additionalCompilerArguments: {}\n`;
+
+test('정의 심볼 CONTROL_CLI 를 있는 플랫폼 줄과 SDK 가 받는 플랫폼에 한 번씩 더한다', () => {
+  const none = addDefine(settings(' {}'));
+  assert.equal(none, settings('\n    Android: CONTROL_CLI\n    iPhone: CONTROL_CLI\n    Standalone: CONTROL_CLI\n    WebGL: CONTROL_CLI'));
+  const some = addDefine(settings('\n    Android: A;B\n    Nintendo Switch: A\n    Standalone: '));
+  assert.equal(some, settings('\n    Android: A;B;CONTROL_CLI\n    Nintendo Switch: A;CONTROL_CLI\n    Standalone: CONTROL_CLI\n    iPhone: CONTROL_CLI\n    WebGL: CONTROL_CLI'));
+  assert.equal(addDefine(some!), some, '두 번 돌려도 그대로');
+  // Windows 에서 git 이 줄 끝을 CRLF 로 바꾼 파일 — 줄 끝을 그대로 둔다.
+  const crlf = addDefine(settings('\n    Android: A').replaceAll('\n', '\r\n'));
+  assert.match(crlf!, /    Android: A;CONTROL_CLI\r\n    iPhone: CONTROL_CLI\r\n/);
+  assert.equal(crlf!.replaceAll('\r\n', '').includes('\n'), false);
+});
+
+test('못 알아보는 ProjectSettings 는 고치지 않는다 — 숫자 키(옛 판) · LFS 포인터 · 이진', () => {
+  assert.equal(addDefine(settings('\n    1: A\n    7: B')), undefined);
+  assert.equal(addDefine('version https://git-lfs.github.com/spec/v1\noid sha256:25524b\nsize 25665\n'), undefined);
+  assert.equal(addDefine('\u0000\u0001binary'), undefined);
+});
+
+test('ProjectSettings.asset 이 있으면 CONTROL_CLI 를 쓰고, 없으면 define 을 false 로 돌려준다', () => {
+  const root = mkdtempSync(join(tmpdir(), 'instrument-define-'));
+  mkdirSync(join(root, 'Packages'));
+  mkdirSync(join(root, 'Assets'));
+  mkdirSync(join(root, 'ProjectSettings'));
+  writeFileSync(join(root, 'Packages', 'manifest.json'), JSON.stringify({ dependencies: {} }));
+  assert.equal(instrument(root, 'v1').define, false);
+  writeFileSync(join(root, SETTINGS_FILE), settings(' {}'));
+  assert.equal(instrument(root, 'v1').define, true);
+  assert.match(readFileSync(join(root, SETTINGS_FILE), 'utf8'), /^    Android: CONTROL_CLI$/m);
 });
 
 test('relay 주소를 주면 Resources 에 주소 파일을 넣고, 안 주면 남은 파일을 지운다', () => {

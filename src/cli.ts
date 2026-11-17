@@ -13,7 +13,7 @@ import { crawl, CRAWL } from './crawl.js';
 import { installAndLaunch, terminate } from './devicectl.js';
 import { Game, settled, WAIT, type At, type FindOptions, type PingReply, type PrefType, type WaitOptions } from './game.js';
 import { inspect, INSPECT_PORT } from './inspect.js';
-import { instrument, instrumentGodot } from './instrument.js';
+import { instrument, instrumentGodot, SETTINGS_FILE } from './instrument.js';
 import { driverLink, farmLink, GAME_PORT, iosLink, relayLink, tcpLink, usbLink, type Command, type Reply } from './link.js';
 import { serve, VERSION } from './mcp.js';
 import { exportTest, FILES, LANGS, replay, steps, type Lang } from './recorder.js';
@@ -212,13 +212,15 @@ export async function run(argv: string[], o: Options): Promise<string> {
         ...(gameAddress ? [`relay 주소를 구웠습니다 — 게임이 ${gameAddress} 로 겁니다`] : []),
       ].join('\n');
     }
-    const { asmdefs, warnings } = instrument(folders[0], ref, gameAddress);
+    const { asmdefs, warnings, define } = instrument(folders[0], ref, gameAddress);
     return [
       `SDK(${ref}) 를 Packages/manifest.json 에 더했습니다`,
       ...(gameAddress ? [`relay 주소를 구웠습니다 — 게임이 ${gameAddress} 로 겁니다`] : []),
       ...asmdefs.map((a) => `asmdef 참조 더함: ${a}`),
       ...warnings.map((w) => `경고: ${w}`),
-      'QA 빌드 정의 심볼에 CONTROL_CLI 가 있어야 SDK 가 빌드에 들어갑니다',
+      define
+        ? `정의 심볼 CONTROL_CLI 를 ${SETTINGS_FILE} 에 더했습니다 — 이대로 빌드하면 SDK 가 들어갑니다. 이 파일들은 커밋하지 않습니다`
+        : `${SETTINGS_FILE} 을 고치지 못했습니다(없거나 글자 꼴이 아님) — QA 빌드 정의 심볼에 CONTROL_CLI 를 직접 더해야 SDK 가 빌드에 들어갑니다`,
     ].join('\n');
   }
 

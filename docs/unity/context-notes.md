@@ -132,3 +132,16 @@
 - 안내의 세 줄(`git clone --depth 1 --branch v0.13.0` → `npm ci` → `instrument <폴더>`)은 빈 폴더에서 `sample/` 복사본에 돌려 확인했다 — `--ref` 없이 `v0.13.0` 으로 고정된다
 - SDK `package.json` 판(0.10.0)이 CLI 판(0.13.0)과 다른 것은 그대로 둔다 — SDK 는 SDK 가 바뀔 때만 올린다(사용자 「걱정 안 해도 돼」 — 「비전」을 판 번호로 읽은 것은 내 해석)
 - README 의 설치 예시 tag 가 `v0.8.0` · `v0.9.0` 으로 두 번 낡아 있었다 — `src/docs-tag.test.ts` 가 README · 안내의 예시 tag 를 `package.json` 판과 견준다
+
+## 2026-11-17 — 한 줄 설치 · instrument 가 CONTROL_CLI 를 켠다 (사용자 「설치 명령어 한 번으로」)
+
+- 개발사가 하던 일은 받기 세 줄(clone · `npm ci` · instrument)과 `CONTROL_CLI` 더하기 둘이었다. 둘 다 없앴다 — `npx -y <Release tarball 주소> instrument <폴더>` 한 줄 뒤 평소대로 빌드
+- 받기 — `npx github:…` 는 npm 10 에서 멈추고(README) npm 의 `control-cli` 이름은 남의 것이라, tag 마다 `npm pack` 한 tarball 을 GitHub Release 에 올린다(`.github/workflows/release.yml`). `npx -y <tarball 주소>` 는 이 맥 npm 10.9.2 에서 돌았다(로컬 http 로 내준 주소). 파일 이름은 `control-cli.tgz` 로 고정 — 주소에 판이 한 번만 든다
+- 정의 심볼 — instrument 가 `ProjectSettings/ProjectSettings.asset` 의 `scriptingDefineSymbols` 를 글자로 고친다. Unity 가 켜지기 전에 파일에 있으니 빌드 순서 · 에디터 다시 컴파일 문제가 없고 SDK 를 안 고친다. SDK Editor 훅에서 `PlayerSettings` API 로 켜는 길은 batchmode 에서 훅과 빌드 메서드의 차례를 믿어야 해 안 골랐다
+- 꼴 확인 — 2021.3.15f1(공개 Boss Room v2.0.4) · 6000.3.10f1(이 맥 프로젝트) 둘 다 `    Android: A;B` 처럼 플랫폼 이름 줄. 없으면 `{}`. 못 알아보는 꼴(이진 직렬화 · git LFS 포인터 · 2021.1 까지의 숫자 키)은 건드리지 않고 「직접 더하라」고 알린다. Boss Room 처럼 `ProjectSettings.asset` 을 LFS 에 두는 저장소가 실제로 있다
+- 실제 빌드 — `sample/` 복사본을 Unity 6000.3.10f1 로 열어 설정 파일을 만들고, `SampleBuild.cs` 에서 `extraScriptingDefines` 줄을 뺀 채 instrument → macOS 빌드. `Managed/` 에 `ControlCli.Runtime.dll` · `ControlCli.Input.dll` 이 들었고 `open --pc --app` 뒤 conform 「통과 52 · 실패 0 · 미실행 1」. 6000.3 은 이번이 첫 실측이다
+- 잃는 것 — 전에는 instrument 가 바꾼 파일을 실수로 커밋해도 빌드 스크립트가 `CONTROL_CLI` 를 안 주면 Release 에 SDK 가 안 들었다. 이제는 `ProjectSettings.asset` 까지 커밋하면 Release 에도 든다. 안내 · README · instrument 마지막 줄에 「커밋하지 않는다」를 적었다
+- 빌드 스크립트가 `PlayerSettings.SetScriptingDefineSymbols` 로 통째로 바꿔 쓰는 게임은 instrument 가 넣은 값이 지워진다 — 그 게임은 전처럼 빌드 스크립트에 더한다(안내 2번)
+- `sample/` 은 `ProjectSettings.asset` 을 저장소에 안 둬(Unity 가 빌드 때 만든다) CI 샘플 빌드는 전처럼 `extraScriptingDefines` 로 켠다 — CI 는 이 길을 안 지난다
+- 판 0.14.0 — tarball 이 새 instrument 를 실어야 해서. 병합 뒤 그 main 커밋에 `v0.14.0` tag 를 올려야 안내의 주소가 산다
+
