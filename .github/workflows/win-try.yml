@@ -22,43 +22,37 @@ jobs:
       - run: gh run download 44056206295 -n sample-6000.0.84f1-StandaloneWindows64-input1 -D build
         env:
           GH_TOKEN: ${{ github.token }}
-      - name: A — windowsHide 를 건 채 (open --pc --app)
+      - name: 화면 크기
         shell: pwsh
         run: |
-          Get-ChildItem build | Select-Object Name, Length
-          $exe = (Get-ChildItem build -Filter *.exe | Where-Object Name -notlike 'UnityCrash*' | Select-Object -First 1).FullName
-          "exe $exe"
-          node dist/main.js -s=a open --pc --app "$exe"
-          "open exit $LASTEXITCODE"
-          Get-Process | Where-Object Name -like 'control-cli*' | Format-List Name, Id, MainWindowHandle, MainWindowTitle, Responding
-          node dist/main.js -s=a pad xbox
-          node dist/main.js -s=a pad off
-          node dist/main.js -s=a conform
-          "conform exit $LASTEXITCODE"
-          node dist/main.js -s=a close
-          Start-Sleep 3
+          Get-DisplayResolution
+          foreach ($r in @(@(2560, 1600), @(1920, 1440), @(1920, 1200), @(1920, 1080))) {
+            try { Set-DisplayResolution -Width $r[0] -Height $r[1] -Force } catch { "거절 $($r[0])x$($r[1]) — $_" }
+            $now = (Get-DisplayResolution | Out-String).Trim()
+            "요청 $($r[0])x$($r[1]) → 지금 $now"
+            if ($now -match "$($r[0])x$($r[1])") { break }
+          }
           exit 0
-      - name: B — windowsHide 없이 띄우고 붙기 (open --pc)
+      - name: open --pc --app → conform → pad xbox
         shell: pwsh
         run: |
           $exe = (Get-ChildItem build -Filter *.exe | Where-Object Name -notlike 'UnityCrash*' | Select-Object -First 1).FullName
-          node -e "const {spawn}=require('node:child_process');const c=spawn(process.argv[1],[],{detached:true,stdio:'ignore',cwd:require('node:path').dirname(process.argv[1])});c.unref();console.log('pid',c.pid)" "$exe"
-          node dist/main.js -s=b open --pc
+          node dist/main.js open --pc --app "$exe"
           "open exit $LASTEXITCODE"
           Get-Process | Where-Object Name -like 'control-cli*' | Format-List Name, Id, MainWindowHandle, MainWindowTitle, Responding
-          node dist/main.js -s=b pad xbox
-          node dist/main.js -s=b pad off
-          node dist/main.js -s=b conform
+          Get-ChildItem .control-cli -Filter *.yml | Select-Object -First 1 | ForEach-Object { Get-Content $_.FullName -TotalCount 1 -Encoding utf8 }
+          node dist/main.js pad xbox
+          node dist/main.js pad off
+          node dist/main.js conform
           "conform exit $LASTEXITCODE"
-          node dist/main.js -s=b close
-          Get-Process | Where-Object Name -like 'control-cli*' | Stop-Process -Force
+          node dist/main.js close
           exit 0
       - name: 기록 모으기
         if: always()
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force out | Out-Null
-          if (Test-Path .control-cli) { Copy-Item .control-cli out -Recurse }
+          if (Test-Path .control-cli) { Copy-Item .control-cli out/session -Recurse }
           Get-ChildItem "$env:USERPROFILE\AppData\LocalLow" -Recurse -Filter Player*.log -ErrorAction SilentlyContinue | ForEach-Object { Copy-Item $_.FullName out }
           Get-ChildItem out -Recurse | Select-Object FullName, Length
       - uses: actions/upload-artifact@v7
