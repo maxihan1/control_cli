@@ -1,6 +1,6 @@
 // 명령줄 하나를 받아 세션 파일을 읽고 게임 · 디바이스 팜 · Appium 에 보낸 뒤 찍을 글을 돌려준다
 import { spawn } from 'node:child_process';
-import { closeSync, existsSync, openSync, readdirSync } from 'node:fs';
+import { closeSync, existsSync, openSync } from 'node:fs';
 import type { Server } from 'node:http';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
@@ -14,6 +14,7 @@ import { installAndLaunch, terminate } from './devicectl.js';
 import { Game, settled, WAIT, type At, type FindOptions, type PadType, type PingReply, type PrefType, type WaitOptions } from './game.js';
 import { inspect, INSPECT_PORT } from './inspect.js';
 import { instrument, instrumentGodot } from './instrument.js';
+import { launch, stop } from './launch.js';
 import { driverLink, farmLink, GAME_PORT, iosLink, relayLink, tcpLink, usbLink, type Command, type Reply } from './link.js';
 import { serve, VERSION } from './mcp.js';
 import { exportTest, FILES, LANGS, replay, steps, type Lang } from './recorder.js';
@@ -305,6 +306,8 @@ export async function run(argv: string[], o: Options): Promise<string> {
   if (name === 'open') {
     if (await readFile(file).then(() => true, () => false)) throw new Error(`세션 ${sname} 이 이미 열려 있습니다 — close 부터 합니다`);
     if ([values.usb, values.pc, values.ios].filter(Boolean).length > 1) throw new Error('--usb · --pc · --ios 는 하나만 씁니다');
+    // Windows 에서는 USB 길(adb · usbmuxd · devicectl)을 돌려 본 적이 없다 — 반쯤 되다 마는 대신 미리 알린다.
+    if (process.platform === 'win32' && (values.usb || values.ios)) throw new Error(`Windows 에서는 --${values.usb ? 'usb' : 'ios'} 를 못 씁니다 — --pc · --relay · 디바이스 팜만 됩니다`);
     if (values.game !== undefined && !values.relay) throw new Error('--game 은 --relay 와 함께 씁니다');
     const address = values.relay ? args.find((a) => /^(ws|http)s?:\/\//.test(a)) : undefined;
     // --relay 만 주면 이미 켜진 게임에 붙는다 — 깔 게 없다(PLATFORM_APP 은 보지 않는다).
@@ -376,7 +379,7 @@ export async function run(argv: string[], o: Options): Promise<string> {
     // Appium 이 세션을 이미 끝냈어도(300초 쉼 · 잡기 시간 끝) 파일은 지운다 — 남으면 open 이 막힌다.
     const closed = s.appium ? await call(appium, 'DELETE', `/session/${s.appium}`).then(() => '', (e: unknown) => ` (Appium 세션은 이미 없음: ${e instanceof Error ? e.message : String(e)})`) : '';
     // 띄운 게임이 이미 꺼졌어도 세션은 닫는다.
-    const killed = s.pid === undefined ? '' : stop(s) ? ` — 게임(프로세스 ${s.pid})을 껐습니다` : ` — 게임(프로세스 ${s.pid})은 이미 꺼져 있었습니다`;
+    const killed = s.pid === undefined ? '' : stopGame(s) ? ` — 게임(프로세스 ${s.pid})을 껐습니다` : ` — 게임(프로세스 ${s.pid})은 이미 꺼져 있었습니다`;
     await rm(file, { force: true });
     return `세션 ${sname} 닫음${closed}${killed}${s.via === 'farm' ? ' — 폰은 아직 잡혀 있습니다(release)' : ''}`;
   }
@@ -843,7 +846,7 @@ async function ensureRelay(url: string, headers: Record<string, string>, dir: st
   const log = openSync(logFile, 'a');
   // 띄운 relay 도 main.ts 를 지나 Keychain control-cli-relay 를 읽는다 — 그것도 끈다.
   const { CONTROL_CLI_RELAY_TOKEN: _token, ...env } = process.env;
-  const child = spawn(process.execPath, [join(import.meta.dirname, 'main.js'), 'relay', `--port=${port || 80}`], { detached: true, stdio: ['ignore', log, log], env: { ...env, CONTROL_CLI_KEYCHAIN: '0' } });
+  const child = spawn(process.execPath, [join(import.meta.dirname, 'main.js'), 'relay', `--port=${port || 80}`], { detached: true, windowsHide: true, stdio: ['ignore', log, log], env: { ...env, CONTROL_CLI_KEYCHAIN: '0' } });
   child.on('error', () => {});
   child.unref();
   closeSync(log);
@@ -873,29 +876,11 @@ async function pickGame(url: string, headers: Record<string, string>, want: stri
   }
 }
 
-// PC 게임을 띄운다 — macOS .app 은 Contents/MacOS 안 실행 파일을 바로 띄워야 프로세스 번호를 잡아 close 가 끌 수 있다.
-function launch(app: string): number {
-  let exe = app;
-  if (app.replace(/\/+$/, '').endsWith('.app')) {
-    const dir = join(app, 'Contents', 'MacOS');
-    const files = existsSync(dir) ? readdirSync(dir) : [];
-    if (files.length !== 1) throw new Error(`${dir} 에서 실행 파일 하나를 찾지 못했습니다(${files.join(', ') || '없음'})`);
-    exe = join(dir, files[0]);
-  }
-  if (!existsSync(exe)) throw new Error(`게임 실행 파일이 없습니다: ${exe}`);
-  const child = spawn(exe, [], { detached: true, stdio: 'ignore' });
-  // 띄우기 실패는 나중에 이벤트로 온다 — 그때는 untilAnswers 가 답 없음으로 알린다.
-  child.on('error', () => {});
-  child.unref();
-  if (child.pid === undefined) throw new Error(`${app} 을 띄우지 못했습니다`);
-  return child.pid;
-}
-
-/** 띄운 게임을 끈다 — 이미 꺼졌으면 false */
-function stop(s: Session): boolean {
+/** open --app 으로 띄운 게임을 끈다 — 이미 꺼졌으면 false */
+function stopGame(s: Session): boolean {
+  if (s.via !== 'ios') return stop(s.pid!);
   try {
-    if (s.via === 'ios') terminate(s.udid!, s.pid!);
-    else process.kill(s.pid!);
+    terminate(s.udid!, s.pid!);
     return true;
   } catch {
     return false;

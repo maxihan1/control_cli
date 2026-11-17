@@ -50,7 +50,26 @@
 ## Windows
 - CLI 의 PC 길은 OS 분기가 거의 없다(`process.platform` 은 Keychain 과 inspect 브라우저 열기 둘). `.exe` 는 `launch()` 의 일반 분기로 이미 `spawn` 된다. 남은 것은 실행해 본 기록이 없다는 것이다 — 그래서 고칠 곳보다 CI(`windows-latest` 에서 `npm test`)와 실측이 먼저다
 - `--ios` · `--usb` 의 Windows 지원 · `tools/handoff.mjs`(전달용 branch 에만 있다)는 손대지 않는다 — 요청 밖
-- 이 맥에서는 `XInputControllerWindows` 를 볼 수 없다. Xbox 는 macOS 용 layout(`XboxGamepadMacOSWireless`)까지만 실측되고, Windows layout 은 CI runner 나 PC 에서 본다
+- 이 맥에서는 `XInputControllerWindows` 를 볼 수 없다. Xbox 는 macOS 용 layout(`XboxGamepadMacOSWireless`)까지만 실측되고, Windows layout 은 CI runner 나 PC 에서 본다 — C2 에서 CI runner 로 봤다(아래 「C2」)
+
+## 2026-11-17 C2 — Windows runner 실측과 결정
+재는 곳은 GitHub `windows-latest` runner 다(GPU 없음 · 화면 1024×768). 게임은 CI 가 구운 샘플 Windows 빌드(Unity 6000.0.84f1 · Input System 1.11.2 · Mono · SDK 0.12.0 · run 44056206295)다. 이 맥에는 Windows 가 없어 실제 PC 는 C3 이다.
+- **GPU 없는 runner 에서도 Unity 가 뜬다** — Player.log 에 「Direct3D 11.0 · Microsoft Basic Render Driver」. `open --pc --app …\control-cli-sample.exe` 가 붙고 스크린샷 · conform 이 돈다. 인자(`-force-…`)는 필요 없었다 — `launch(app, args)` 는 만들지 않았다
+- **게임에는 `windowsHide` 를 걸지 않는다(계획을 뒤집음)** — 계획은 `launch()` 에 `windowsHide: true` 였다. 걸고 띄우면 Unity 창 손잡이(`MainWindowHandle`)가 0 이고 conform 「통과 51 · 실패 5 · 미실행 1」(스크린샷이 「ReadPixels … while not inside drawing frame」 · UI Toolkit 직접 누르기 실패)이다. 안 걸면 손잡이 131442 · 제목 「control_cli sample」. 까닭은 Node 가 이 값을 `STARTUPINFO.wShowWindow = SW_HIDE` 로 넘기고 Unity 가 첫 창을 그 값으로 띄우는 것으로 본다(판독 — 잰 것은 손잡이 0 까지다). relay 띄우기(node · 콘솔 프로그램)에는 건다 — 빈 콘솔 창을 막는 본래 쓰임이다
+- **화면이 창보다 작으면 conform 이 깨진다** — runner 기본 1024×768 에서는 「통과 53 · 실패 3 · 미실행 1」(find-at 이 WorldCube 자리에서 `UitkStatusText` 를 집음 · swipe · scroll 의 ScrollList 가 안 움직임). 샘플 창(540×1200)이 화면 높이로 잘려 UI Toolkit 패널이 uGUI 칸을 덮는다(`SampleBuild.cs` 의 「세로 창」 주석과 같은 까닭). `Set-DisplayResolution -Width 1920 -Height 1080 -Force` 뒤에는 게임 화면 540×1080 · 「통과 56 · 실패 0 · 미실행 1」. 2560×1600 · 1920×1440 · 1920×1200 은 runner 가 거절한다
+- **`pad xbox` 는 `XInputControllerWindows`** — 답 「xbox · XInputControllerWindows · south A · east B · west X · north Y …」, 장치 목록 「XInputControllerWindows(가상)」. conform 패드 줄 넷(ps5 `DualSenseGamepadHID` · ps4 `DualShock4GamepadHID` · switch `SwitchProControllerHID` · xbox)이 Windows 에서 다 통과했다 — 스틱이 `SHRT` · 십자키가 비트인 Windows Xbox 도 control 로 쓰는 보통 길이 맞다(C1 이 넘긴 것)
+- **Windows 빌드의 app 이름** — ping 의 `app` 이 `control_cli sample`(productName)이다. Windows 빌드에는 번들 identifier 가 없다(P3-B 의 「identifier 가 비면 productName」)
+- **`launch` · `stop` 은 `src/launch.ts`** — `cli.ts` 를 `index.ts` 에서 내보내면 라이브러리가 MCP · 인스펙터 · relay 까지 끌고 온다. `stop(pid)` 는 `process.kill` 만 한다(iPhone 끄기는 `cli.ts` 에 남김). Windows 에서 `process.kill` 은 그 프로세스 하나를 끝낸다 — 러너가 띄운 `npx` 가지 전체를 끄는 일(`taskkill /T`)은 QA Hub 러너 몫이다
+- **작업 폴더는 실행 파일 폴더, 그래서 절대 경로가 먼저** — `spawn` 에 `cwd` 를 주면 상대 경로 실행 파일이 그 폴더 기준으로 풀려 못 찾는다. `resolve` 뒤에 `dirname`. macOS · Linux 도 같게 했다(`.app` 은 `Contents/MacOS`). 이 맥에서 CI 가 구운 macOS 빌드를 끝에 `/` 붙인 경로로 열어 「통과 56 · 실패 0 · 미실행 1」
+- **끝의 `\`** — Windows 에서만 뗀다(`/` 는 어디서나). POSIX 에서는 `\` 가 파일 이름 글자다
+- **`--usb` · `--ios` 는 Windows 에서 열기 전에 거절** — adb 길은 될 수도 있지만 돌려 본 기록이 없다. 반쯤 되다 마는 것보다 「`--pc` · `--relay` · 디바이스 팜만 됩니다」가 낫다. 지원은 요청이 오면 한다
+- **Windows 용 가짜 게임** — `sh` 스크립트를 못 띄우고 `.cmd` 는 `spawn` 이 막는다. node 실행 파일을 게임 삼아 띄우고 `NODE_OPTIONS=--require <멈춰 있는 모듈>` 을 그 줄 동안만 건다 — 인자를 못 주는 `launch` 를 그대로 시험한다. `launch.test.ts` 는 같은 수로 작업 폴더를 파일에 적게 해 세 OS 에서 본다
+- **`npm test` — Windows 104개 중 통과 101 · 건너뜀 3**(iPhone 줄 · Robot 둘 — runner 에 robot 이 없다). 처음 돌렸을 때 실패한 다섯은 모두 드라이버의 인코딩이었다 — Python 다리가 한글 답을 cp1252 stdout 에 못 썼고(`UnicodeEncodeError`), JDK 17 `javac` 가 UTF-8 소스를 windows-1252 로 읽었다. 다리는 `sys.stdin` · `sys.stdout` 을 UTF-8 로 고쳤고(한 군데 — stdin 도 같은 인코딩이라 한글이 든 명령도 깨졌을 것이다), 테스트의 `javac` 에는 `-encoding UTF-8`, 내보낸 Python 테스트 실행에는 `PYTHONIOENCODING=utf-8` 을 줬다. Java · C# 다리는 처음부터 통과했다. 드라이버의 Windows 보증은 여전히 범위 밖이다 — runner 에서 도는 기록만 생겼다
+- **`has()`** — `sh -c 'command -v'` 는 Windows 에 `sh` 가 없으면 전부 건너뛰고, Git 이 깔려 있으면 우연히 돈다. Windows 는 `where` 로 바꿨다
+- **`.gitattributes`** — 저장소 파일은 모두 LF 로 들어가 있어 `* text=auto eol=lf` 로 바뀌는 파일이 없다. Windows checkout 이 CRLF 로 풀지 않게만 한다
+- **측정은 버리는 workflow 로** — `win-try.yml`(branch push 로 돈다)이 C1 실행의 Windows 빌드를 `gh run download` 로 받아 3~4분에 한 번씩 쟀다. sample 전체(80분)를 돌리지 않고 `sample.yml` 에 넣을 잡을 꼴 그대로 검증한 뒤 지웠다
+- **sample 전체 실행(run 44070282927)** — 빌드 열과 `conform-windows` 까지 12개 잡이 한 번에 초록이다. `conform-windows` 는 그 실행이 막 구운 Windows 빌드를 `gh run download <이 실행 번호>` 로 받아 「통과 56 · 실패 0 · 미실행 1」 · `pad xbox` 「XInputControllerWindows」. `cli` 잡은 run 44070282724
+- **C3 에 남는 것** — 실제 PC(GPU · 진짜 화면)에서의 conform, 실물 패드를 꽂은 채 가상 패드 입력, 초점 잃은 창, IL2CPP 빌드, `close` 뒤 `UnityCrashHandler64.exe` 가 남는지
 
 ## 범위 밖으로 둔 것
 - 옛 Input Manager 게임 — layout 개념이 없다. 장치 이름 글자와 버튼 번호가 게임마다 다른 약속이라 게임별로 재야 한다

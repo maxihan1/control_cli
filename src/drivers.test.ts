@@ -20,7 +20,8 @@ Object.assign(WAIT, { intervalMs: 5 });
 Object.assign(CONFORM, { waitMs: 200, holdS: 0.1, dragS: 0, keyS: 0 });
 
 const ROOT = join(import.meta.dirname, '..');
-const has = (tool: string) => spawnSync('sh', ['-c', `command -v ${tool}`]).status === 0;
+// Windows 에는 sh 가 없다 — where 가 같은 일을 한다.
+const has = (tool: string) => (process.platform === 'win32' ? spawnSync('where', [tool]) : spawnSync('sh', ['-c', `command -v ${tool}`])).status === 0;
 
 test('드라이버 파일의 생성 칸이 protocol/commands.json 과 같다 — 다르면 npm run drivers', () => {
   for (const d of drivers()) assert.equal(d.now, d.want, `${d.file} 가 commands.json 과 다릅니다 — npm run drivers`);
@@ -135,12 +136,14 @@ print('ok')
 // Recorder 가 내보낸 테스트 파일을 그 언어 도구로 실제로 돌린다 — 같은 기록(RECORDED)이 가짜 표준 화면에 초록
 type Ran = { code: number | null; text: string };
 const EXPORTS: { lang: Lang; tool: string; run: (dir: string, file: string, env: NodeJS.ProcessEnv) => Promise<Ran> }[] = [
-  { lang: 'py', tool: 'python3', run: (dir, file, env) => exec('python3', [file], { ...env, PYTHONPATH: join(ROOT, 'drivers/python') }, dir) },
+  // 내보낸 테스트는 끝에 한글을 찍는다 — 콘솔 인코딩이 UTF-8 이 아닌 Windows runner(cp1252)에서도 찍히게.
+  { lang: 'py', tool: 'python3', run: (dir, file, env) => exec('python3', [file], { ...env, PYTHONPATH: join(ROOT, 'drivers/python'), PYTHONIOENCODING: 'utf-8' }, dir) },
   {
     lang: 'java',
     tool: 'java',
     run: async (dir, file, env) => {
-      const built = await exec('javac', ['-d', dir, join(ROOT, 'drivers/java/controlcli/ControlCli.java')]);
+      // JDK 17 은 Windows 에서 소스를 시스템 인코딩으로 읽는다 — 드라이버 파일은 UTF-8.
+      const built = await exec('javac', ['-encoding', 'UTF-8', '-d', dir, join(ROOT, 'drivers/java/controlcli/ControlCli.java')]);
       return built.code === 0 ? exec('java', ['-cp', dir, file], env, dir) : built;
     },
   },

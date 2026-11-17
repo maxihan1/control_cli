@@ -151,3 +151,39 @@ jobs:
           name: sample-${{ matrix.unity }}-${{ matrix.target }}-input${{ matrix.input }}
           path: build/${{ matrix.target }}
           retention-days: 14
+
+  # 구운 Windows 빌드를 Windows runner 에서 띄워 conform 까지 — GPU 가 없어 Microsoft Basic Render Driver 로 돈다(실제 PC 실측은 따로).
+  conform-windows:
+    needs: [license, build]
+    # 다른 대상의 빌드가 러너 사정으로 떨어져도 Windows 빌드가 올라와 있으면 돈다.
+    if: ${{ !cancelled() && needs.license.outputs.available == 'true' }}
+    runs-on: windows-latest
+    timeout-minutes: 15
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: gh run download ${{ github.run_id }} -n sample-6000.0.84f1-StandaloneWindows64-input1 -D build
+        env:
+          GH_TOKEN: ${{ github.token }}
+      # runner 화면은 1024×768 이다 — 샘플 창(540×1200)이 그만큼 잘리면 UI Toolkit 패널이 uGUI 칸을 덮어 find-at · swipe · scroll 줄이 실패한다. 1920×1080 이 이 runner 가 받는 가장 큰 값이다.
+      - run: Set-DisplayResolution -Width 1920 -Height 1080 -Force
+      - name: open --pc --app → pad xbox → conform
+        run: |
+          node dist/main.js open --pc --app build\control-cli-sample.exe
+          $pad = node dist/main.js pad xbox
+          $pad
+          node dist/main.js pad off
+          node dist/main.js conform
+          $code = $LASTEXITCODE
+          node dist/main.js close
+          if (-not ($pad -match 'XInputControllerWindows')) { Write-Error 'pad xbox 가 XInputControllerWindows 가 아닙니다' }
+          exit $code
+      - name: 실패하면 게임 기록 끝
+        if: failure()
+        run: Get-ChildItem "$env:USERPROFILE\AppData\LocalLow" -Recurse -Filter Player.log | ForEach-Object { Get-Content $_.FullName -Tail 80 }

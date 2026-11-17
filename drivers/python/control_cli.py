@@ -460,6 +460,9 @@ class Game:
 
 def bridge(game):
     """conform --driver 의 다리 — stdin 명령 한 줄을 이 드라이버 메서드로 보내고 답을 stdout 한 줄로."""
+    # 두 줄은 늘 UTF-8 — Windows 의 기본 인코딩(cp1252 · cp949)으로는 한글이 든 명령 · 답이 깨지거나 못 써진다.
+    sys.stdin.reconfigure(encoding='utf-8')
+    sys.stdout.reconfigure(encoding='utf-8')
     for line in sys.stdin:
         command = json.loads(line)
         name = command.pop('cmd').replace('-', '_')

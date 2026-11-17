@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, sep } from 'node:path';
 import { after, before, test } from 'node:test';
 
 import { capabilities } from './appium.js';
@@ -12,6 +12,8 @@ import { CONFORM } from './conform.js';
 import { button, fakeFarm, FakeGame, fakeRelayGame, fakeTcp, fakeUsbmux, node, standardScreen } from './fake-game.js';
 import { SETTLE, WAIT } from './game.js';
 import { relay } from './relay.js';
+
+const WIN = process.platform === 'win32';
 
 Object.assign(SETTLE, { maxMs: 30, stepMs: 5 });
 Object.assign(WAIT, { intervalMs: 5 });
@@ -155,18 +157,28 @@ test('정리가 기다림 한도를 넘기면 다른 실행 탓이 아니라 팜
 test('PC — 띄운 게임에 adb 없이 붙고, 스크린샷은 게임이 찍고, key 는 Ran 줄을 남기고, close 가 게임을 끈다', async () => {
   const pc = await fakeTcp(game);
   const port = String(pc.port);
-  const macos = join(dir, 'Game.app', 'Contents', 'MacOS');
-  await mkdir(macos, { recursive: true });
-  // exec 로 sh 를 sleep 으로 바꾼다 — close 가 끈 프로세스가 곧 게임이라 고아가 남지 않는다.
-  await writeFile(join(macos, 'game'), '#!/bin/sh\nexec sleep 30\n', { mode: 0o755 });
+  // 가짜 게임 — 끝에 폴더 구분 글자를 붙여 연다(셸이 붙여 주는 꼴).
+  let app = join(dir, 'Game.app') + sep;
+  if (WIN) {
+    // Windows 는 sh 스크립트를 못 띄운다 — node 를 게임 삼아 띄우고, 인자 없이도 살아 있게 멈춰 있는 모듈을 물린다.
+    app = process.execPath + sep;
+    await writeFile(join(dir, 'stay.cjs'), 'setInterval(() => {}, 1000);\n');
+    process.env.NODE_OPTIONS = `--require "${join(dir, 'stay.cjs').replaceAll('\\', '/')}"`;
+  } else {
+    const macos = join(dir, 'Game.app', 'Contents', 'MacOS');
+    await mkdir(macos, { recursive: true });
+    // exec 로 sh 를 sleep 으로 바꾼다 — close 가 끈 프로세스가 곧 게임이라 고아가 남지 않는다.
+    await writeFile(join(macos, 'game'), '#!/bin/sh\nexec sleep 30\n', { mode: 0o755 });
+  }
   try {
-    const opened = await cli('-s=pc', 'open', '--pc', '--app', join(dir, 'Game.app'), '--port', port);
+    const opened = await cli('-s=pc', 'open', '--pc', '--app', app, '--port', port);
     assert.match(opened, /세션 pc 열림 — com\.fake\.game 1\.0 \(PC · 프로세스 \d+\)/);
     assert.equal(await readFile(/- Screenshot: (.*\.jpg)/.exec(opened)![1], 'utf8'), 'jpg');
     assert.match(await cli('-s=pc', 'key', 'Escape', '--port', port), /Ran: await game\.key\('Escape'\)/);
     assert.equal(game.keys.at(-1), 'Escape');
     assert.match(await cli('-s=pc', 'close'), /게임\(프로세스 \d+\)을 껐습니다/);
   } finally {
+    delete process.env.NODE_OPTIONS;
     pc.server.close();
   }
 });
@@ -354,7 +366,7 @@ test('입력 명령 — Ran 줄이 kit 의 game.* 이름 · 인자 꼴로 찍히
   }
 });
 
-test('iPhone — usbmuxd 로 USB 폰(Wi-Fi 쪽 말고)의 13100 에 붙고, 스크린샷은 게임이 찍는다', async () => {
+test('iPhone — usbmuxd 로 USB 폰(Wi-Fi 쪽 말고)의 13100 에 붙고, 스크린샷은 게임이 찍는다', { skip: WIN && 'usbmuxd 는 Unix 소켓 — Windows 에서는 --ios 를 거절한다' }, async () => {
   const path = join(dir, 'usbmuxd.sock');
   const mux = await fakeUsbmux(game, path);
   process.env.USBMUXD_SOCKET_ADDRESS = `UNIX:${path}`;
@@ -371,6 +383,11 @@ test('iPhone — usbmuxd 로 USB 폰(Wi-Fi 쪽 말고)의 13100 에 붙고, 스�
     delete process.env.USBMUXD_SOCKET_ADDRESS;
     mux.server.close();
   }
+});
+
+test('Windows 에서는 --usb · --ios 를 열기 전에 거절한다', { skip: !WIN && 'Windows 에서만' }, async () => {
+  await assert.rejects(cli('-s=winusb', 'open', '--usb'), /Windows 에서는 --usb 를 못 씁니다 — --pc · --relay · 디바이스 팜만 됩니다/);
+  await assert.rejects(cli('-s=winios', 'open', '--ios'), /Windows 에서는 --ios 를 못 씁니다/);
 });
 
 test('--usb · --pc · --ios 는 하나만 쓰고, PC 는 팜용 PLATFORM_APP 을 띄우지 않는다', async () => {
