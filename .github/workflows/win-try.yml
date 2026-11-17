@@ -1,0 +1,69 @@
+# 버리는 workflow — C1 실행이 구운 Windows 샘플 빌드를 runner 에서 띄워 창 · conform · pad xbox 를 잰다(병합 전에 지운다)
+name: win-try
+
+on:
+  push:
+    branches: [worktree-c2-windows-cli]
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  try:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: gh run download 44056206295 -n sample-6000.0.84f1-StandaloneWindows64-input1 -D build
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - name: A — windowsHide 를 건 채 (open --pc --app)
+        shell: pwsh
+        run: |
+          Get-ChildItem build | Select-Object Name, Length
+          $exe = (Get-ChildItem build -Filter *.exe | Where-Object Name -notlike 'UnityCrash*' | Select-Object -First 1).FullName
+          "exe $exe"
+          node dist/main.js -s=a open --pc --app "$exe"
+          "open exit $LASTEXITCODE"
+          Get-Process | Where-Object Name -like 'control-cli*' | Format-List Name, Id, MainWindowHandle, MainWindowTitle, Responding
+          node dist/main.js -s=a pad xbox
+          node dist/main.js -s=a pad off
+          node dist/main.js -s=a conform
+          "conform exit $LASTEXITCODE"
+          node dist/main.js -s=a close
+          Start-Sleep 3
+          exit 0
+      - name: B — windowsHide 없이 띄우고 붙기 (open --pc)
+        shell: pwsh
+        run: |
+          $exe = (Get-ChildItem build -Filter *.exe | Where-Object Name -notlike 'UnityCrash*' | Select-Object -First 1).FullName
+          node -e "const {spawn}=require('node:child_process');const c=spawn(process.argv[1],[],{detached:true,stdio:'ignore',cwd:require('node:path').dirname(process.argv[1])});c.unref();console.log('pid',c.pid)" "$exe"
+          node dist/main.js -s=b open --pc
+          "open exit $LASTEXITCODE"
+          Get-Process | Where-Object Name -like 'control-cli*' | Format-List Name, Id, MainWindowHandle, MainWindowTitle, Responding
+          node dist/main.js -s=b pad xbox
+          node dist/main.js -s=b pad off
+          node dist/main.js -s=b conform
+          "conform exit $LASTEXITCODE"
+          node dist/main.js -s=b close
+          Get-Process | Where-Object Name -like 'control-cli*' | Stop-Process -Force
+          exit 0
+      - name: 기록 모으기
+        if: always()
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force out | Out-Null
+          if (Test-Path .control-cli) { Copy-Item .control-cli out -Recurse }
+          Get-ChildItem "$env:USERPROFILE\AppData\LocalLow" -Recurse -Filter Player*.log -ErrorAction SilentlyContinue | ForEach-Object { Copy-Item $_.FullName out }
+          Get-ChildItem out -Recurse | Select-Object FullName, Length
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: win-try
+          path: out
+          retention-days: 3
