@@ -7,7 +7,7 @@ Unity · Godot 게임을 자동화 테스트로 조작하는 SDK 와 CLI.
 - **CLI** — appium-cli 꼴. snapshot(줄인 트리 + 스크린샷) → ref → 액션, 액션마다 케이스에 붙일 코드 한 줄(`Ran:`)을 찍는다. 디바이스 팜 게임 명령 주소 · USB `adb forward` · PC(TCP) · USB iPhone(usbmuxd) 로 잇고, 길이 없는 게임은 게임이 relay 로 WebSocket 을 건다
 - **MCP** — `control-cli mcp`. AI 앱(Claude Desktop · Claude Code)이 띄우는 stdio MCP 서버로, 같은 명령을 도구로 내준다 — 셸 없는 AI 앱도 게임을 조작한다
 - **드라이버(다른 언어)** — Python · C# · Java · Robot Framework. `protocol/commands.json` 에서 명령마다 메서드를 만든 파일 하나씩(`drivers/`) — 아래 「드라이버」
-- **라이브러리** — CLI 와 같은 드라이버(`Game`)와 연결 길(`farmLink` · `relayLink` · `usbLink` · `tcpLink` · `iosLink`). test_platform kit 이 CLI 를 띄우지 않고 쓴다
+- **라이브러리** — CLI 와 같은 드라이버(`Game`)와 연결 길(`farmLink` · `relayLink` · `usbLink` · `tcpLink` · `iosLink`), PC 게임 띄우기 · 끄기(`launch` · `stop`). test_platform kit 이 CLI 를 띄우지 않고 쓴다
 
 0단계 실측 결과는 [docs/step0.md](docs/step0.md). Unity 지원 넓히기의 결정 기록은 [docs/unity/](docs/unity/context-notes.md).
 
@@ -18,8 +18,8 @@ Unity · Godot 게임을 자동화 테스트로 조작하는 SDK 와 CLI.
 | Unity 판 | 2021.3 · 2022.3 · 6000.0 | 6000.0 (Ashveil) | 2021.3 · 2022.3 |
 | UI | uGUI · TextMeshPro · UI Toolkit(UIDocument) | uGUI | TMP · UI Toolkit (`layout` 은 uGUI 만) |
 | 입력 | 옛 Input · 새 Input System · 둘 다 | 옛 Input | Input System(Touchscreen · Mouse · Keyboard) |
-| 가상 패드 | PlayStation(PS5 · PS4) · Switch · Xbox · 종류 없는 패드 — Input System 게임 · PC 빌드(SDK 0.12.0) | macOS(Unity 6000.0 · Input System 1.11.2, Unity 6000.3 · Input System 1.18.0) — conform 패드 줄 넷 | Windows(`XInputControllerWindows`) · 실물 패드를 꽂은 채 · `PlayerInput` 을 쓰는 실제 게임 |
-| 플랫폼 | Android(팜 · USB) · PC(Windows · macOS · Linux) · iOS(USB, 17+) · WebGL(브라우저 → relay) | Android · macOS · Linux(Docker) · WebGL(Chrome) | Windows · iOS (CLI 는 가짜 게임 · 가짜 usbmuxd 로 테스트) |
+| 가상 패드 | PlayStation(PS5 · PS4) · Switch · Xbox · 종류 없는 패드 — Input System 게임 · PC 빌드(SDK 0.12.0) | macOS(Unity 6000.0 · Input System 1.11.2, Unity 6000.3 · Input System 1.18.0) · Windows(GitHub runner · Unity 6000.0 · Input System 1.11.2 — xbox 가 `XInputControllerWindows`) — conform 패드 줄 넷 | 실물 패드를 꽂은 채 · `PlayerInput` 을 쓰는 실제 게임 |
+| 플랫폼 | Android(팜 · USB) · PC(Windows · macOS · Linux) · iOS(USB, 17+) · WebGL(브라우저 → relay) | Android · macOS · Linux(Docker) · WebGL(Chrome) · Windows(GitHub runner — GPU 없는 가상 기계, 실제 PC 는 아직) | iOS (CLI 는 가짜 게임 · 가짜 usbmuxd 로 테스트) |
 | 드라이버 | Python · C# · Java · Robot Framework (TCP · relay) | Python · Java · C# · Robot (Unity · Godot macOS 앱) | — |
 | Godot | 4.5 이상 · Control UI · 3D 물리 · PC · Android · 웹(relay) | 4.5.2 · 4.7.2 Linux(CI xvfb) · 4.7.2 macOS 앱 · Android(USB) · 웹(Chrome) — conform 47/0/6 | iOS(빌드 안 함) |
 | 인스펙터 · Recorder | `control-cli inspect`(로컬 웹 화면) · 기록 → TS · Python · C# · Java · Robot | Unity 6000.0 · Godot 4.7.2 macOS 앱(기록 → `replay` · 다섯 언어 초록) · Chrome | — |
@@ -118,11 +118,14 @@ USB 는 `adb forward tcp:13100 tcp:13100` 을 걸고 TCP 로 보낸다. adb 는 
 
 ```bash
 npx control-cli open --pc --app ./Build/Game.app   # 띄우고 붙는다(.app 은 Contents/MacOS 안 실행 파일) — close 가 끈다
+npx control-cli open --pc --app C:\Games\MyGame\MyGame.exe   # Windows — .exe 를 그대로
 npx control-cli open --pc                          # 이미 켜 둔 게임에 붙는다
 npx control-cli key I                              # Ran: await game.key('I')
 ```
 
 PC 게임의 SDK 는 이 컴퓨터의 `127.0.0.1:13100` 에 열려 adb 없이 TCP 로 바로 붙는다. 스크린샷은 게임이 프레임 끝에서 찍고, 창 훑기의 뒤로 키는 `Escape` 다. QA 빌드는 창 초점이 없어도 돈다(SDK 가 `runInBackground` · Input System `IgnoreFocus` 를 켜고 uGUI 에 초점을 다시 알린다). 다만 화면은 켜져 있어야 한다 — macOS 는 디스플레이가 꺼지면 Metal 이 프레임을 못 내보내 게임이 멈추고 명령이 「멈췄거나 일시정지」로 실패한다. `PLATFORM_APP` 은 팜 · USB 의 APK 라 PC 는 `--app` 만 본다.
+
+**Windows** — CLI 가 Windows 에서 그대로 돈다(Node 22 · PowerShell · cmd). 게임은 실행 파일 폴더를 작업 폴더로 띄운다(macOS · Linux 도 같다). `--usb` · `--ios` 는 Windows 에서 열기 전에 거절한다 — `--pc` · `--relay` · 디바이스 팜만 된다. 토큰은 환경값으로 준다(Keychain 은 macOS 만). GPU 없는 가상 기계(GitHub `windows-latest`)에서도 Unity 빌드가 Microsoft Basic Render Driver 로 뜬다 — 다만 화면이 게임 창보다 작으면 창이 화면 크기로 잘려 UI 가 겹친다(runner 기본 1024×768 → `Set-DisplayResolution -Width 1920 -Height 1080 -Force`).
 
 **Linux** — PC 와 같은 길이다(`open --pc --app ./Build/Game.x86_64`). 리눅스 기계가 없으면 Docker 의 `linux/amd64` 컨테이너(Xvfb · Mesa)에서 게임과 CLI 를 함께 돌린다 — SDK 가 컨테이너의 `127.0.0.1` 에만 열어 `docker -p` 로는 못 닿기 때문이다. Apple Silicon 맥의 Docker(Rosetta 흉내)에서는 **IL2CPP 빌드만** 뜬다 — Mono JIT 는 `x86-codegen.h … offset == (gint32)offset` 으로 죽는다.
 
@@ -414,6 +417,7 @@ CONTROL_CLI_GAME=tcp://127.0.0.1:13100 PYTHONPATH=drivers/python python3 test_re
 
 - 주소 — `tcp://<호스트>:<포트>`(PC 게임 · `adb forward tcp:13100 tcp:13100` 뒤 USB 폰) 또는 relay 의 `http(s)://<relay>/games/<key>`(key 는 `relay status` 에, `@` 는 `%40`). relay 토큰은 `CONTROL_CLI_RELAY_TOKEN`
 - 명령 이름은 그 언어 꼴 — `find-all` → `find_all` · `FindAll` · `findAll`. 기다리기는 그 언어 되풀이로 쓴다(`find` 를 0.3초마다 — 드라이버에 기다리기 도우미는 아직 없다)
+- Windows — 콘솔 인코딩이 UTF-8 이 아니면 Java 는 `javac -encoding UTF-8`, 내보낸 Python 테스트는 `PYTHONIOENCODING=utf-8` 을 준다(Python 다리는 스스로 UTF-8 로 주고받는다)
 - 드라이버마다 같은 conform 을 돌린다 — 다리(stdin 명령 한 줄 → 그 언어 드라이버 메서드 → stdout 답 한 줄)를 띄워 차례 · 기대값은 TS 한 벌, 명령은 그 언어가 보낸다. PC · relay 세션에서
 
 ```bash
@@ -492,6 +496,7 @@ python3 tools/unity-compile-check/check.py fetch    # Unity 판마다 관리 DLL
 python3 tools/unity-compile-check/check.py 6000.0   # SDK · 샘플을 입력 설정 셋(옛 Input · 둘 다 · Input System)으로 컴파일 — Docker 필요
 ```
 
+`npm test` 는 PR 마다 `ubuntu-latest` · `windows-latest` 에서 돈다(`.github/workflows/cli.yml`). `sample.yml` 의 `conform-windows` 잡은 구운 Windows 빌드를 Windows runner 에서 띄워 conform 까지 돈다.
 컴파일 검사는 Unity 라이선스 없이 PR 마다 돈다(`.github/workflows/sdk-compile.yml`). 로그의 `== <판> · <입력>` 줄에 SDK 에 켜진 정의(`CONTROL_CLI_TMP` · `CONTROL_CLI_INPUTSYSTEM` …)가 찍힌다.
 `sdk/unity/` 에 파일을 더하면 `.meta` 도 같이 넣는다 — git 으로 받은 UPM 패키지는 Unity 가 `.meta` 를 못 만든다(`src/sdk-meta.test.ts` 가 잡는다).
 명령을 더하거나 바꾸면 `protocol/commands.json` 과 Unity SDK 의 `Caps`(`sdk/unity/Runtime/ControlServer.cs`) · Godot SDK 의 `CAPS`(`sdk/godot/addons/control_cli/control_cli.gd`)를 같이 고친다 — `src/protocol.test.ts` 가 잡는다.

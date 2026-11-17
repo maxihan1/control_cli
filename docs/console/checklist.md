@@ -2,9 +2,12 @@
 
 ## ▶ 다음 세션은 여기부터 (2026-11-17)
 
-- **다음은 C2** — Windows 에서 도는 CLI. main 에서 branch 를 떼고 `c2-plan.md` 부터 쓴다. 끝나면 병합한 main 커밋에 `v0.15.0` tag 를 단다
-- **C1 끝** — PR #34 합침. `pad [xbox|ps5|ps4|switch|generic|off]` · `Pad.<이름>` 이름표 · ping 의 `input` · `pads` · conform 패드 줄 넷(모두 57줄). CLI 0.15.0 · SDK 0.12.0 으로 올렸다. 설계와 실측은 [c1-plan.md](c1-plan.md) · [context-notes.md](context-notes.md)
-- **`v0.15.0` tag 는 아직 없다** — C2 가 끝난 뒤에 단다(사용자). 그 사이 main 의 CLI 로 `instrument` 를 돌리면 기본 ref(`v0.15.0`)를 못 받으니 `--ref <커밋>` 을 준다
+- **다음은 C3 — Windows PC 가 와야 한다(세션을 띄우지 않았다)** — 사용자가 PC(Windows 10/11 · Steam · 패드 변환 도구 없음 · 실물 Xbox 패드 · DualSense)를 준비하면 그때 main 에서 branch 를 떼고 `c3-plan.md` 부터 쓴다. QA Hub 쪽 Q1(명세 · 계약 변경 승인)은 그 저장소에서 따로 간다
+- **C2 끝** — PR #35 합침 · `v0.15.0` tag(CLI 0.15.0 · SDK 0.12.0 그대로). `launch` · `stop` 을 라이브러리로 내보냈고(`src/launch.ts`), CI `cli` 잡이 `npm test` 를 `ubuntu-latest` · `windows-latest` 에서, `sample` 의 `conform-windows` 잡이 구운 Windows 빌드를 Windows runner 에서 띄워 conform 까지 돈다(「통과 56 · 실패 0 · 미실행 1」 · `pad xbox` 가 `XInputControllerWindows`). 설계와 실측은 [c2-plan.md](c2-plan.md) · [context-notes.md](context-notes.md) 「C2」
+- **게임에는 `windowsHide` 를 걸지 않는다** — 걸면 Unity 창이 숨는다(runner 실측). QA Hub kit 이 게임을 따로 띄울 일이 생겨도 `launch` 를 쓴다
+- **Windows runner 는 화면이 1024×768** — 게임 창이 잘려 conform 이 깨진다. `Set-DisplayResolution -Width 1920 -Height 1080 -Force` 를 먼저 건다(그 위는 거절)
+- **Windows 에서 다시 잴 때** — sample 전체(80분)를 돌리지 말고, branch push 로 도는 버리는 workflow 가 앞 실행의 Windows 빌드를 `gh run download <run> -n sample-6000.0.84f1-StandaloneWindows64-input1` 로 받아 쓴다(3~4분 · context-notes 「측정은 버리는 workflow 로」). 결과물은 14일 뒤 지워진다
+- **C3 가 이어받을 것** — 실제 PC(GPU · 진짜 화면)의 conform · 실물 패드를 꽂은 채 가상 패드 입력 · 초점 잃은 창 · IL2CPP 빌드 · `close` 뒤 `UnityCrashHandler64.exe` 가 남는지
 - **Boss Room 은 굽지 않는다**(사용자 2026-11-17 「보스룸 굽지마」) — C1 의 Boss Room 칸은 열어 둔 채다. 실제 게임(`PlayerInput`)으로 보는 확인은 사용자가 따로 정한다
 - **C2 가 이어받을 것** — `pad xbox` 가 Windows 에서 `XInputControllerWindows` 로 나오는지는 CI runner(되면) 또는 C3 에서 본다. `XInputControllerWindows` 는 스틱이 `SHRT` · 십자키가 비트라 SDK 의 보통 길(control 로 쓰기)을 탄다 — 이 맥에서는 못 봤다
 - **이 맥에서 구운 빌드의 흔들림** — Unity 6000.3.10f1 + Input System 1.18.0 으로 이 맥에서 구운 샘플은 conform 의 마우스 줄(「UI Toolkit 직접」 · 끌기)이 판마다 붙었다 떨어졌다 한다. main 의 SDK(0.10.0)로 구워도 같다 — 패드와 상관없다. 표준 기록은 CI 가 구운 6000.0 + 1.11.2 빌드로 남긴다(context-notes 「C1 conform」)
@@ -32,16 +35,16 @@
 
 ## C2. Windows 에서 도는 CLI
 - [x] 설계 · 구현 계획 — `c2-plan.md`
-- [ ] `launch()` — `windowsHide` · 작업 폴더 · 끝의 `\` · relay 띄우기 `windowsHide` · `launch` · `stop` 을 라이브러리로 내보내기
-- [ ] 테스트를 Windows 에서 돌거나 건너뛰게 — `cli.test.ts`(가짜 앱 · usbmuxd) · `drivers.test.ts`
-- [ ] `.gitattributes`
-- [ ] CI `cli.yml` — `npm test` 를 `ubuntu-latest` · `windows-latest` 에서
-- [ ] CI `sample.yml` — Windows runner 에서 샘플 `.exe` conform(시도 — 창이 안 뜨면 빼고 C3 으로)
-- [ ] README Windows 예시 · 지원 표
-- [ ] 합친 뒤 `v0.15.0` tag
+- [x] `launch()` — 작업 폴더 · 끝의 `\` · relay 띄우기 `windowsHide` · `launch` · `stop` 을 라이브러리로 내보내기(`src/launch.ts`). 게임에는 `windowsHide` 를 걸지 않았다 — 걸면 Unity 창이 숨는다(runner 실측)
+- [x] 테스트를 Windows 에서 돌거나 건너뛰게 — `cli.test.ts`(가짜 앱은 node · usbmuxd 줄은 건너뜀 · `--usb` · `--ios` 거절 줄) · `drivers.test.ts`(`where` · UTF-8) · `launch.test.ts`
+- [x] `.gitattributes`
+- [x] CI `cli.yml` — `npm test` 를 `ubuntu-latest` · `windows-latest` 에서(Windows 104개 중 통과 101 · 건너뜀 3)
+- [x] CI `sample.yml` — `conform-windows` 잡: Windows runner 에서 샘플 `.exe` conform 「통과 56 · 실패 0 · 미실행 1」 · `pad xbox` 가 `XInputControllerWindows`
+- [x] README Windows 예시 · 지원 표
+- [x] 합친 뒤 `v0.15.0` tag
 
 ## C3. Windows PC 실측 (PC 가 준비된 뒤)
-- [ ] 샘플 · Boss Room Windows 빌드로 `open --pc` · conform · 패드 넷(`pad xbox` 가 `XInputControllerWindows`)
+- [ ] 샘플 · Boss Room Windows 빌드로 `open --pc` · conform · 패드 넷(`pad xbox` 가 `XInputControllerWindows` — runner 에서는 C2 가 봤다)
 - [ ] 실물 Xbox 패드 · DualSense 를 꽂은 채 가상 패드 입력이 들어간다
 - [ ] 창이 초점을 잃은 상태의 입력 · `devices` 목록
 - [ ] IL2CPP 빌드

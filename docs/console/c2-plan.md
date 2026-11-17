@@ -14,7 +14,7 @@
 - `launch(app): number` — 프로세스 번호를 돌려준다.
   - 끝의 `/`(Windows 는 `\` 도)를 떼고 본다. `.app` 판정과 「파일이 있나」가 같은 글자를 쓴다.
   - 실행 파일을 절대 경로로 바꾸고 **작업 폴더를 그 파일의 폴더로** 한다(탐색기에서 두 번 눌러 띄운 것과 같게). 작업 폴더를 주면 상대 경로가 그 폴더 기준으로 풀리므로 절대 경로가 먼저다. macOS · Linux 도 같게 한다.
-  - `windowsHide` — 게임 창까지 숨기는지를 runner 에서 먼저 잰다(아래 「열린 것」). 숨기면 게임에는 걸지 않는다.
+  - `windowsHide` — 게임 창까지 숨기는지를 runner 에서 먼저 잰다(아래 「열린 것」). 숨기면 게임에는 걸지 않는다. → **숨겼다. 걸지 않는다.**
 - `stop(pid): boolean` — `process.kill`. 이미 꺼졌으면 `false`. iPhone 끄기(`devicectl`)는 `cli.ts` 에 남는다.
 
 **`src/cli.ts`**
@@ -22,7 +22,7 @@
 - `open --ios` · `open --usb` 는 Windows 에서 미리 거절한다(「Windows 에서는 `--pc` · `--relay` · 디바이스 팜만 됩니다」). 길을 고치지는 않는다.
 
 **테스트**
-- `cli.test.ts` PC 줄 — 가짜 앱이 `sh` 스크립트다. Windows 에서는 node 실행 파일을 `Game.exe` 로 복사해 쓰고, 인자 없이 떠도 살아 있게 `NODE_OPTIONS=--require <멈춰 있는 모듈>` 을 그 줄 동안만 건다. 끝에 `\` 를 붙인 경로로 연다.
+- `cli.test.ts` PC 줄 — 가짜 앱이 `sh` 스크립트다. Windows 에서는 node 실행 파일을 게임 삼아 띄우고, 인자 없이 떠도 살아 있게 `NODE_OPTIONS=--require <멈춰 있는 모듈>` 을 그 줄 동안만 건다. 끝에 `\` 를 붙인 경로로 연다.
 - `cli.test.ts` iPhone 줄 — Unix 소켓 usbmuxd 라 Windows 에서는 건너뛴다. 그 자리에 「Windows 에서는 `--ios` · `--usb` 거절」 줄(Windows 에서만 돈다).
 - `launch.test.ts`(새 파일) — 띄운 프로세스의 작업 폴더가 실행 파일 폴더인지 · 상대 경로 · `stop` 이 끄고 두 번째는 `false` · 없는 파일 거절.
 - `drivers.test.ts` 의 `has()` — `sh -c 'command -v'` 대신 Windows 는 `where`. 도구가 있으면 돌고 없으면 건너뛴다.
@@ -40,7 +40,16 @@
 2. **GPU 없는 runner 에서 Unity 창이 뜨는가** — 안 뜨면 `conform-windows` 잡은 빼고 C3 으로 넘긴다.
 3. **`pad xbox` 의 layout** — 뜨면 `XInputControllerWindows` 인지 본다.
 
-재는 동안은 버리는 workflow(`win-try.yml` · branch push 로 돈다)가 C1 실행(44056206295)의 Windows 빌드를 받아 쓴다 — sample 전체(80분)를 돌리지 않는다. 병합 전에 지운다.
+재는 동안은 버리는 workflow(`win-try.yml` · branch push 로 돈다)가 C1 실행(44056206295)의 Windows 빌드를 받아 썼다 — sample 전체(80분)를 돌리지 않는다. 병합 전에 지웠다.
+
+## 잰 결과 (2026-11-17 · `windows-latest`)
+
+| 열린 것 | 결과 | 한 일 |
+|---|---|---|
+| 1. `windowsHide` | 걸면 창 손잡이 0 · conform 「통과 51 · 실패 5 · 미실행 1」. 안 걸면 창이 뜬다 | 게임에는 걸지 않는다. relay 띄우기에만 건다 |
+| 2. GPU 없는 runner | 뜬다(Direct3D 11 · Microsoft Basic Render Driver). 다만 화면 1024×768 에서는 창이 잘려 「통과 53 · 실패 3」 | `Set-DisplayResolution` 1920×1080 뒤 「통과 56 · 실패 0 · 미실행 1」. `conform-windows` 잡을 `sample.yml` 에 넣었다 |
+| 3. `pad xbox` | `XInputControllerWindows`. 패드 줄 넷 모두 통과 | 잡이 그 글자를 확인한다 |
+| `npm test` | 처음 실패 다섯은 드라이버 인코딩(Python stdout cp1252 · `javac` windows-1252) | Python 다리를 UTF-8 로 · 테스트의 `javac -encoding UTF-8` · `PYTHONIOENCODING`. 통과 101 · 건너뜀 3 |
 
 ## 차례
 
