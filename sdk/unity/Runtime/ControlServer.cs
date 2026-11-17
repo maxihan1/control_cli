@@ -39,7 +39,7 @@ namespace ControlCli
             "rect",
         };
         // sdk/unity/package.json 의 version 과 같다(src/protocol.test.ts 가 본다).
-        public const string SdkVersion = "0.10.0";
+        public const string SdkVersion = "0.12.0";
 
         private sealed class Request
         {
