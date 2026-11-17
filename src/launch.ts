@@ -15,7 +15,8 @@ export function launch(app: string): number {
   }
   if (!existsSync(exe)) throw new Error(`게임 실행 파일이 없습니다: ${exe}`);
   // 작업 폴더는 실행 파일 폴더 — 탐색기에서 두 번 눌러 띄운 것과 같게(옆 파일을 상대 경로로 읽는 게임).
-  const child = spawn(exe, [], { detached: true, stdio: 'ignore', cwd: dirname(exe), windowsHide: true });
+  // windowsHide 는 걸지 않는다 — Windows 에서 게임 창까지 숨긴다(Unity 창 손잡이가 0 · 스크린샷이 프레임 밖 ReadPixels 오류).
+  const child = spawn(exe, [], { detached: true, stdio: 'ignore', cwd: dirname(exe) });
   // 띄우기 실패는 나중에 이벤트로 온다 — 그때는 게임이 답하지 않는 것으로 드러난다.
   child.on('error', () => {});
   child.unref();
