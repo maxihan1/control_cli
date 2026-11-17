@@ -105,15 +105,15 @@ test('ref 가 없으면 실린 SDK 를 Packages 에 넣고 manifest 의 옛 SDK 
 
 const settings = (symbols: string) => `PlayerSettings:\n  productName: Game\n  scriptingDefineSymbols:${symbols}\n  additionalCompilerArguments: {}\n`;
 
-test('정의 심볼 CONTROL_CLI 를 있는 플랫폼 줄과 SDK 가 받는 플랫폼에 한 번씩 더한다', () => {
+test('정의 심볼 QAHUB_SDK 를 있는 플랫폼 줄과 SDK 가 받는 플랫폼에 한 번씩 더한다', () => {
   const none = addDefine(settings(' {}'));
-  assert.equal(none, settings('\n    Android: CONTROL_CLI\n    iPhone: CONTROL_CLI\n    Standalone: CONTROL_CLI\n    WebGL: CONTROL_CLI'));
+  assert.equal(none, settings('\n    Android: QAHUB_SDK\n    iPhone: QAHUB_SDK\n    Standalone: QAHUB_SDK\n    WebGL: QAHUB_SDK'));
   const some = addDefine(settings('\n    Android: A;B\n    Nintendo Switch: A\n    Standalone: '));
-  assert.equal(some, settings('\n    Android: A;B;CONTROL_CLI\n    Nintendo Switch: A;CONTROL_CLI\n    Standalone: CONTROL_CLI\n    iPhone: CONTROL_CLI\n    WebGL: CONTROL_CLI'));
+  assert.equal(some, settings('\n    Android: A;B;QAHUB_SDK\n    Nintendo Switch: A;QAHUB_SDK\n    Standalone: QAHUB_SDK\n    iPhone: QAHUB_SDK\n    WebGL: QAHUB_SDK'));
   assert.equal(addDefine(some!), some, '두 번 돌려도 그대로');
   // Windows 에서 git 이 줄 끝을 CRLF 로 바꾼 파일 — 줄 끝을 그대로 둔다.
   const crlf = addDefine(settings('\n    Android: A').replaceAll('\n', '\r\n'));
-  assert.match(crlf!, /    Android: A;CONTROL_CLI\r\n    iPhone: CONTROL_CLI\r\n/);
+  assert.match(crlf!, /    Android: A;QAHUB_SDK\r\n    iPhone: QAHUB_SDK\r\n/);
   assert.equal(crlf!.replaceAll('\r\n', '').includes('\n'), false);
 });
 
@@ -123,7 +123,7 @@ test('못 알아보는 ProjectSettings 는 고치지 않는다 — 숫자 키(�
   assert.equal(addDefine('\u0000\u0001binary'), undefined);
 });
 
-test('ProjectSettings.asset 이 있으면 CONTROL_CLI 를 쓰고, 없으면 define 을 false 로 돌려준다', () => {
+test('ProjectSettings.asset 이 있으면 QAHUB_SDK 를 쓰고, 없으면 define 을 false 로 돌려준다', () => {
   const root = mkdtempSync(join(tmpdir(), 'instrument-define-'));
   mkdirSync(join(root, 'Packages'));
   mkdirSync(join(root, 'Assets'));
@@ -132,7 +132,7 @@ test('ProjectSettings.asset 이 있으면 CONTROL_CLI 를 쓰고, 없으면 defi
   assert.equal(instrument(root, 'v1').define, false);
   writeFileSync(join(root, SETTINGS_FILE), settings(' {}'));
   assert.equal(instrument(root, 'v1').define, true);
-  assert.match(readFileSync(join(root, SETTINGS_FILE), 'utf8'), /^    Android: CONTROL_CLI$/m);
+  assert.match(readFileSync(join(root, SETTINGS_FILE), 'utf8'), /^    Android: QAHUB_SDK$/m);
 });
 
 test('relay 주소를 주면 Resources 에 주소 파일을 넣고, 안 주면 남은 파일을 지운다', () => {

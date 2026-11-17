@@ -46,9 +46,9 @@ node /tmp/control_cli/dist/main.js instrument <Unity 프로젝트 폴더> --ref 
 3. `namespace` 안에 `using UnityEngine;` 을 둔 파일 · `namespace UnityEngine.*` 안의 파일은 `UnityEngine.Input` 이 먼저 잡혀 가짜 터치를 못 본다 — 경고로 알려 준다
 4. 깨진 asmdef 가 있으면 파일 이름을 알리고 아무것도 바꾸지 않는다
 5. `--relay <주소>` 를 주면 `Assets/ControlCli/Resources/ControlCliRelay.txt` 에 주소 한 줄을 넣는다 — 게임이 켜질 때 그 relay 로 건다(아래 「루프 — relay」). 안 주면 그 파일을 지운다(relay 꺼짐)
-6. `ProjectSettings/ProjectSettings.asset` 의 정의 심볼에 `CONTROL_CLI` 를 더한다 — 이미 있는 플랫폼 줄마다, 그리고 Android · iPhone · Standalone · WebGL 에. 파일이 없거나 못 알아보는 꼴(이진 직렬화 · git LFS 포인터 · Unity 2021.1 까지의 숫자 키)이면 고치지 않고 마지막 줄로 알린다
+6. `ProjectSettings/ProjectSettings.asset` 의 정의 심볼에 `QAHUB_SDK` 를 더한다 — 이미 있는 플랫폼 줄마다, 그리고 Android · iPhone · Standalone · WebGL 에. 파일이 없거나 못 알아보는 꼴(이진 직렬화 · git LFS 포인터 · Unity 2021.1 까지의 숫자 키)이면 고치지 않고 마지막 줄로 알린다
 
-**SDK 는 정의 심볼 `CONTROL_CLI` 가 있는 빌드에만 들어간다** — 6번이 켜므로 instrument 뒤에는 평소대로 빌드하면 된다. 빌드 스크립트가 정의 심볼을 통째로 바꿔 쓰거나(`PlayerSettings.SetScriptingDefineSymbols`) 6번이 못 고쳤으면 빌드 스크립트가 직접 더한다(`extraScriptingDefines`). Release 빌드는 instrument 를 돌리지 않으면 된다 — instrument 가 바꾼 파일을 커밋하면 Release 에도 SDK 가 들어간다.
+**SDK 는 정의 심볼 `QAHUB_SDK` 가 있는 빌드에만 들어간다** — 6번이 켜므로 instrument 뒤에는 평소대로 빌드하면 된다. 빌드 스크립트가 정의 심볼을 통째로 바꿔 쓰거나(`PlayerSettings.SetScriptingDefineSymbols`) 6번이 못 고쳤으면 빌드 스크립트가 직접 더한다(`extraScriptingDefines`). Release 빌드는 instrument 를 돌리지 않으면 된다 — instrument 가 바꾼 파일을 커밋하면 Release 에도 SDK 가 들어간다.
 
 가짜 `Input` 은 `UnityEngine.Input` 의 멤버를 다 감싼다(펜 · `mousePositionDelta` · `location` 은 빠짐 — `location` 은 적기만 해도 Android 에 위치 권한이 붙고 iOS 빌드가 위치 사용 문구를 요구해서다. 쓰는 게임은 `UnityEngine.Input.location` 으로 적는다). 터치만 가짜를 섞고(진짜 폰처럼 `simulateMouseWithTouches` 가 켜져 있으면 마우스 왼쪽 단추에도 비춘다) 나머지는 그대로 넘긴다. 새 Input System 을 쓰는 게임에는 같은 터치를 `Touchscreen` 장치 이벤트로 넣는다 — `InputSystemUIInputModule` · EnhancedTouch · `Touchscreen.current` 가 같이 본다. UI Toolkit 화면은 EventSystem 이 있으면 그 입력 모듈로 같은 터치가 닿고, 없으면(옛 Input) UI Toolkit 이 `UnityEngine.Input` 을 바로 읽어 SDK 가 panel 에 Pointer 이벤트를 보낸다. `touchSupported` 는 늘 `true` 다.
 알려진 한계 — `Assets/Plugins` 의 스크립트(Assembly-CSharp-firstpass)도 가짜 `Input` 을 보게 되어, 빠진 멤버를 쓰면 QA 빌드에서만 컴파일이 깨진다. 그런 게임이 오면 그 멤버를 더한다.
@@ -462,7 +462,7 @@ python3 tools/unity-compile-check/check.py fetch    # Unity 판마다 관리 DLL
 python3 tools/unity-compile-check/check.py 6000.0   # SDK · 샘플을 입력 설정 셋(옛 Input · 둘 다 · Input System)으로 컴파일 — Docker 필요
 ```
 
-컴파일 검사는 Unity 라이선스 없이 PR 마다 돈다(`.github/workflows/sdk-compile.yml`). 로그의 `== <판> · <입력>` 줄에 SDK 에 켜진 정의(`CONTROL_CLI_TMP` · `CONTROL_CLI_INPUTSYSTEM` …)가 찍힌다.
+컴파일 검사는 Unity 라이선스 없이 PR 마다 돈다(`.github/workflows/sdk-compile.yml`). 로그의 `== <판> · <입력>` 줄에 SDK 에 켜진 정의(`QAHUB_SDK_TMP` · `QAHUB_SDK_INPUTSYSTEM` …)가 찍힌다.
 `sdk/unity/` 에 파일을 더하면 `.meta` 도 같이 넣는다 — git 으로 받은 UPM 패키지는 Unity 가 `.meta` 를 못 만든다(`src/sdk-meta.test.ts` 가 잡는다).
 명령을 더하거나 바꾸면 `protocol/commands.json` 과 Unity SDK 의 `Caps`(`sdk/unity/Runtime/ControlServer.cs`) · Godot SDK 의 `CAPS`(`sdk/godot/addons/control_cli/control_cli.gd`)를 같이 고친다 — `src/protocol.test.ts` 가 잡는다.
 판을 올리면 README · `docs/sdk-integration.md` 의 설치 예시 tag 도 같이 올린다 — `src/docs-tag.test.ts` 가 잡는다.

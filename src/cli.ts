@@ -218,7 +218,7 @@ export async function run(argv: string[], o: Options): Promise<string> {
       ...warnings.map((w) => `경고: ${w}`),
       define
         ? `QA 빌드 설정을 ${SETTINGS_FILE}에 추가했습니다. 이대로 빌드하면 SDK가 들어갑니다. 바뀐 파일은 커밋하지 마세요.`
-        : `${SETTINGS_FILE} 파일을 고치지 못했습니다(파일이 없거나 텍스트 형식이 아닙니다). 빌드 스크립트의 Scripting Define Symbols에 CONTROL_CLI를 직접 넣어야 SDK가 빌드에 들어갑니다.`,
+        : `${SETTINGS_FILE} 파일을 고치지 못했습니다(파일이 없거나 텍스트 형식이 아닙니다). 빌드 스크립트의 Scripting Define Symbols에 QAHUB_SDK를 직접 넣어야 SDK가 빌드에 들어갑니다.`,
     ].join('\n');
   }
 
@@ -908,7 +908,7 @@ async function untilAnswers(game: Game): Promise<PingReply> {
       return await game.ping();
     } catch (e) {
       if (Date.now() >= end)
-        throw new Error(`게임이 ${TIMING.openWaitMs / 1000}초 안에 답하지 않았습니다 — QA 빌드(정의 심볼 CONTROL_CLI)인가요? (${e instanceof Error ? e.message : String(e)})`);
+        throw new Error(`게임이 ${TIMING.openWaitMs / 1000}초 안에 답하지 않았습니다 — QA 빌드(정의 심볼 QAHUB_SDK)인가요? (${e instanceof Error ? e.message : String(e)})`);
       await sleep(TIMING.openStepMs);
     }
   }

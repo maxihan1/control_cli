@@ -171,3 +171,12 @@
 - `CONTROL_CLI` 를 직접 넣어야 하는 두 경우는 가이드에서 방법을 적지 않고 「빌드하기 전에 알려 주세요」로 줄였다 — 못 고쳤을 때 넣을 값은 instrument 의 실패 문구가 알려 준다
 - 문구는 초안을 쓴 뒤 humanize-korean skill(진단 → 윤문)에 넣었다 — 진단이 번역투 표지 0, 고칠 곳 세 군데로 판정했다. 이 맥의 skill 설치본에는 `scripts/` 가 없어 정량 점수와 변경률 게이트는 못 돌렸다
 
+## 2026-11-17 — 정의 심볼 이름을 QAHUB_SDK 로 · 가이드는 Android 만 (사용자 「CONTROL_CLI 워딩 빼라」 · 「PC와 WebGL은 QA hub에서 지원 안하잖아」)
+
+- **깨지는 변경** — SDK 가 빌드에 드는 정의 심볼이 `CONTROL_CLI` → `QAHUB_SDK`, SDK 안쪽 조건 이름 여섯도 `CONTROL_CLI_UITK` … → `QAHUB_SDK_UITK` …. SDK 0.11.0. 옛 이름은 받지 않는다(`"QAHUB_SDK || CONTROL_CLI"` 로 둘 다 받게 하면 개발사 프로젝트의 SDK 파일에 옛 낱말이 남는다)
+- 옛 SDK(0.10.0 까지)를 `--ref` 로 고정한 곳(Ashveil · Boss Room QA 빌드 잡)은 그대로 돈다. SDK 를 0.11.0 으로 올릴 때 빌드 스크립트의 `CONTROL_CLI` 를 `QAHUB_SDK` 로 바꾸거나, 새 instrument 가 설정 파일에 넣게 둔다. test_platform 명세(`docs/spec/도메인/게임.md` 「QA 빌드 스크립트가 정의 심볼 CONTROL_CLI」)도 그때 고친다 — 이 저장소 밖이라 안 고쳤다
+- 그대로 둔 것 — CLI 의 환경 변수 `CONTROL_CLI_GAME` · `CONTROL_CLI_RELAY_TOKEN` · `CONTROL_CLI_KEYCHAIN`(이 맥의 relay launchd 설정이 읽는다 · 개발사는 안 쓴다), 그리고 `ControlCli` 로 시작하는 이름(asmdef · namespace · `[ControlCli]` 로그 · 패키지 id). 뒤쪽은 conform 기대값과 CLI ↔ SDK 약속 글자가 같이 바뀌는 큰 일이라 사용자 결정 뒤에 한다
+- 실측 — 설정에 `QAHUB_SDK` 만 있는 프로젝트를 Unity 6000.3.10f1 로 빌드: SDK DLL 셋 · SDK 0.11.0 · conform 「통과 52 · 실패 0 · 미실행 1」. 2021.3 · 2022.3 은 PR 의 컴파일 검사가 본다
+- 가이드는 Android 만 — QA Hub 게임 테스트가 Android 하나다(test_platform `게임.md` · kit 의 길이 farm · usb 둘). PC · WebGL · iOS 문구를 뺐다
+- 개발사에 받을 것 목록은 사용자 확인을 기다린다 — test_platform `게임.md` 「게임 쪽이 준비할 것」(꼭: SDK 넣은 QA 빌드 · 상태 만드는 길 · 테스트 계정 · QA 서버 주소를 빌드에)과 Boss Room 의 `/gm` 18개 · `/test/*` 10개 · 기획서를 근거로 만들었다. QA Hub 케이스는 SDK 의 `call` · `static-call` 을 못 쓴다(kit 이 안 내준다) — 치트는 GM 채팅 명령이나 어드민 API 여야 한다
+

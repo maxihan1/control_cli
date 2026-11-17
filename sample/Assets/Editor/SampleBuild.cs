@@ -1,4 +1,4 @@
-// game-ci 가 부르는 샘플 빌드 — 빈 장면을 만들어 정의 심볼 CONTROL_CLI 를 켠 QA 빌드로 굽는다(장면 YAML 을 저장소에 두지 않는다)
+// game-ci 가 부르는 샘플 빌드 — 빈 장면을 만들어 정의 심볼 QAHUB_SDK 를 켠 QA 빌드로 굽는다(장면 YAML 을 저장소에 두지 않는다)
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -63,7 +63,7 @@ public static class SampleBuild
             targetGroup = group,
             locationPathName = output,
             options = BuildOptions.Development,
-            extraScriptingDefines = new[] { "CONTROL_CLI" },
+            extraScriptingDefines = new[] { "QAHUB_SDK" },
         });
         if (report.summary.result != BuildResult.Succeeded)
             throw new Exception("샘플 빌드 실패: " + report.summary.result + " (오류 " + report.summary.totalErrors + "개)");

@@ -4,7 +4,7 @@ Unity 게임의 QA 빌드에 QA Hub SDK를 넣는 방법입니다. 명령 한 �
 
 ## 준비물
 
-- Unity 2021.3 LTS 이상으로 만든 프로젝트
+- Unity 2021.3 LTS 이상으로 만든 Android 게임 프로젝트
 - Node.js 22 이상
 - QAhub.zip (이 가이드와 함께 받은 파일)
 
@@ -23,7 +23,7 @@ node QAhub/dist/main.js instrument <Unity 프로젝트 폴더>
 아래처럼 나오면 끝난 것입니다.
 
 ```
-QA Hub SDK(0.10.0)를 Packages/QAHubSDK에 추가했습니다
+QA Hub SDK(0.11.0)를 Packages/QAHubSDK에 추가했습니다
 asmdef 참조 추가: Assets/…/Game.asmdef
 QA 빌드 설정을 ProjectSettings/ProjectSettings.asset에 추가했습니다. 이대로 빌드하면 SDK가 들어갑니다. 바뀐 파일은 커밋하지 마세요.
 ```
@@ -59,11 +59,11 @@ QA 빌드 설정을 ProjectSettings/ProjectSettings.asset에 추가했습니다.
 
 아래 세 가지를 보내 주세요.
 
-- **빌드 파일**: Android는 APK, PC와 WebGL은 빌드 폴더 전체
+- **빌드 파일**: Android APK
 - **1번 명령의 출력**: 화면에 나온 내용 전부
 - **게임 정보**: Unity 버전, 입력 방식(Input Manager, Input System, 둘 다), 사용하는 UI(uGUI, TextMesh Pro, UI Toolkit)
 
-Android는 빌드할 때마다 versionCode를 올려 주세요. 값이 같으면 테스트 기기에 새 빌드가 깔리지 않습니다. iOS 빌드는 서명 방식을 먼저 맞춰야 하니 빌드하기 전에 알려 주세요.
+빌드할 때마다 versionCode를 올려 주세요. 값이 같으면 테스트 기기에 새 빌드가 깔리지 않습니다.
 
 ## 알려진 제약
 

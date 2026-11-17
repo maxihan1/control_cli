@@ -391,13 +391,13 @@ test('instrument 는 --ref 가 없으면 이 CLI 에 실린 SDK 를 Packages 에
   assert.ok((await readFile(join(root, 'Packages', 'manifest.json'), 'utf8')).includes('?path=/sdk/unity#v9.9.9"'));
 });
 
-test('instrument 는 CONTROL_CLI 를 썼는지 · 못 썼는지를 마지막 줄에 알린다', async () => {
+test('instrument 는 QAHUB_SDK 를 썼는지 · 못 썼는지를 마지막 줄에 알린다', async () => {
   const root = await mkdtemp(join(tmpdir(), 'instrument-cli-'));
   await mkdir(join(root, 'Packages'));
   await mkdir(join(root, 'Assets'));
   await mkdir(join(root, 'ProjectSettings'));
   await writeFile(join(root, 'Packages', 'manifest.json'), JSON.stringify({ dependencies: {} }));
-  assert.match(await cli('instrument', root), /고치지 못했습니다.*CONTROL_CLI를 직접 넣어야/);
+  assert.match(await cli('instrument', root), /고치지 못했습니다.*QAHUB_SDK를 직접 넣어야/);
   await writeFile(join(root, 'ProjectSettings', 'ProjectSettings.asset'), 'PlayerSettings:\n  scriptingDefineSymbols: {}\n');
   assert.match(await cli('instrument', root), /QA 빌드 설정을 .*에 추가했습니다/);
 });
