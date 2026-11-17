@@ -11,7 +11,7 @@ import { back, backgroundApp, call, connect, farmOf, openSession, screenshot, ty
 import { conform, report } from './conform.js';
 import { crawl, CRAWL } from './crawl.js';
 import { installAndLaunch, terminate } from './devicectl.js';
-import { Game, settled, WAIT, type At, type FindOptions, type PingReply, type PrefType, type WaitOptions } from './game.js';
+import { Game, settled, WAIT, type At, type FindOptions, type PadType, type PingReply, type PrefType, type WaitOptions } from './game.js';
 import { inspect, INSPECT_PORT } from './inspect.js';
 import { instrument, instrumentGodot } from './instrument.js';
 import { driverLink, farmLink, GAME_PORT, iosLink, relayLink, tcpLink, usbLink, type Command, type Reply } from './link.js';
@@ -93,6 +93,7 @@ export const HELP = `control-cli [-s=<세션>] <명령>
   mouse-move <ref|주소>|<x> <y> [--duration <초>]  가짜 마우스 — hover. 단추는 key Mouse0
   scroll [<ref|주소>|<x> <y>] <dy> [--dx <칸>] [--duration <초>]   마우스 바퀴(위가 +)
   key-down <키[+키…]> [--power <-1~1>] · key-up <키[+키…]>   키 눌러 두기 · 떼기(JoystickButton16~19 는 스틱 — power 가 값)
+  pad [xbox|ps5|ps4|switch|generic|off]            가상 패드 종류 — 그 콘솔 패드로 바꾼다(없으면 지금 상태 · 붙은 패드 장치). 그 뒤 key Pad.Cross · Pad.A · Pad.Up · Pad.LX 처럼 그 패드의 글자로
   tilt <x> <y> <z> [--duration <초>]               기울이기(가속도 g)
   pointer <ref|주소> <down|up|enter|exit>          GameObject 하나에 Pointer 이벤트
   input-reset                                      눌러 둔 손가락 · 키 · 가짜 마우스 · 기울기를 다 거둔다
@@ -656,6 +657,17 @@ export async function run(argv: string[], o: Options): Promise<string> {
       const f = flags('power');
       await game.keyDown(args[0], f.o);
       return after(ran('keyDown', quote(args[0]), ...f.shown));
+    }
+    case 'pad': {
+      const types = ['xbox', 'ps5', 'ps4', 'switch', 'generic', 'off'];
+      if (args[0] !== undefined && !types.includes(args[0])) throw new Error(`pad [${types.join('|')}] 꼴이어야 합니다`);
+      const r = await game.pad(args[0] as PadType | undefined);
+      const hex = (n?: number) => (n === undefined ? '' : n.toString(16).padStart(4, '0'));
+      const lines = [
+        `- 패드: ${r.pad.type}${r.pad.layout ? ` · ${r.pad.layout}` : ''}${r.pad.buttons ? ` · ${Object.entries(r.pad.buttons).map(([spot, label]) => `${spot} ${label}`).join(' · ')}` : ''}`,
+        `- 장치: ${r.devices.map((d) => `${d.layout}${d.product ? ` 「${d.product}」` : ''}${d.vendorId !== undefined ? ` ${hex(d.vendorId)}:${hex(d.productId)}` : ''}(${d.native ? '실물' : '가상'})`).join(' · ') || '없음'}`,
+      ];
+      return args[0] === undefined ? lines.join('\n') : after([ran('pad', quote(args[0])), ...lines].join('\n'));
     }
     case 'tilt': {
       const xyz = args.map(toNum);

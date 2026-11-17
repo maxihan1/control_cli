@@ -14,6 +14,8 @@ export interface Arg {
 export interface CommandSpec {
   name: string;
   summary: string;
+  /** 이 명령을 하는 엔진 — 없으면 전부. 다른 엔진 SDK 는 caps 에 싣지 않는다 */
+  engines?: string[];
   args: Record<string, Arg>;
 }
 

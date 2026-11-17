@@ -208,7 +208,7 @@ public class ControlCli {
     public Map<String, Object> tap(double x, double y) { return tap(x, y, Map.of()); }
 
     /** 키 누르기 — duration 동안(기본 한 프레임) 누르고 뗀다. A+LeftShift 처럼 + 로 여럿을 함께
-     * @param key KeyCode 이름 — Escape · Space · Return · I · Alpha1 · Mouse0 · JoystickButton0, 여럿은 A+LeftShift
+     * @param key KeyCode 이름 — Escape · Space · Return · I · Alpha1 · Mouse0 · JoystickButton0, 여럿은 A+LeftShift. Pad.&lt;이름&gt; 은 지금 가상 패드의 글자(Pad.Cross · Pad.A · Pad.Up · Pad.LX) — 그 패드에 없는 이름은 거절한다
      * @param options 고를 칸 — duration: 누르고 있는 초(0~8, 기본 0 — 한 프레임) / power: 세기 -1~1(기본 1) — GetAxis 값 · JoystickButton16~19 는 스틱 값
      */
     public Map<String, Object> key(String key, Map<String, ?> options) { return send("key", fields(only(options, "duration", "power"), "key", key)); }
@@ -452,6 +452,13 @@ public class ControlCli {
      */
     public Map<String, Object> inputReset() { return send("input-reset", fields(Map.of())); }
 
+    /** 가상 패드 종류 — type 을 주면 앞 가상 패드를 없애고 그 콘솔 패드의 layout 으로 새로 만든다. 없으면 지금 패드와 붙은 패드 장치 목록만 답한다(Input System 게임만)
+     * @param options 고를 칸 — type: xbox · ps5 · ps4 · switch · generic(종류 없는 패드) · off(가상 패드 없음) — xbox · ps5 · ps4 · switch · generic · off
+     */
+    public Map<String, Object> pad(Map<String, ?> options) { return send("pad", fields(only(options, "type"))); }
+
+    public Map<String, Object> pad() { return pad(Map.of()); }
+
     /** 게임 로그 전부(Log · Warning · Error · Assert · Exception, 최근 500개) — 40자 넘는 영숫자 토막(토큰)은 ***
      * @param options 고를 칸 — since: 받아 둔 last — 그 번호 뒤만
      */
@@ -517,6 +524,7 @@ public class ControlCli {
             case "tilt" -> tilt(num(a, "x"), num(a, "y"), num(a, "z"), without(a, "x", "y", "z"));
             case "pointer" -> pointer(str(a, "target"), str(a, "event"));
             case "input-reset" -> inputReset();
+            case "pad" -> pad(without(a));
             case "logs" -> logs(without(a));
             case "events" -> events(without(a));
             case "sdk-log" -> sdkLog(bool(a, "on"));
