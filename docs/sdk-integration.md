@@ -55,7 +55,7 @@ QA 빌드 설정을 ProjectSettings/ProjectSettings.asset에 추가했습니다.
 - **기획서**: 게임 규칙, 수치표, 확률표
 - **게임 정보**: Unity 버전, 입력 방식(Input Manager, Input System, 둘 다), 사용하는 UI(uGUI, TextMesh Pro, UI Toolkit), 화면 방향, 서버 통신 방식(REST, 소켓), 첫 실행 때 뜨는 화면(약관, 권한, 추가 다운로드, 튜토리얼)
 
-빌드할 때마다 versionCode를 올려 주세요. 값이 같으면 테스트 기기에 새 빌드가 깔리지 않습니다.
+빌드할 때마다 versionCode를 올려 주세요. 버전이 같으면 테스트 환경에 새 빌드가 설치되지 않습니다.
 
 ## 지원하는 Unity 버전
 
