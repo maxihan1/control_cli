@@ -18,7 +18,7 @@ Unity · Godot 게임을 자동화 테스트로 조작하는 SDK 와 CLI.
 | Unity 판 | 2021.3 · 2022.3 · 6000.0 | 6000.0 (Ashveil) | 2021.3 · 2022.3 |
 | UI | uGUI · TextMeshPro · UI Toolkit(UIDocument) | uGUI | TMP · UI Toolkit (`layout` 은 uGUI 만) |
 | 입력 | 옛 Input · 새 Input System · 둘 다 | 옛 Input | Input System(Touchscreen · Mouse · Keyboard) |
-| 가상 패드 | PlayStation(PS5 · PS4) · Switch · Xbox · 종류 없는 패드 — Input System 게임 · PC 빌드(SDK 0.12.0) | macOS(Unity 6000.3 · Input System 1.18.0) — conform 패드 줄 넷 · Boss Room | Windows(`XInputControllerWindows`) · 실물 패드를 꽂은 채 |
+| 가상 패드 | PlayStation(PS5 · PS4) · Switch · Xbox · 종류 없는 패드 — Input System 게임 · PC 빌드(SDK 0.12.0) | macOS(Unity 6000.0 · Input System 1.11.2, Unity 6000.3 · Input System 1.18.0) — conform 패드 줄 넷 | Windows(`XInputControllerWindows`) · 실물 패드를 꽂은 채 · `PlayerInput` 을 쓰는 실제 게임 |
 | 플랫폼 | Android(팜 · USB) · PC(Windows · macOS · Linux) · iOS(USB, 17+) · WebGL(브라우저 → relay) | Android · macOS · Linux(Docker) · WebGL(Chrome) | Windows · iOS (CLI 는 가짜 게임 · 가짜 usbmuxd 로 테스트) |
 | 드라이버 | Python · C# · Java · Robot Framework (TCP · relay) | Python · Java · C# · Robot (Unity · Godot macOS 앱) | — |
 | Godot | 4.5 이상 · Control UI · 3D 물리 · PC · Android · 웹(relay) | 4.5.2 · 4.7.2 Linux(CI xvfb) · 4.7.2 macOS 앱 · Android(USB) · 웹(Chrome) — conform 47/0/6 | iOS(빌드 안 함) |
@@ -298,7 +298,7 @@ npx control-cli pad off              # 가상 패드를 없앤다
 
 | 종류 | 만들어지는 layout | `Pad.` 이름(자리 0~11 차례) |
 |---|---|---|
-| `xbox` | Windows `XInputControllerWindows` · macOS `XboxGamepadMacOSWireless` | `A B X Y LB RB LT RT View Menu LS RS` |
+| `xbox` | Windows `XInputControllerWindows` · macOS `XboxGamepadMacOSWireless`(Input System 1.11 은 `XboxOneGampadMacOSWireless`) | `A B X Y LB RB LT RT View Menu LS RS` |
 | `ps5` | `DualSenseGamepadHID` | `Cross Circle Square Triangle L1 R1 L2 R2 Create Options L3 R3` |
 | `ps4` | `DualShock4GamepadHID` | `Cross Circle Square Triangle L1 R1 L2 R2 Share Options L3 R3` |
 | `switch` | `SwitchProControllerHID` | `B A Y X L R ZL ZR Minus Plus LS RS` |

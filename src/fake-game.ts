@@ -63,7 +63,7 @@ const FINGERS = Array.from({ length: 10 }, (_, i) => 10 + i);
 const keysOf = (c: Command) => String(c.key).split('+').map((k) => k.trim());
 
 /** SDK FakePad 와 같은 표 — 자리(JoystickButton0~11) 차례의 그 패드 글자. 12~19 는 어느 패드든 같은 이름 */
-export const PAD_LABELS: Record<string, string[]> = {
+const PAD_LABELS: Record<string, string[]> = {
   xbox: ['A', 'B', 'X', 'Y', 'LB', 'RB', 'LT', 'RT', 'View', 'Menu', 'LS', 'RS'],
   ps5: ['Cross', 'Circle', 'Square', 'Triangle', 'L1', 'R1', 'L2', 'R2', 'Create', 'Options', 'L3', 'R3'],
   ps4: ['Cross', 'Circle', 'Square', 'Triangle', 'L1', 'R1', 'L2', 'R2', 'Share', 'Options', 'L3', 'R3'],

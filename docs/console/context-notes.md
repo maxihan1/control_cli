@@ -39,6 +39,14 @@
 - **「C 축 · 조이스틱」 줄은 고치지 않았다** — 계획은 키보드 키를 빼자고 했으나, 옛 Input 감싸기는 조이스틱 축을 흉내 내지 않아(`FakeKeys.Axis`) 키보드 키가 빠지면 옛 Input 빌드와 Godot 표준 화면에서 그 줄이 실패한다. 패드만 보는 확인은 새 패드 줄이 맡는다
 - **`off` 는 처음 상태다** — 가상 패드가 없는 상태를 `off` 로 부르고, 그 상태에서 패드 키가 오면 `generic` 을 만든다(계획의 「종류를 안 골랐으면 generic」). 따로 「안 고름」 상태를 두지 않았다
 
+## 2026-11-17 C1 conform (이 맥)
+- **Input System 빌드** — 이 맥에서 구운 샘플(Unity 6000.3.10f1 · Input System 1.18.0 · Mono · SDK 0.12.0)에 `open --pc --app` → conform 「통과 56 · 실패 0 · 미실행 1」(미실행은 PC 의 일시정지 줄). 패드 줄 넷(ps5 `DualSenseGamepadHID` · ps4 `DualShock4GamepadHID` · switch `SwitchProControllerHID` · xbox `XboxGamepadMacOSWireless`)은 돌린 판마다 통과했다. `pad switch` → `key-down Pad.A+Pad.Up+Pad.LX --power -1` 의 PadText 는 「pad SwitchProControllerHID · ok A · no B · held east=A · dpad 0,1 · L -1,0 …」
+- **옛 Input 빌드** — 같은 프로젝트를 `-activeInputHandler 0` 으로 구우면 ping 이 `input: old` · `pads: []`, `pad ps5` 는 「이 게임은 Input System 을 쓰지 않아 가상 패드를 만들 수 없습니다」, conform 「통과 52 · 실패 0 · 미실행 5」(패드 줄 넷이 「옛 Input 빌드」 까닭으로 미실행). `key Pad.Up` 은 옛 길(`JoystickButton12`)로 간다
+- **마우스 줄의 흔들림은 패드와 상관없다** — 이 맥에서 구운 6000.3 + 1.18.0 빌드는 「C UI Toolkit 직접」(EventSystem 없는 장면의 UI Toolkit 누르기) · 끌기 줄이 판마다 붙었다 떨어졌다 했다. 같은 Unity · Input System 으로 main 의 SDK(0.10.0)를 구워도 같았다 — 패드를 한 번도 안 만든 새 게임에서 `scene-load Second` → `click SecondButton` 이 「second 1」이 될 때와 빈 글자일 때가 섞인다. 앞서 「52/0/1」을 남긴 빌드는 CI 가 구운 6000.0.84f1 + 1.11.2 다. 까닭은 캐지 않았다(C1 범위 밖) — 진짜 마우스 커서가 게임 창 위에 있었는지, Input System 1.18.0 의 UI Toolkit 입력 길이 달라졌는지가 후보다
+- **CI 가 구운 빌드(6000.0.84f1 · Input System 1.11.2 · run 44056206295 의 StandaloneOSX input 1)** — `open --pc --app` → conform 을 세 번 돌려 마우스 줄 흔들림 없이 ps5 · ps4 · switch 줄이 통과했다. 스틱 날값 쓰기 · hat 십자키가 1.11.2 에서도 맞는다
+- **macOS Xbox layout 이름은 Input System 판마다 다르다** — 같은 장치 설명(HID · product `Xbox Wireless Controller`)이 1.18.0 에서는 `XboxGamepadMacOSWireless`, 1.11.2 에서는 `XboxOneGampadMacOSWireless`(Unity 쪽 오타 그대로)가 된다. 1.11.2 에는 macOS 무선 Xbox layout 이 그것 하나이고, 1.18.0 은 옛 Xbox One 패드(VID/PID 여덟)만 그 이름으로 남기고 나머지를 새 layout 으로 뺐다. SDK 는 그대로 두고(그 Input System 이 무선 Xbox 패드에 주는 layout 이 맞는 답이다) conform 의 xbox 줄이 셋(`XInputControllerWindows` 포함)을 다 맞다고 보게 고쳤다 — CI 빌드에서 그 줄이 「layout XboxOneGampadMacOSWireless」로 실패해 알았다
+- **Boss Room 은 굽지 않았다** — 사용자 2026-11-17 「보스룸 굽지마」. 그 프로젝트는 Input System 원본을 읽는 데만 썼다
+
 ## Windows
 - CLI 의 PC 길은 OS 분기가 거의 없다(`process.platform` 은 Keychain 과 inspect 브라우저 열기 둘). `.exe` 는 `launch()` 의 일반 분기로 이미 `spawn` 된다. 남은 것은 실행해 본 기록이 없다는 것이다 — 그래서 고칠 곳보다 CI(`windows-latest` 에서 `npm test`)와 실측이 먼저다
 - `--ios` · `--usb` 의 Windows 지원 · `tools/handoff.mjs`(전달용 branch 에만 있다)는 손대지 않는다 — 요청 밖

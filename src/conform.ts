@@ -178,12 +178,12 @@ const released = (run: (g: Game) => Promise<void>) => async (g: Game) => {
   }
 };
 
-// 콘솔 패드마다 — 맞아야 하는 layout(xbox 는 Windows · macOS) · PadText 의 확인/취소 글자 · 그 패드의 글자로 누른 버튼이 간 자리 · 방아쇠 이름 · 다른 플랫폼의 이름(거절돼야 한다)
+// 콘솔 패드마다 — 맞아야 하는 layout(xbox 는 Windows · macOS, macOS 는 Input System 판에 따라 둘 — 1.11 은 XboxOneGampadMacOSWireless) · PadText 의 확인/취소 글자 · 그 패드의 글자로 누른 버튼이 간 자리 · 방아쇠 이름 · 다른 플랫폼의 이름(거절돼야 한다)
 const PADS = [
   { type: 'ps5', layouts: ['DualSenseGamepadHID'], ok: 'Cross', no: 'Circle', press: 'Pad.Cross', held: 'south=Cross', trigger: 'Pad.L2', alien: 'Pad.A' },
   { type: 'ps4', layouts: ['DualShock4GamepadHID'], ok: 'Cross', no: 'Circle', press: 'Pad.Cross', held: 'south=Cross', trigger: 'Pad.L2', alien: 'Pad.A' },
   { type: 'switch', layouts: ['SwitchProControllerHID'], ok: 'A', no: 'B', press: 'Pad.A', held: 'east=A', trigger: 'Pad.ZL', alien: 'Pad.Cross' },
-  { type: 'xbox', layouts: ['XInputControllerWindows', 'XboxGamepadMacOSWireless'], ok: 'A', no: 'B', press: 'Pad.A', held: 'south=A', trigger: 'Pad.LT', alien: 'Pad.Cross' },
+  { type: 'xbox', layouts: ['XInputControllerWindows', 'XboxGamepadMacOSWireless', 'XboxOneGampadMacOSWireless'], ok: 'A', no: 'B', press: 'Pad.A', held: 'south=A', trigger: 'Pad.LT', alien: 'Pad.Cross' },
 ] as const;
 
 const padStep = (p: (typeof PADS)[number]): Step => ({

@@ -48,7 +48,7 @@
 
 ## conform 패드 줄
 
-종류마다 한 줄 — `pad <종류>` → layout 확인 → 이름표 버튼(`Pad.Cross` → `held south=Cross`, switch 의 `Pad.A` 는 `east=A`) → 십자키(`Pad.Up+Pad.Right` → `dpad 1,1`) → 스틱 부호(`Pad.LX` −1 · `Pad.LY` +1 → `L -1,1`, `Pad.RX` +1 · `Pad.RY` −1 → `R 1,-1`) → 방아쇠 → 다른 플랫폼 이름 거절 → `pad off`. xbox 는 `XInputControllerWindows` · `XboxGamepadMacOSWireless` 둘 다 맞다고 본다.
+종류마다 한 줄 — `pad <종류>` → layout 확인 → 이름표 버튼(`Pad.Cross` → `held south=Cross`, switch 의 `Pad.A` 는 `east=A`) → 십자키(`Pad.Up+Pad.Right` → `dpad 1,1`) → 스틱 부호(`Pad.LX` −1 · `Pad.LY` +1 → `L -1,1`, `Pad.RX` +1 · `Pad.RY` −1 → `R 1,-1`) → 방아쇠 → 다른 플랫폼 이름 거절 → `pad off`. xbox 는 `XInputControllerWindows` · `XboxGamepadMacOSWireless` · `XboxOneGampadMacOSWireless`(Input System 1.11 의 macOS 이름)를 다 맞다고 본다.
 
 「C 축 · 조이스틱」 줄은 그대로 둔다 — 옛 Input 빌드와 Godot 표준 화면이 그 줄의 키보드 키로 통과한다(context-notes).
 
