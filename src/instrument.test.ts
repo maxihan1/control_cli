@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { addDefine, addInputReference, addPackage, godotSetting, instrument, instrumentGodot, packageUrl, shadowsFakeInput, INPUT_ASSEMBLY, PACKAGE, RELAY_FILE, SETTINGS_FILE } from './instrument.js';
+import { addDefine, addInputReference, addPackage, dropPackage, godotSetting, instrument, instrumentGodot, packageUrl, shadowsFakeInput, EMBEDDED, INPUT_ASSEMBLY, PACKAGE, RELAY_FILE, SETTINGS_FILE } from './instrument.js';
 
 test('패키지는 다른 의존을 남기고 고른 ref 로 더한다', () => {
   const out = addPackage({ dependencies: { 'com.unity.ugui': '2.0.0' } }, 'abc123');
@@ -79,6 +79,28 @@ test('프로젝트 폴더를 고치고 무엇을 바꿨는지 돌려준다', () 
   assert.equal(manifest.dependencies[PACKAGE], packageUrl('v1'));
   const editor = JSON.parse(readFileSync(join(root, 'Assets', 'Game', 'Editor', 'Game.Editor.asmdef'), 'utf8'));
   assert.equal(editor.references, undefined);
+});
+
+test('ref 가 없으면 실린 SDK 를 Packages 에 넣고 manifest 의 옛 SDK 줄을 지운다 — 다시 돌려도 SDK 의 asmdef 는 안 고친다', () => {
+  const root = mkdtempSync(join(tmpdir(), 'instrument-embed-'));
+  mkdirSync(join(root, 'Packages'));
+  mkdirSync(join(root, 'Assets'));
+  const manifestPath = join(root, 'Packages', 'manifest.json');
+  writeFileSync(manifestPath, JSON.stringify({ dependencies: { 'com.unity.ugui': '2.0.0', [PACKAGE]: packageUrl('old') } }));
+
+  assert.deepEqual(instrument(root, undefined).asmdefs, []);
+  assert.deepEqual(JSON.parse(readFileSync(manifestPath, 'utf8')).dependencies, { 'com.unity.ugui': '2.0.0' });
+  const runtime = join(root, EMBEDDED, 'Runtime', 'ControlCli.Runtime.asmdef');
+  const before = readFileSync(runtime, 'utf8');
+  assert.ok(existsSync(runtime + '.meta'), '.meta 도 같이');
+
+  assert.deepEqual(instrument(root, undefined).asmdefs, []);
+  assert.equal(readFileSync(runtime, 'utf8'), before);
+  // --ref 로 바꾸면 넣어 둔 SDK 를 치운다 — 같은 패키지가 두 곳에 있으면 안 된다.
+  instrument(root, 'v1');
+  assert.equal(existsSync(join(root, EMBEDDED)), false);
+  assert.deepEqual(dropPackage({}).dependencies, {});
+  assert.throws(() => packageUrl('v1', ''), /--ref 는 받지 않습니다/);
 });
 
 const settings = (symbols: string) => `PlayerSettings:\n  productName: Game\n  scriptingDefineSymbols:${symbols}\n  additionalCompilerArguments: {}\n`;

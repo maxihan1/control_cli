@@ -1,12 +1,22 @@
 // QA 빌드 직전에 Unity 프로젝트에 SDK 패키지 · asmdef 참조 · 정의 심볼 CONTROL_CLI 를, Godot 프로젝트에 애드온과 autoload 를 더한다 — 게임 저장소에는 SDK 를 넣지 않고 빌드 잡에서만
 import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { dirname, join, relative } from 'node:path';
+import { dirname, join, relative, sep } from 'node:path';
 
 export const PACKAGE = 'com.maxihan1.control-cli';
 export const INPUT_ASSEMBLY = 'ControlCli.Input';
 
-export function packageUrl(ref: string): string {
-  return `https://github.com/maxihan1/control_cli.git?path=/sdk/unity#${ref}`;
+// CLI 에 실린 Unity SDK — npm 패키지 files 에 sdk/unity 가 든다. --ref 가 없으면 이것을 프로젝트의 Packages/ 에 넣는다(Godot 와 같은 길).
+export const UNITY_SDK = join(import.meta.dirname, '..', 'sdk', 'unity');
+export const UNITY_SDK_VERSION = (JSON.parse(readFileSync(join(UNITY_SDK, 'package.json'), 'utf8')) as { version: string }).version;
+export const EMBEDDED = join('Packages', PACKAGE);
+
+// 저장소는 package.json 의 repository 에서 읽는다 — 개발사에 파일로 넘기는 tarball(tools/handoff.mjs)은 그 칸을 지워 저장소를 모른다.
+const REPOSITORY = (JSON.parse(readFileSync(join(import.meta.dirname, '..', 'package.json'), 'utf8')) as { repository?: string }).repository;
+
+// --ref 로 고정할 때 Unity 가 SDK 를 받는 git 주소.
+export function packageUrl(ref: string, repository = REPOSITORY): string {
+  if (!repository) throw new Error('이 CLI 는 실린 SDK 만 넣습니다 — --ref 는 받지 않습니다');
+  return `${repository}?path=/sdk/unity#${ref}`;
 }
 
 interface Manifest {
@@ -15,6 +25,12 @@ interface Manifest {
 
 export function addPackage(manifest: Manifest, ref: string): Manifest {
   return { ...manifest, dependencies: { ...manifest.dependencies, [PACKAGE]: packageUrl(ref) } };
+}
+
+// 실린 SDK 를 Packages/ 에 넣을 때 — 전에 --ref 로 더한 줄이 남으면 Unity 가 같은 패키지를 두 곳에서 본다.
+export function dropPackage(manifest: Manifest): Manifest {
+  const { [PACKAGE]: _, ...dependencies } = manifest.dependencies ?? {};
+  return { ...manifest, dependencies };
 }
 
 interface Asmdef {
@@ -89,15 +105,23 @@ function readJson<T>(path: string): T {
 export const RELAY_FILE = join('Assets', 'ControlCli', 'Resources', 'ControlCliRelay.txt');
 
 // 다 읽고 고칠 것을 정한 뒤에 쓴다 — 중간에 깨진 파일이 있으면 아무것도 안 바꾼 채 멈춘다.
-export function instrument(project: string, ref: string, relayAddress?: string): InstrumentResult {
+// ref 가 있으면 SDK 를 그 tag · 커밋의 git 주소로 manifest 에 고정하고, 없으면 이 CLI 에 실린 SDK 를 Packages/ 에 넣는다.
+export function instrument(project: string, ref: string | undefined, relayAddress?: string): InstrumentResult {
   const manifestPath = join(project, 'Packages', 'manifest.json');
-  const writes: [string, string][] = [[manifestPath, JSON.stringify(addPackage(readJson<Manifest>(manifestPath), ref), null, 2) + '\n']];
+  const manifest = readJson<Manifest>(manifestPath);
+  const writes: [string, string][] = [];
+  // 실린 SDK 를 넣을 때 manifest 에 SDK 줄이 없으면 그 파일은 건드리지 않는다.
+  if (ref !== undefined || manifest.dependencies?.[PACKAGE] !== undefined)
+    writes.push([manifestPath, JSON.stringify(ref === undefined ? dropPackage(manifest) : addPackage(manifest, ref), null, 2) + '\n']);
+  const sdk = join(project, EMBEDDED);
   const asmdefs: string[] = [];
   const warnings: string[] = [];
   // Packages/ 안에 프로젝트에 내장한 패키지(게임 코드를 패키지로 나눈 게임)도 본다.
   for (const dir of [join(project, 'Assets'), join(project, 'Packages')]) {
     for (const f of readdirSync(dir, { recursive: true, encoding: 'utf8' })) {
       const path = join(dir, f);
+      // 전에 넣어 둔 SDK 는 게임 코드가 아니다 — 참조를 더하면 SDK 가 자기를 참조한다.
+      if (path.startsWith(sdk + sep)) continue;
       if (f.endsWith('.asmdef')) {
         const asmdef = readJson<Asmdef>(path);
         if (!addInputReference(asmdef)) continue;
@@ -112,6 +136,8 @@ export function instrument(project: string, ref: string, relayAddress?: string):
   const settings = existsSync(settingsPath) ? addDefine(readFileSync(settingsPath, 'utf8')) : undefined;
   if (settings !== undefined) writes.push([settingsPath, settings]);
   for (const [path, text] of writes) writeFileSync(path, text);
+  rmSync(sdk, { recursive: true, force: true });
+  if (ref === undefined) cpSync(UNITY_SDK, sdk, { recursive: true });
   const relayPath = join(project, RELAY_FILE);
   if (relayAddress) {
     mkdirSync(dirname(relayPath), { recursive: true });

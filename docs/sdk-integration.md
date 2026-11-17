@@ -11,34 +11,34 @@ QA 빌드에 control_cli SDK 를 넣어 빌드 파일을 넘기는 안내다. �
 | 무엇 | 조건 |
 |---|---|
 | Unity | 2021.3 LTS 이상 (2021.3 · 2022.3 · 6000.0) |
-| Node.js | 22 이상 — SDK 를 넣는 도구를 `npx` 로 돌린다 |
-| git | 빌드 기계에서 `github.com` 에 닿아야 한다 — Unity 가 SDK 패키지를 git 주소로 받는다 |
+| Node.js | 22 이상 — SDK 를 넣는 도구를 돌린다 |
+| `control-cli.zip` | 같이 받은 파일. 풀면 `control-cli` 폴더 하나가 나온다 — 따로 깔 것은 없고 인터넷도 쓰지 않는다 |
 
 Godot 게임은 맨 아래 「Godot」 절을 본다.
 
 ## 1. SDK 넣기
 
-Unity 를 켜기 전에 프로젝트 폴더에 한 번 돌린다. 이 한 줄이 연동의 전부다.
+`control-cli.zip` 을 풀고, Unity 를 켜기 전에 `control-cli` 폴더가 있는 자리에서 한 번 돌린다. 이 한 줄이 연동의 전부다.
 
 ```bash
-npx -y https://github.com/maxihan1/control_cli/releases/download/v0.14.0/control-cli.tgz instrument <Unity 프로젝트 폴더>
+node control-cli/dist/main.js instrument <Unity 프로젝트 폴더>
 ```
 
 이렇게 나오면 됐다.
 
 ```
-SDK(v0.14.0) 를 Packages/manifest.json 에 더했습니다
+SDK(0.10.0) 를 Packages/com.maxihan1.control-cli 에 넣었습니다
 asmdef 참조 더함: Assets/…/Game.asmdef
 정의 심볼 CONTROL_CLI 를 ProjectSettings/ProjectSettings.asset 에 더했습니다 — 이대로 빌드하면 SDK 가 들어갑니다. 이 파일들은 커밋하지 않습니다
 ```
 
-이 명령이 바꾸는 파일은 세 가지다.
+이 명령이 바꾸는 것은 세 가지다.
 
-- `Packages/manifest.json` — SDK 패키지 `com.maxihan1.control-cli` 한 줄을 더한다
+- `Packages/com.maxihan1.control-cli/` — SDK 폴더를 새로 넣는다. `Packages/manifest.json` 은 그대로다
 - `Assets/` · `Packages/` 아래 게임 asmdef — `references` 에 `ControlCli.Input` 을 더한다(에디터 전용 asmdef 는 건너뛴다)
 - `ProjectSettings/ProjectSettings.asset` — define symbol 에 `CONTROL_CLI` 를 더한다
 
-**바뀐 파일은 게임 저장소에 커밋하지 않는다 — 커밋하면 Release 빌드에도 SDK 가 들어간다.** CI 가 있으면 QA 빌드 잡에서만 이 한 줄을 돌리고, 손으로 빌드하면 빌드 뒤에 되돌린다(Unity 가 고친 `Packages/packages-lock.json` 도 같이).
+**바뀐 파일은 게임 저장소에 커밋하지 않는다 — 커밋하면 Release 빌드에도 SDK 가 들어간다.** CI 가 있으면 QA 빌드 잡에서만 이 한 줄을 돌리고, 손으로 빌드하면 빌드 뒤에 되돌린다(SDK 폴더는 지우고, Unity 가 고친 `Packages/packages-lock.json` 도 같이).
 
 `경고:` 줄이 나오면 그 파일에서는 터치가 안 먹는다. 아래 「걸릴 수 있는 곳」의 1번을 본다.
 
@@ -81,10 +81,9 @@ BuildPipeline.BuildPlayer(options);
 명령까지 보내 보려면(선택) 같은 도구로 붙는다. `ping` 이 게임 이름과 SDK 버전을 답하면 된다.
 
 ```bash
-CLI=https://github.com/maxihan1/control_cli/releases/download/v0.14.0/control-cli.tgz
-npx -y $CLI open --usb      # Android — USB 로 이은 폰에서 켜 둔 게임. PC 빌드는 --pc
-npx -y $CLI ping
-npx -y $CLI close
+node control-cli/dist/main.js open --usb      # Android — USB 로 이은 폰에서 켜 둔 게임. PC 빌드는 --pc
+node control-cli/dist/main.js ping
+node control-cli/dist/main.js close
 ```
 
 ## 4. 넘길 것
@@ -132,7 +131,7 @@ Unity 2021.3 LTS 이상을 받는다. 2020.3 이하는 받지 않는다.
 Godot 4.5 이상. 같은 도구가 `project.godot` 를 보고 Godot 로 알아본다.
 
 ```bash
-npx -y https://github.com/maxihan1/control_cli/releases/download/v0.14.0/control-cli.tgz instrument <Godot 프로젝트 폴더>
+node control-cli/dist/main.js instrument <Godot 프로젝트 폴더>
 ```
 
 `addons/control_cli` 에 애드온을 넣고 `project.godot` 의 `[autoload]` 에 한 줄을 더한다. define symbol 은 없다 — Release 빌드에서는 이 명령을 돌리지 않으면 된다. 바뀐 파일은 Unity 와 같이 커밋하지 않는다.

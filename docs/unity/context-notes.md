@@ -145,3 +145,13 @@
 - `sample/` 은 `ProjectSettings.asset` 을 저장소에 안 둬(Unity 가 빌드 때 만든다) CI 샘플 빌드는 전처럼 `extraScriptingDefines` 로 켠다 — CI 는 이 길을 안 지난다
 - 판 0.14.0 — tarball 이 새 instrument 를 실어야 해서. 병합 뒤 그 main 커밋에 `v0.14.0` tag 를 올려야 안내의 주소가 산다
 
+## 2026-11-17 — 저장소를 드러내지 않고 넘긴다 · SDK 를 CLI 에 실어 넣는다 (사용자 「저장소는 노출 안 되게 · 리드미도 안 보이게」)
+
+- 앞 절의 Release tarball 주소는 버렸다(`release.yml` 삭제) — 명령에 저장소 주소가 들고, Unity 도 SDK 를 저장소 git 주소로 받아 개발사가 저장소와 README 를 바로 본다
+- 넘기는 것은 파일 둘 — 안내(PDF)와 `npm run handoff` 가 만든 `control-cli.zip`. 받은 쪽은 풀어서 `node control-cli/dist/main.js instrument <폴더>`. CLI 는 실행 dependency 가 없어 깔 것이 없다
+- npm tarball 로 넘기지 않는 까닭 — `npx -y --package=./control-cli.tgz …` 는 npm 10.9.2 가 상대 경로를 현재 폴더가 아닌 홈 폴더 기준으로 풀어 ENOENT 로 실패했다. 그리고 `npm pack` 은 README 를 늘 싣는다(`files` · `.npmignore` 로 못 뺀다)
+- zip 에 없는 것 — README · 테스트 · TS 주석(`tsc --removeComments`) · `package.json` 의 `repository`. `tools/handoff.mjs` 가 `github.com` · `control_cli.git` 글자가 남으면 만들지 않는다. 저장소 주소는 코드에서 빼 `package.json` 의 `repository` 에서 읽는다 — zip 의 CLI 는 그 칸이 없어 `--ref` 를 거절한다
+- instrument 기본이 바뀌었다 — `--ref` 가 없으면 「이 CLI 판 tag 의 git 주소」가 아니라 CLI 에 실린 `sdk/unity` 를 `Packages/com.maxihan1.control-cli` 에 넣는다(Godot 와 같은 길). `--ref` 를 주는 쪽(Ashveil QA 빌드 잡 · `sample.yml`)은 그대로. 넣어 둔 SDK 폴더는 asmdef 훑기에서 건너뛴다 — 안 그러면 다시 돌릴 때 SDK 가 자기를 참조한다
+- 실측 — zip 의 CLI 로 instrument → Unity 6000.3.10f1 macOS 빌드. `packages-lock.json` 에 `"source": "embedded"`, `Managed/` 에 SDK DLL 셋, zip 의 CLI 로 `open --pc --app` → conform 「통과 52 · 실패 0 · 미실행 1」
+- 남는 것 — 패키지 id `com.maxihan1.control-cli` · LICENSE · Godot `plugin.cfg` 의 `maxihan1`, SDK C# · GDScript 주석의 내부 낱말(`test_platform kit` · `Issue Bunker`). 저장소가 public 인 한 이 이름으로 찾을 수 있다 — 숨기려면 저장소를 private 으로(사용자 결정 · 하면 `npm i github:…` 과 Unity `--ref` 길이 인증을 요구한다)
+
