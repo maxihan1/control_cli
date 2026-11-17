@@ -63,6 +63,19 @@ export interface PingReply {
   sdkVersion?: string;
   protocol?: number;
   caps?: string[];
+  /** 게임이 읽는 입력 — old(옛 Input Manager) · new(Input System) · both. SDK 0.12.0 부터 */
+  input?: 'old' | 'new' | 'both';
+  /** 이 빌드 · 이 플랫폼에서 만들 수 있는 가상 패드 종류 — 옛 Input 빌드는 빈 목록. SDK 0.12.0 부터 */
+  pads?: string[];
+}
+
+export type PadType = 'xbox' | 'ps5' | 'ps4' | 'switch' | 'generic' | 'off';
+
+export interface PadReply {
+  /** 지금 가상 패드 — off 면 layout · buttons 가 없다. buttons 는 그 layout 이 주는 표시 이름(자리 → 글자) */
+  pad: { type: PadType; layout?: string; buttons?: Record<string, string> };
+  /** Input System 에 붙은 패드 · 조이스틱 전부 — 가상 패드는 native 가 false. Steam Input · 변환 도구가 끼었는지 가리는 근거 */
+  devices: { layout: string; product?: string; vendorId?: number; productId?: number; native: boolean }[];
 }
 
 export interface WaitOptions {
@@ -398,6 +411,11 @@ export class Game {
   /** GameObject 하나에 Pointer 이벤트를 바로 보낸다 */
   async pointer(target: string, event: PointerAction): Promise<void> {
     await this.call({ cmd: 'pointer', target, event });
+  }
+
+  /** 가상 패드 — type 을 주면 그 콘솔 패드(layout)로 바꾸고, 없으면 지금 상태만. 그 뒤 key · keyDown 의 Pad.<이름>(Pad.Cross · Pad.A)이 그 패드의 글자다 */
+  async pad(type?: PadType): Promise<PadReply> {
+    return (await this.call({ cmd: 'pad', ...given({ type }) })) as unknown as PadReply;
   }
 
   /** 가짜 입력을 다 거둔다 — 눌러 둔 손가락 · 키 · 가짜 마우스 · 기울기 */

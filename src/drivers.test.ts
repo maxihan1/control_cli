@@ -34,12 +34,12 @@ const BRIDGES = [
 ];
 
 for (const b of BRIDGES) {
-  test(`${b.lang} 다리 — 가짜 표준 화면(TCP)에 conform 52줄 통과 · 일시정지만 미실행`, { skip: !has(b.tool) && `${b.tool} 없음` }, async () => {
+  test(`${b.lang} 다리 — 가짜 표준 화면(TCP)에 conform 56줄 통과 · 일시정지만 미실행`, { skip: !has(b.tool) && `${b.tool} 없음` }, async () => {
     const pc = await fakeTcp(standardScreen());
     const d = driverLink(b.cmd, { ...process.env, CONTROL_CLI_GAME: `tcp://127.0.0.1:${pc.port}` });
     try {
       const r = await conform(new Game(d.link));
-      assert.deepEqual([r.passed, r.failed, r.skipped], [52, 0, 1], report(r));
+      assert.deepEqual([r.passed, r.failed, r.skipped], [56, 0, 1], report(r));
     } finally {
       d.close();
       pc.server.close();
@@ -57,7 +57,7 @@ for (const b of BRIDGES) {
       const games = (await (await fetch(`${url}/games`, { headers: { Authorization: 'Bearer s3cret' } })).json()) as { value: { key: string }[] };
       assert.deepEqual(games.value.map((g) => g.key), ['com.fake.game@fake-dev']);
       const r = await conform(new Game(d.link));
-      assert.deepEqual([r.passed, r.failed, r.skipped], [52, 0, 1], report(r));
+      assert.deepEqual([r.passed, r.failed, r.skipped], [56, 0, 1], report(r));
       await assert.rejects(new Game(wrong.link).ping(), /토큰/);
     } finally {
       d.close();
@@ -82,7 +82,7 @@ test('CLI conform --driver — PC 세션 주소를 다리에 넘기고 머리에
     await cli('-s=drv', 'open', '--pc', '--port', String(pc.port));
     const out = await cli('-s=drv', 'conform', '--port', String(pc.port), '--driver', BRIDGES[0].cmd);
     assert.match(out, /^드라이버 — python3 .*\nconform — com\.fake\.game/);
-    assert.match(out, /통과 52 · 실패 0 · 미실행 1$/);
+    assert.match(out, /통과 56 · 실패 0 · 미실행 1$/);
     await cli('-s=drv', 'close');
   } finally {
     pc.server.close();

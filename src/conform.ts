@@ -13,6 +13,8 @@ interface Step {
   needs?: keyof ConformHooks;
   /** 이 UI 갈래가 있는 표준 화면에서만(Unity TMP · UI Toolkit) — 없는 엔진은 미실행 */
   ui?: Ui;
+  /** 이 가상 패드를 만들 수 있는 게임에서만 — ping 의 pads 에 없으면(옛 Input 빌드 · 폰) 미실행 */
+  pad?: string;
   run: (game: Game, hooks: ConformHooks) => Promise<void>;
 }
 
@@ -175,6 +177,65 @@ const released = (run: (g: Game) => Promise<void>) => async (g: Game) => {
     await g.resetInput().catch(() => undefined);
   }
 };
+
+// 콘솔 패드마다 — 맞아야 하는 layout(xbox 는 Windows · macOS) · PadText 의 확인/취소 글자 · 그 패드의 글자로 누른 버튼이 간 자리 · 방아쇠 이름 · 다른 플랫폼의 이름(거절돼야 한다)
+const PADS = [
+  { type: 'ps5', layouts: ['DualSenseGamepadHID'], ok: 'Cross', no: 'Circle', press: 'Pad.Cross', held: 'south=Cross', trigger: 'Pad.L2', alien: 'Pad.A' },
+  { type: 'ps4', layouts: ['DualShock4GamepadHID'], ok: 'Cross', no: 'Circle', press: 'Pad.Cross', held: 'south=Cross', trigger: 'Pad.L2', alien: 'Pad.A' },
+  { type: 'switch', layouts: ['SwitchProControllerHID'], ok: 'A', no: 'B', press: 'Pad.A', held: 'east=A', trigger: 'Pad.ZL', alien: 'Pad.Cross' },
+  { type: 'xbox', layouts: ['XInputControllerWindows', 'XboxGamepadMacOSWireless'], ok: 'A', no: 'B', press: 'Pad.A', held: 'south=A', trigger: 'Pad.LT', alien: 'Pad.Cross' },
+] as const;
+
+const padStep = (p: (typeof PADS)[number]): Step => ({
+  cmds: ['pad', 'key-down', 'key-up', 'input-reset', 'find'],
+  pad: p.type,
+  label: `C pad ${p.type} → ${p.layouts.join(' | ')} · ${p.press} → ${p.held} · 십자키 · 스틱 · 방아쇠 · ${p.alien} 거절 · off`,
+  run: async (g) => {
+    try {
+      const made = await g.pad(p.type);
+      same('pad 답의 type', made.pad.type, p.type);
+      same(`layout ${made.pad.layout} 이 ${p.layouts.join(' | ')} 중 하나`, p.layouts.some((l) => l === made.pad.layout), true);
+      same('devices 에 가상 패드', made.devices.some((d) => d.layout === made.pad.layout && !d.native), true);
+      await shows(g, 'PadText', 'pad', made.pad.layout!);
+      await shows(g, 'PadText', 'ok', p.ok);
+      await shows(g, 'PadText', 'no', p.no);
+      await g.keyDown(p.press);
+      await shows(g, 'PadText', 'held', p.held);
+      await g.keyUp(p.press);
+      await shows(g, 'PadText', 'held', '-');
+      await g.keyDown('Pad.Up+Pad.Right');
+      await shows(g, 'PadText', 'dpad', '1,1');
+      await g.keyUp('Pad.Up+Pad.Right');
+      await g.keyDown('Pad.Down+Pad.Left');
+      await shows(g, 'PadText', 'dpad', '-1,-1');
+      await g.keyUp('Pad.Down+Pad.Left');
+      await shows(g, 'PadText', 'dpad', '0,0');
+      // 스틱 부호 — 왼쪽 · 위, 오른 스틱은 반대로. 가운데가 0 이 아닌 상태 형식(ps · switch)에서 음수 쪽이 가운데로 써지던 자리다.
+      await g.keyDown('Pad.LX+Pad.RY', { power: -1 });
+      await g.keyDown('Pad.LY+Pad.RX', { power: 1 });
+      await shows(g, 'PadText', 'L', '-1,1');
+      await shows(g, 'PadText', 'R', '1,-1');
+      await g.keyUp('Pad.LX+Pad.LY+Pad.RX+Pad.RY');
+      await shows(g, 'PadText', 'L', '0,0');
+      await shows(g, 'PadText', 'R', '0,0');
+      await g.keyDown(p.trigger);
+      await shows(g, 'PadText', 'LT', '1');
+      await g.keyUp(p.trigger);
+      await shows(g, 'PadText', 'LT', '0');
+      // 다른 플랫폼의 글자는 조용히 다른 자리로 가지 않고 거절된다.
+      const refused = await g.key(p.alien).then(
+        () => '',
+        (e: Error) => e.message,
+      );
+      same(`${p.alien} 거절 — 받은 답: ${refused || '성공'}`, refused.includes(p.alien), true);
+    } finally {
+      await g.resetInput().catch(() => undefined);
+      await g.pad('off').catch(() => undefined);
+    }
+    same('off 뒤 pad', (await g.pad()).pad.type, 'off');
+    await shows(g, 'PadText', 'pad', '-');
+  },
+});
 
 // 표준 화면 — Unity 는 sample/Assets/Sample, Godot 는 sample-godot. 엔진마다 같은 이름 · 같은 반응을 만들고 이름 꼴은 s(Sample)에서.
 const stepsFor = (s: Sample): Step[] => [
@@ -539,6 +600,7 @@ const stepsFor = (s: Sample): Step[] => [
       await shows(g, 'InputText', 'fire', '0');
     }),
   },
+  ...PADS.map(padStep),
   {
     cmds: ['tilt', 'find'],
     label: 'C tilt 0 v 0 → InputText tilt v',
@@ -676,6 +738,7 @@ export async function conform(game: Game, hooks: ConformHooks = {}): Promise<Con
     // caps 는 ping 이 꼴을 보고 game 에 적은 것 — 옛 SDK(caps 없음)는 다 보낸다.
     const missing = step.cmds.filter((c) => game.caps && !game.caps.includes(c));
     const why = step.ui && !s.ui.includes(step.ui) ? `${s.engine} 표준 화면에 없음(${UI_NAME[step.ui]})`
+      : !missing.length && step.pad && !(ping.pads ?? []).includes(step.pad) ? (ping.input === 'old' ? '옛 Input 빌드 — 가상 패드는 Input System 게임만' : `이 플랫폼에서는 ${step.pad} 패드를 만들 수 없음`)
       : missing.length ? `이 SDK 의 caps 에 ${missing.join(' · ')} 없음` : step.needs && !hooks[step.needs] ? '앱을 뒤로 보낼 길 없음: PC · iPhone · Appium 없는 USB' : undefined;
     if (why) {
       r.skipped++;

@@ -62,6 +62,21 @@ const limits = (c: Command) =>
 const FINGERS = Array.from({ length: 10 }, (_, i) => 10 + i);
 const keysOf = (c: Command) => String(c.key).split('+').map((k) => k.trim());
 
+/** SDK FakePad 와 같은 표 — 자리(JoystickButton0~11) 차례의 그 패드 글자. 12~19 는 어느 패드든 같은 이름 */
+export const PAD_LABELS: Record<string, string[]> = {
+  xbox: ['A', 'B', 'X', 'Y', 'LB', 'RB', 'LT', 'RT', 'View', 'Menu', 'LS', 'RS'],
+  ps5: ['Cross', 'Circle', 'Square', 'Triangle', 'L1', 'R1', 'L2', 'R2', 'Create', 'Options', 'L3', 'R3'],
+  ps4: ['Cross', 'Circle', 'Square', 'Triangle', 'L1', 'R1', 'L2', 'R2', 'Share', 'Options', 'L3', 'R3'],
+  switch: ['B', 'A', 'Y', 'X', 'L', 'R', 'ZL', 'ZR', 'Minus', 'Plus', 'LS', 'RS'],
+};
+const PAD_COMMON = ['Up', 'Down', 'Left', 'Right', 'LX', 'LY', 'RX', 'RY'];
+const PAD_TYPES = ['xbox', 'ps5', 'ps4', 'switch', 'generic', 'off'];
+// 가짜는 Windows 게임처럼 답한다 — xbox 가 XInputControllerWindows.
+const PAD_LAYOUT: Record<string, string> = { xbox: 'XInputControllerWindows', ps5: 'DualSenseGamepadHID', ps4: 'DualShock4GamepadHID', switch: 'SwitchProControllerHID', generic: 'Gamepad' };
+const PAD_SPOTS = ['south', 'east', 'west', 'north', 'leftShoulder', 'rightShoulder', 'leftTrigger', 'rightTrigger', 'select', 'start', 'leftStick', 'rightStick'];
+const GENERIC = ['Button South', 'Button East', 'Button West', 'Button North', 'Left Shoulder', 'Right Shoulder', 'Left Trigger', 'Right Trigger', 'Select', 'Start', 'Left Stick Press', 'Right Stick Press'];
+const padShown = (type: string) => PAD_LABELS[type] ?? GENERIC;
+
 // SDK Feed.Mask 와 같다 — 영숫자 · _ · - 가 40자 넘게 이어진 토막(토큰)을 가린다(Issue Bunker nginx 규칙)
 const mask = (s: string) => s.replace(/[A-Za-z0-9_-]{40,}/g, '***');
 const STAMP = '2026-11-04T00:00:00.000Z';
@@ -104,6 +119,11 @@ export class FakeGame {
   fingers = new Map<number, { node?: FakeNode; over?: FakeNode }>();
   /** 눌러 둔 키 → 세기 */
   held = new Map<string, number>();
+  /** 가상 패드 종류 — off 는 없음. 패드 키가 오면 generic 이 된다 */
+  pad = 'off';
+  /** ping 의 input · pads — 테스트가 옛 Input 빌드(old) · 콘솔 패드를 못 만드는 플랫폼(폰)을 흉내 낸다 */
+  input: 'old' | 'new' | 'both' = 'new';
+  pads = ['generic', 'ps5', 'ps4', 'switch', 'xbox'];
   /** 가짜 마우스가 올라간 것 */
   hovered?: FakeNode;
   /** tilt 의 y — 표준 화면 탐침처럼 절댓값 10 넘는 값만 남긴다 */
@@ -237,6 +257,26 @@ export class FakeGame {
     this.hovered = node;
   }
 
+  /** key 칸을 푼다 — Pad.<이름> 은 지금 패드의 글자를 자리(JoystickButton*)로. 그 패드에 없는 이름은 SDK 처럼 거절한다 */
+  private padKeys(c: Command): string[] | { error: string } {
+    const names = [...(PAD_LABELS[this.pad] ?? Array.from({ length: 12 }, () => undefined)), ...PAD_COMMON];
+    const keys: string[] = [];
+    for (const k of keysOf(c)) {
+      if (!/^pad\./i.test(k)) {
+        keys.push(k);
+        continue;
+      }
+      const n = names.findIndex((x) => x?.toLowerCase() === k.slice(4).toLowerCase());
+      const usable = names.filter((x) => x !== undefined).map((x) => `Pad.${x}`).join(' · ');
+      if (n < 0)
+        return { error: PAD_LABELS[this.pad] ? `${this.pad} 패드에 없는 이름입니다: ${k} (쓸 수 있는 이름 — ${usable})` : `${k} 는 콘솔 패드를 골라야 씁니다(pad xbox · ps5 · ps4 · switch) — 지금 쓸 수 있는 이름: ${usable}` };
+      keys.push(`JoystickButton${n}`);
+    }
+    // 패드를 안 골랐으면 종류 없는 패드로 — 옛 Input 빌드는 가상 패드가 없다.
+    if (this.pad === 'off' && this.input !== 'old' && keys.some((k) => /^JoystickButton\d+$/.test(k))) this.pad = 'generic';
+    return keys;
+  }
+
   handle(c: Command): Reply {
     const r = this.reply(c);
     if (this.sdkLog && !QUIET.includes(c.cmd)) this.log('Log', sdkLine(c, r));
@@ -258,7 +298,7 @@ export class FakeGame {
     if (limit) return { ok: false, error: limit };
     switch (c.cmd) {
       case 'ping':
-        return { ok: true, app: 'com.fake.game', version: '1.0', engine: 'fake', engineVersion: '0', sdkVersion: '0.3.0', protocol: 2, caps: this.caps };
+        return { ok: true, app: 'com.fake.game', version: '1.0', engine: 'fake', engineVersion: '0', sdkVersion: '0.3.0', protocol: 2, input: this.input, pads: this.input === 'old' ? [] : this.pads, caps: this.caps };
       case 'tree':
         return { ok: true, scene: this.scene, screen: SCREEN, tree: on(this.roots).map(strip) };
       case 'find':
@@ -320,14 +360,17 @@ export class FakeGame {
         return { ok: true, checked: 2, problems: [{ kind: 'overlap', name: 'A', path: '/C/A', other: 'B', otherPath: '/C/B' }] };
       case 'tap':
         return { ok: true, x: c.x, y: c.y };
-      case 'key':
-        for (const k of keysOf(c)) {
+      case 'key': {
+        const keys = this.padKeys(c);
+        if (!Array.isArray(keys)) return { ok: false, error: keys.error };
+        for (const k of keys) {
           this.keys.push(k);
           this.onKey?.(k);
           // SDK 처럼 Escape 는 뒤로 키와 같다.
           if (k === 'Escape') this.onBack?.();
         }
-        return { ok: true, key: c.key };
+        return { ok: true, key: keys.join('+') };
+      }
       case 'touch-down': {
         const p = this.point(c, f);
         if ('error' in p) return { ok: false, error: p.error };
@@ -390,13 +433,28 @@ export class FakeGame {
         return { ok: true };
       }
       case 'key-down':
-        for (const k of keysOf(c)) this.held.set(k, Number(c.power ?? 1));
+      case 'key-up': {
+        const keys = this.padKeys(c);
+        if (!Array.isArray(keys)) return { ok: false, error: keys.error };
+        for (const k of keys)
+          if (c.cmd === 'key-down') this.held.set(k, Number(c.power ?? 1));
+          else this.held.delete(k);
         this.onInput?.();
         return { ok: true };
-      case 'key-up':
-        for (const k of keysOf(c)) this.held.delete(k);
-        this.onInput?.();
-        return { ok: true };
+      }
+      case 'pad': {
+        if (this.input === 'old') return { ok: false, error: '이 게임은 Input System 을 쓰지 않아 가상 패드를 만들 수 없습니다' };
+        const type = c.type as string | undefined;
+        if (type !== undefined) {
+          if (!PAD_TYPES.includes(type)) return { ok: false, error: `type 은 ${PAD_TYPES.join(' · ')} 중 하나입니다` };
+          if (type !== 'off' && !this.pads.includes(type)) return { ok: false, error: `이 플랫폼에서는 ${type} 패드를 만들 수 없습니다 — 만들 수 있는 종류: ${this.pads.join(' · ')}` };
+          this.pad = type;
+          this.onInput?.();
+        }
+        if (this.pad === 'off') return { ok: true, pad: { type: 'off' }, devices: [] };
+        const layout = PAD_LAYOUT[this.pad];
+        return { ok: true, pad: { type: this.pad, layout, buttons: Object.fromEntries(PAD_SPOTS.map((spot, i) => [spot, padShown(this.pad)[i]])) }, devices: [{ layout, native: false }] };
+      }
       case 'tilt':
         if (Math.abs(c.y as number) > 10) this.tilted = Math.round(c.y as number);
         this.onInput?.();
@@ -514,6 +572,17 @@ function inputLine(g: FakeGame): string {
   return `fingers ${g.fingers.size} · keys ${keys} · axis ${axis} · fire ${has('LeftControl', 'JoystickButton0') ? 1 : 0} · tilt ${g.tilted ?? '-'}`;
 }
 
+/** 표준 화면 PadText 흉내 — sample InputProbe 의 패드 줄과 같은 꼴. 확인 · 취소는 Switch 만 오른쪽이 확인이다 */
+function padLine(g: FakeGame): string {
+  if (g.pad === 'off') return 'pad -';
+  const v = (n: number) => Math.round(g.held.get(`JoystickButton${n}`) ?? 0);
+  const on = (n: number) => (g.held.has(`JoystickButton${n}`) ? 1 : 0);
+  const shown = padShown(g.pad);
+  const [ok, no] = g.pad === 'switch' ? [1, 0] : [0, 1];
+  const held = [0, 1, 2, 3, 4, 5, 8, 9, 10, 11].filter((n) => on(n)).map((n) => `${PAD_SPOTS[n]}=${shown[n]}`).join(' ') || '-';
+  return `pad ${PAD_LAYOUT[g.pad]} · ok ${shown[ok]} · no ${shown[no]} · held ${held} · dpad ${on(15) - on(14)},${on(12) - on(13)} · L ${v(16)},${v(17)} · R ${v(18)},${v(19)} · LT ${Math.abs(v(6))} · RT ${Math.abs(v(7))}`;
+}
+
 /** 표준 화면 흉내 — sample/Assets/Sample 과 같은 이름 · 같은 반응(conform 의 기대값). Sample 장면이 열릴 때마다 화면을 새로 만든다 */
 export function standardScreen(idAccept = keyFilter(8)): FakeGame {
   const game = new FakeGame([], 'Sample');
@@ -543,7 +612,11 @@ export function standardScreen(idAccept = keyFilter(8)): FakeGame {
     game.onKey = (key) => (touch.text = `key ${key}`);
     // C — 입력 탐침 · Pointer 칸 · 세로 목록(sample InputProbe · PointerBox · ScrollList)
     const input = node('InputText', { text: inputLine(game) });
-    game.onInput = () => (input.text = inputLine(game));
+    const padText = node('PadText', { text: padLine(game) });
+    game.onInput = () => {
+      input.text = inputLine(game);
+      padText.text = padLine(game);
+    };
     const pointerText = node('PointerText', { text: 'last - · held -' });
     let last = '-';
     let held = '-';
@@ -616,6 +689,7 @@ export function standardScreen(idAccept = keyFilter(8)): FakeGame {
           node('Bag', {}, [node('Slot', {}, [node('Item', { movable: true })]), node('Slot'), node('Slot'), node('Slot')]),
           node('HiddenText', { active: false, text: 'hidden', props: { 'Text.text': 'hidden' } }),
           input,
+          padText,
           pointerText,
           holdBox,
           scrollList,

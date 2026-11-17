@@ -200,7 +200,7 @@ test('conform — 표준 화면이면 PC 는 일시정지 줄만 미실행, 다�
   const bad = await fakeTcp(new FakeGame([node('Boot')]));
   try {
     await cli('-s=cf', 'open', '--pc', '--port', String(ok.port));
-    assert.match(await cli('-s=cf', 'conform', '--port', String(ok.port)), /통과 52 · 실패 0 · 미실행 1$/);
+    assert.match(await cli('-s=cf', 'conform', '--port', String(ok.port)), /통과 56 · 실패 0 · 미실행 1$/);
     await cli('-s=cf', 'close');
     await cli('-s=cf2', 'open', '--pc', '--port', String(bad.port));
     await assert.rejects(cli('-s=cf2', 'conform', '--port', String(bad.port)), /통과 \d+ · 실패 [1-9]/);
@@ -211,14 +211,14 @@ test('conform — 표준 화면이면 PC 는 일시정지 줄만 미실행, 다�
   }
 });
 
-test('conform — 팜은 Appium 으로 앱을 뒤로 보내 일시정지 줄까지 53줄 통과', async () => {
+test('conform — 팜은 Appium 으로 앱을 뒤로 보내 일시정지 줄까지 57줄 통과', async () => {
   const f = await fakeFarm(standardScreen());
   const own = await mkdtemp(join(tmpdir(), 'control-cli-'));
   const fc = (...argv: string[]) => run(argv, { env: { PLATFORM_APPIUM_URL: f.url, PLATFORM_APP: 'http://builds/qa.apk' }, dir: own });
   try {
     await fc('hold');
     await fc('-s=fc', 'open');
-    assert.match(await fc('-s=fc', 'conform'), /통과 53 · 실패 0 · 미실행 0$/);
+    assert.match(await fc('-s=fc', 'conform'), /통과 57 · 실패 0 · 미실행 0$/);
     assert.ok(f.seen.includes('POST /wd/hub/session/S1/execute/sync'));
     await fc('-s=fc', 'close');
     await fc('release');
@@ -331,6 +331,12 @@ test('입력 명령 — Ran 줄이 kit 의 game.* 이름 · 인자 꼴로 찍히
     assert.match(await io('tilt', '0', '-5', '0', '--duration', '1'), /^Ran: await game\.tilt\(\[0, -5, 0\], \{ duration: 1 \}\)/);
     assert.match(await io('pointer', 'HoldBox', 'enter'), /^Ran: await game\.pointer\('HoldBox', 'enter'\)/);
     assert.match(await io('input-reset'), /^Ran: await game\.resetInput\(\)/);
+    assert.match(await io('pad', 'ps5'), /^Ran: await game\.pad\('ps5'\)\n- 패드: ps5 · DualSenseGamepadHID · south Cross · east Circle · .*\n- 장치: DualSenseGamepadHID\(가상\)/);
+    assert.match(await io('key', 'Pad.Cross'), /^Ran: await game\.key\('Pad\.Cross'\)/);
+    await assert.rejects(io('key', 'Pad.A'), /ps5 패드에 없는 이름입니다: Pad\.A/);
+    assert.equal(await io('pad'), '- 패드: ps5 · DualSenseGamepadHID · south Cross · east Circle · west Square · north Triangle · leftShoulder L1 · rightShoulder R1 · leftTrigger L2 · rightTrigger R2 · select Create · start Options · leftStick L3 · rightStick R3\n- 장치: DualSenseGamepadHID(가상)');
+    assert.match(await io('pad', 'off'), /^Ran: await game\.pad\('off'\)\n- 패드: off\n- 장치: 없음/);
+    await assert.rejects(io('pad', 'wii'), /pad \[xbox\|ps5\|ps4\|switch\|generic\|off\] 꼴이어야 합니다/);
     await assert.rejects(io('pointer', 'HoldBox', 'press'), /pointer <ref\|주소> <down\|up\|enter\|exit> 꼴이어야 합니다/);
     await assert.rejects(io('long-press', 'HoldBox', '--duration', '9'), /long-press 은 8초 안이어야 합니다/);
     await assert.rejects(io('touch-up', 'x'), /touch-up <손가락 번호> 꼴이어야 합니다/);
@@ -396,7 +402,7 @@ test('relay 로 연 게임은 conform 이 일시정지 줄(Appium 없음) 말고
   let ws = await fakeRelayGame(game, url);
   try {
     assert.match(await cli('-s=relay', 'open', '--relay', url), /^세션 relay 열림 — com\.fake\.game 1\.0 \(relay · macOS · FakeBook\) · fake 0 · SDK 0\.3\.0/m);
-    assert.match(await cli('-s=relay', 'conform'), /\n통과 52 · 실패 0 · 미실행 1$/);
+    assert.match(await cli('-s=relay', 'conform'), /\n통과 56 · 실패 0 · 미실행 1$/);
     ws.close();
     // relay 가 끊김을 알기 전이면 502(끊겼습니다), 안 뒤면 404(붙어 있지 않습니다)
     await assert.rejects(cli('-s=relay', 'snapshot'), /relay 에 붙어 있지 않습니다|relay 와 끊겼습니다/);
