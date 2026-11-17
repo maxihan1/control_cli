@@ -38,8 +38,8 @@
 - [x] `launch()` — 작업 폴더 · 끝의 `\` · relay 띄우기 `windowsHide` · `launch` · `stop` 을 라이브러리로 내보내기(`src/launch.ts`). 게임에는 `windowsHide` 를 걸지 않았다 — 걸면 Unity 창이 숨는다(runner 실측)
 - [x] 테스트를 Windows 에서 돌거나 건너뛰게 — `cli.test.ts`(가짜 앱은 node · usbmuxd 줄은 건너뜀 · `--usb` · `--ios` 거절 줄) · `drivers.test.ts`(`where` · UTF-8) · `launch.test.ts`
 - [x] `.gitattributes`
-- [x] CI `cli.yml` — `npm test` 를 `ubuntu-latest` · `windows-latest` 에서(Windows 104개 중 통과 101 · 건너뜀 3)
-- [x] CI `sample.yml` — `conform-windows` 잡: Windows runner 에서 샘플 `.exe` conform 「통과 56 · 실패 0 · 미실행 1」 · `pad xbox` 가 `XInputControllerWindows`
+- [x] CI `cli.yml` — `npm test` 를 `ubuntu-latest` · `windows-latest` 에서(Windows 104개 중 통과 101 · 건너뜀 3 · run 44070282724)
+- [x] CI `sample.yml` — `conform-windows` 잡: Windows runner 에서 샘플 `.exe` conform 「통과 56 · 실패 0 · 미실행 1」 · `pad xbox` 가 `XInputControllerWindows`(run 44070282927 — 12개 잡 초록, 이 실행이 구운 빌드로)
 - [x] README Windows 예시 · 지원 표
 - [x] 합친 뒤 `v0.15.0` tag
 

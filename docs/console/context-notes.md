@@ -68,6 +68,7 @@
 - **`has()`** — `sh -c 'command -v'` 는 Windows 에 `sh` 가 없으면 전부 건너뛰고, Git 이 깔려 있으면 우연히 돈다. Windows 는 `where` 로 바꿨다
 - **`.gitattributes`** — 저장소 파일은 모두 LF 로 들어가 있어 `* text=auto eol=lf` 로 바뀌는 파일이 없다. Windows checkout 이 CRLF 로 풀지 않게만 한다
 - **측정은 버리는 workflow 로** — `win-try.yml`(branch push 로 돈다)이 C1 실행의 Windows 빌드를 `gh run download` 로 받아 3~4분에 한 번씩 쟀다. sample 전체(80분)를 돌리지 않고 `sample.yml` 에 넣을 잡을 꼴 그대로 검증한 뒤 지웠다
+- **sample 전체 실행(run 44070282927)** — 빌드 열과 `conform-windows` 까지 12개 잡이 한 번에 초록이다. `conform-windows` 는 그 실행이 막 구운 Windows 빌드를 `gh run download <이 실행 번호>` 로 받아 「통과 56 · 실패 0 · 미실행 1」 · `pad xbox` 「XInputControllerWindows」. `cli` 잡은 run 44070282724
 - **C3 에 남는 것** — 실제 PC(GPU · 진짜 화면)에서의 conform, 실물 패드를 꽂은 채 가상 패드 입력, 초점 잃은 창, IL2CPP 빌드, `close` 뒤 `UnityCrashHandler64.exe` 가 남는지
 
 ## 범위 밖으로 둔 것
