@@ -15,7 +15,7 @@ Unity · Godot 게임을 자동화 테스트로 조작하는 SDK 와 CLI.
 
 | 무엇 | 받는 것 | 실기기로 확인 | 컴파일만 확인 |
 |---|---|---|---|
-| Unity 판 | 2021.3 · 2022.3 · 6000.0 | 6000.0 (Ashveil) | 2021.3 · 2022.3 |
+| Unity 판 | 2021.3 · 2022.3 · 6000.0 | 6000.0 (Ashveil) · 6000.3 (샘플 macOS — conform 52/0/1) | 2021.3 · 2022.3 |
 | UI | uGUI · TextMeshPro · UI Toolkit(UIDocument) | uGUI | TMP · UI Toolkit (`layout` 은 uGUI 만) |
 | 입력 | 옛 Input · 새 Input System · 둘 다 | 옛 Input | Input System(Touchscreen · Mouse · Keyboard) |
 | 플랫폼 | Android(팜 · USB) · PC(Windows · macOS · Linux) · iOS(USB, 17+) · WebGL(브라우저 → relay) | Android · macOS · Linux(Docker) · WebGL(Chrome) | Windows · iOS (CLI 는 가짜 게임 · 가짜 usbmuxd 로 테스트) |
@@ -30,7 +30,7 @@ Unity · Godot 게임을 자동화 테스트로 조작하는 SDK 와 CLI.
 
 Unity 2021.3 LTS 이상 — 2021.3 · 2022.3 · 6000.0 에서 컴파일을 검사한다(`tools/unity-compile-check`).
 
-게임 저장소에는 SDK 를 넣지 않는다. QA 빌드 잡에서 Unity 를 켜기 전에 한 번 돌린다.
+게임 저장소에는 SDK 를 넣지 않는다. QA 빌드 잡에서 Unity 를 켜기 전에 한 번 돌린다. 다른 개발사에는 저장소 대신 파일 둘을 넘긴다 — 안내 한 장([docs/sdk-integration.md](docs/sdk-integration.md))과 `npm run handoff` 가 만든 `QAhub.zip`. 개발사에는 QA Hub 라는 이름만 쓰고 Unity 만 받는다 — zip 에는 README · 테스트 · 주석 · 저장소 주소 · Godot SDK 가 없고(`tools/handoff.mjs` 가 남은 주소를 잡는다), 받은 쪽은 풀어서 `node QAhub/dist/main.js instrument <폴더>` 로 돌린다.
 
 ```bash
 git clone -q https://github.com/maxihan1/control_cli.git /tmp/control_cli
@@ -41,13 +41,14 @@ node /tmp/control_cli/dist/main.js instrument <Unity 프로젝트 폴더> --ref 
 
 `npx github:maxihan1/control_cli` 는 쓰지 않는다 — npm 10 이 git 패키지를 npx 로 받을 때 「GitFetcher requires an Arborist constructor」로 멈춘다(GitHub Actions 에서 확인).
 
-1. `Packages/manifest.json` 에 SDK 패키지를 `--ref` 로 고정해 더한다(없으면 이 CLI 판 tag — 0.9.0 이면 `v0.9.0`. SDK 경로 `?path=/sdk/unity` 와 SDK 판이 CLI 와 늘 맞는다)
+1. `--ref` 를 주면 `Packages/manifest.json` 에 SDK 패키지를 그 tag · 커밋의 git 주소로 고정해 더한다. 안 주면 이 CLI 에 실린 SDK(`sdk/unity`)를 `Packages/QAHubSDK` 에 넣는다(폴더 이름만 다르고 패키지 이름은 `com.maxihan1.control-cli` 그대로) — Unity 가 저장소에서 받지 않고, CLI 판과 SDK 가 늘 맞는다(Godot 와 같은 길). 두 길을 바꿔 돌리면 앞 길이 남긴 것(manifest 줄 · 넣은 폴더)을 치운다
 2. `Assets/` · `Packages/`(내장 패키지) 아래 asmdef 의 `references` 에 `ControlCli.Input` 을 더한다 — 에디터 전용 · `noEngineReferences` 는 건너뛴다. asmdef 없는 스크립트(Assembly-CSharp)는 자동으로 참조한다
 3. `namespace` 안에 `using UnityEngine;` 을 둔 파일 · `namespace UnityEngine.*` 안의 파일은 `UnityEngine.Input` 이 먼저 잡혀 가짜 터치를 못 본다 — 경고로 알려 준다
 4. 깨진 asmdef 가 있으면 파일 이름을 알리고 아무것도 바꾸지 않는다
 5. `--relay <주소>` 를 주면 `Assets/ControlCli/Resources/ControlCliRelay.txt` 에 주소 한 줄을 넣는다 — 게임이 켜질 때 그 relay 로 건다(아래 「루프 — relay」). 안 주면 그 파일을 지운다(relay 꺼짐)
+6. `ProjectSettings/ProjectSettings.asset` 의 정의 심볼에 `QAHUB_SDK` 를 더한다 — 이미 있는 플랫폼 줄마다, 그리고 Android · iPhone · Standalone · WebGL 에. 파일이 없거나 못 알아보는 꼴(이진 직렬화 · git LFS 포인터 · Unity 2021.1 까지의 숫자 키)이면 고치지 않고 마지막 줄로 알린다
 
-그리고 **QA 빌드 스크립트가 정의 심볼 `CONTROL_CLI` 를 더한다** — 없으면 SDK 코드가 빌드에 아예 안 들어간다. Release 빌드는 손대지 않으면 된다.
+**SDK 는 정의 심볼 `QAHUB_SDK` 가 있는 빌드에만 들어간다** — 6번이 켜므로 instrument 뒤에는 평소대로 빌드하면 된다. 빌드 스크립트가 정의 심볼을 통째로 바꿔 쓰거나(`PlayerSettings.SetScriptingDefineSymbols`) 6번이 못 고쳤으면 빌드 스크립트가 직접 더한다(`extraScriptingDefines`). Release 빌드는 instrument 를 돌리지 않으면 된다 — instrument 가 바꾼 파일을 커밋하면 Release 에도 SDK 가 들어간다.
 
 가짜 `Input` 은 `UnityEngine.Input` 의 멤버를 다 감싼다(펜 · `mousePositionDelta` · `location` 은 빠짐 — `location` 은 적기만 해도 Android 에 위치 권한이 붙고 iOS 빌드가 위치 사용 문구를 요구해서다. 쓰는 게임은 `UnityEngine.Input.location` 으로 적는다). 터치만 가짜를 섞고(진짜 폰처럼 `simulateMouseWithTouches` 가 켜져 있으면 마우스 왼쪽 단추에도 비춘다) 나머지는 그대로 넘긴다. 새 Input System 을 쓰는 게임에는 같은 터치를 `Touchscreen` 장치 이벤트로 넣는다 — `InputSystemUIInputModule` · EnhancedTouch · `Touchscreen.current` 가 같이 본다. UI Toolkit 화면은 EventSystem 이 있으면 그 입력 모듈로 같은 터치가 닿고, 없으면(옛 Input) UI Toolkit 이 `UnityEngine.Input` 을 바로 읽어 SDK 가 panel 에 Pointer 이벤트를 보낸다. `touchSupported` 는 늘 `true` 다.
 알려진 한계 — `Assets/Plugins` 의 스크립트(Assembly-CSharp-firstpass)도 가짜 `Input` 을 보게 되어, 빠진 멤버를 쓰면 QA 빌드에서만 컴파일이 깨진다. 그런 게임이 오면 그 멤버를 더한다.
@@ -72,7 +73,7 @@ Unity 와 낱말이 다른 곳 — 주소는 노드 경로(Godot 는 같은 이�
 ## CLI
 
 ```bash
-npm i -D github:maxihan1/control_cli#v0.8.0
+npm i -D github:maxihan1/control_cli#v0.14.0
 npx control-cli help
 ```
 
@@ -304,7 +305,7 @@ npx control-cli crawl --max 30 --minutes 5 --exclude '/설정|settings/i' --excl
 `control-cli mcp` 는 stdio MCP 서버다 — 따로 띄워 두는 프로그램이 아니라 AI 앱이 이 명령을 실행해 붙는다.
 
 ```bash
-npm i -g github:maxihan1/control_cli#v0.9.0      # control-cli 를 PATH 에
+npm i -g github:maxihan1/control_cli#v0.14.0     # control-cli 를 PATH 에
 claude mcp add control-cli -- control-cli mcp     # Claude Code
 ```
 
@@ -461,9 +462,10 @@ python3 tools/unity-compile-check/check.py fetch    # Unity 판마다 관리 DLL
 python3 tools/unity-compile-check/check.py 6000.0   # SDK · 샘플을 입력 설정 셋(옛 Input · 둘 다 · Input System)으로 컴파일 — Docker 필요
 ```
 
-컴파일 검사는 Unity 라이선스 없이 PR 마다 돈다(`.github/workflows/sdk-compile.yml`). 로그의 `== <판> · <입력>` 줄에 SDK 에 켜진 정의(`CONTROL_CLI_TMP` · `CONTROL_CLI_INPUTSYSTEM` …)가 찍힌다.
+컴파일 검사는 Unity 라이선스 없이 PR 마다 돈다(`.github/workflows/sdk-compile.yml`). 로그의 `== <판> · <입력>` 줄에 SDK 에 켜진 정의(`QAHUB_SDK_TMP` · `QAHUB_SDK_INPUTSYSTEM` …)가 찍힌다.
 `sdk/unity/` 에 파일을 더하면 `.meta` 도 같이 넣는다 — git 으로 받은 UPM 패키지는 Unity 가 `.meta` 를 못 만든다(`src/sdk-meta.test.ts` 가 잡는다).
 명령을 더하거나 바꾸면 `protocol/commands.json` 과 Unity SDK 의 `Caps`(`sdk/unity/Runtime/ControlServer.cs`) · Godot SDK 의 `CAPS`(`sdk/godot/addons/control_cli/control_cli.gd`)를 같이 고친다 — `src/protocol.test.ts` 가 잡는다.
+판을 올리면 README · `docs/sdk-integration.md` 의 설치 예시 tag 도 같이 올린다 — `src/docs-tag.test.ts` 가 잡는다.
 Godot 은 이 맥에 깔지 않고 CI 가 받는다 — `godot.yml` 이 xvfb 위에서 표준 화면을 띄워 conform 하고, macOS 앱 · 웹을 결과물로 굽는다. 이 맥에서는 `gh run download <run> -n godot-sample-4.7.2` 로 받아 `open --pc --app <…>/control-cli-sample.app`, 웹은 `python3 -m http.server` 로 열고 `?controlcli=ws://127.0.0.1:13101` 뒤 `open --relay --game control-cli-sample`(늦추기를 끈 Chrome — 「루프 — relay」 WebGL 과 같은 명령).
 
 ## License

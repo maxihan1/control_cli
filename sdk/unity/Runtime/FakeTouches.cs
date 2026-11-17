@@ -97,10 +97,10 @@ namespace ControlCli
             FakeKeys.Tick();
             FakeMouse.Tick();
             Fingers();
-#if CONTROL_CLI_INPUTSYSTEM && ENABLE_INPUT_SYSTEM
+#if QAHUB_SDK_INPUTSYSTEM && ENABLE_INPUT_SYSTEM
             FakeInputSystem.Publish();
 #endif
-#if CONTROL_CLI_UITK
+#if QAHUB_SDK_UITK
             if (UiToolkit.Direct) UiToolkit.SendMouse();
 #endif
             // 장면이 바뀌면 EventSystem 이 새로 생기므로 매 프레임 확인한다.
@@ -138,10 +138,10 @@ namespace ControlCli
                 var touch = new Touch { fingerId = FirstFinger + i, position = s.Position, rawPosition = s.Position, deltaPosition = delta, phase = phase, tapCount = s.Taps, pressure = 1, maximumPossiblePressure = 1, type = TouchType.Direct };
                 Live[_live++] = touch;
                 if (phase == TouchPhase.Stationary) continue;
-#if CONTROL_CLI_INPUTSYSTEM && ENABLE_INPUT_SYSTEM
+#if QAHUB_SDK_INPUTSYSTEM && ENABLE_INPUT_SYSTEM
                 FakeInputSystem.Send(touch.fingerId, touch.position, delta, phase);
 #endif
-#if CONTROL_CLI_UITK
+#if QAHUB_SDK_UITK
                 if (UiToolkit.Direct) UiToolkit.Send(touch);
 #endif
             }

@@ -1,4 +1,4 @@
-// QA 빌드 훅(ControlCli.Editor.BakeAxes)이 장면마다 구워 넣는 InputManager 축 표 — 깨어나면 static 표로 옮기고 제 오브젝트를 지운다. 정의 제약 없는 어셈블리라 Editor 가 CONTROL_CLI 없이도 붙인다
+// QA 빌드 훅(ControlCli.Editor.BakeAxes)이 장면마다 구워 넣는 InputManager 축 표 — 깨어나면 static 표로 옮기고 제 오브젝트를 지운다. 정의 제약 없는 어셈블리라 Editor 가 QAHUB_SDK 없이도 붙인다
 using System;
 using UnityEngine;
 

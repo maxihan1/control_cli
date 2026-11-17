@@ -378,14 +378,28 @@ test('--usb · --pc · --ios 는 하나만 쓰고, PC 는 팜용 PLATFORM_APP �
   }
 });
 
-test('instrument 는 --ref 가 없으면 이 CLI 판 tag 로 SDK 를 고정한다', async () => {
+test('instrument 는 --ref 가 없으면 이 CLI 에 실린 SDK 를 Packages 에 넣고, 있으면 그 ref 의 git 주소로 고정한다', async () => {
   const root = await mkdtemp(join(tmpdir(), 'instrument-cli-'));
   await mkdir(join(root, 'Packages'));
   await mkdir(join(root, 'Assets'));
   await writeFile(join(root, 'Packages', 'manifest.json'), JSON.stringify({ dependencies: {} }));
-  const { version } = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8')) as { version: string };
-  assert.match(await cli('instrument', root), new RegExp(`^SDK\\(v${version.replaceAll('.', '\\.')}\\) 를`));
-  assert.ok((await readFile(join(root, 'Packages', 'manifest.json'), 'utf8')).includes(`?path=/sdk/unity#v${version}"`));
+  const sdk = JSON.parse(await readFile(new URL('../sdk/unity/package.json', import.meta.url), 'utf8')) as { name: string; version: string };
+  assert.match(await cli('instrument', root), new RegExp(`^QA Hub SDK\\(${sdk.version.replaceAll('.', '\\.')}\\)를 Packages.QAHubSDK에 추가했습니다`));
+  assert.equal(JSON.parse(await readFile(join(root, 'Packages', 'QAHubSDK', 'package.json'), 'utf8')).version, sdk.version);
+  assert.equal(await readFile(join(root, 'Packages', 'manifest.json'), 'utf8'), JSON.stringify({ dependencies: {} }), 'manifest 는 그대로');
+  assert.match(await cli('instrument', root, '--ref', 'v9.9.9'), /^QA Hub SDK\(v9\.9\.9\)를 Packages\/manifest\.json에 추가했습니다/);
+  assert.ok((await readFile(join(root, 'Packages', 'manifest.json'), 'utf8')).includes('?path=/sdk/unity#v9.9.9"'));
+});
+
+test('instrument 는 QAHUB_SDK 를 썼는지 · 못 썼는지를 마지막 줄에 알린다', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'instrument-cli-'));
+  await mkdir(join(root, 'Packages'));
+  await mkdir(join(root, 'Assets'));
+  await mkdir(join(root, 'ProjectSettings'));
+  await writeFile(join(root, 'Packages', 'manifest.json'), JSON.stringify({ dependencies: {} }));
+  assert.match(await cli('instrument', root), /고치지 못했습니다.*QAHUB_SDK를 직접 넣어야/);
+  await writeFile(join(root, 'ProjectSettings', 'ProjectSettings.asset'), 'PlayerSettings:\n  scriptingDefineSymbols: {}\n');
+  assert.match(await cli('instrument', root), /QA 빌드 설정을 .*에 추가했습니다/);
 });
 
 test('relay 로 연 게임은 conform 이 일시정지 줄(Appium 없음) 말고 모두 통과하고, 다시 붙어도 같은 세션으로 간다', async () => {

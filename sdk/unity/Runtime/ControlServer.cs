@@ -39,7 +39,7 @@ namespace ControlCli
             "rect",
         };
         // sdk/unity/package.json 의 version 과 같다(src/protocol.test.ts 가 본다).
-        public const string SdkVersion = "0.10.0";
+        public const string SdkVersion = "0.11.0";
 
         private sealed class Request
         {
@@ -118,7 +118,7 @@ namespace ControlCli
             Tree.KeptScene = go.scene;
             // PC 는 터미널이 창 초점을 가져가면 게임이 멈추고(Update 가 안 돌아 명령이 10초에 실패) 입력을 버린다. 폰에서는 둘 다 영향이 없다.
             Application.runInBackground = true;
-#if CONTROL_CLI_INPUTSYSTEM && ENABLE_INPUT_SYSTEM
+#if QAHUB_SDK_INPUTSYSTEM && ENABLE_INPUT_SYSTEM
             UnityEngine.InputSystem.InputSystem.settings.backgroundBehavior = UnityEngine.InputSystem.InputSettings.BackgroundBehavior.IgnoreFocus;
 #endif
             go.AddComponent<FakeTouches>();
@@ -428,7 +428,7 @@ namespace ControlCli
                 {
                     var item = Tree.Find(c.target, c.inactive, out var problem, out _, out _);
                     if (!item.Exists) return Error(problem);
-#if CONTROL_CLI_UITK
+#if QAHUB_SDK_UITK
                     // UI Toolkit 요소는 컴포넌트가 없다 — 요소 칸(value · text · layout.height)을 바로 읽는다.
                     if (item.Ve != null) return Props.GetOn(item.Ve, c.prop);
 #endif
@@ -561,7 +561,7 @@ namespace ControlCli
             var item = Tree.Find(target, all, out var problem, out _, out _);
             if (!item.Exists) return Error(problem);
             const string none = " 에 글자 컴포넌트(Text · TMP_Text · UI Toolkit Label/Button)가 없습니다";
-#if CONTROL_CLI_UITK
+#if QAHUB_SDK_UITK
             if (item.Ve != null)
             {
                 if (item.Ve is UnityEngine.UIElements.TextField) return Error(target + " 은 입력칸이라 type 으로 넣습니다");
@@ -572,7 +572,7 @@ namespace ControlCli
 #endif
             var go = item.Go;
             var input = go.GetComponent<InputField>() != null;
-#if CONTROL_CLI_TMP
+#if QAHUB_SDK_TMP
             input = input || go.GetComponent<TMPro.TMP_InputField>() != null;
 #endif
             if (input) return Error(target + " 은 입력칸이라 type 으로 넣습니다");
@@ -582,7 +582,7 @@ namespace ControlCli
                 ugui.text = text;
                 return "{\"ok\":true,\"text\":" + Json.Str(Tree.TextOf(item)) + "}";
             }
-#if CONTROL_CLI_TMP
+#if QAHUB_SDK_TMP
             var tmp = go.GetComponent<TMPro.TMP_Text>();
             if (tmp != null)
             {
@@ -614,7 +614,7 @@ namespace ControlCli
         {
             var item = Tree.Find(target, out var problem);
             if (!item.Exists) return Error(problem);
-#if CONTROL_CLI_UITK
+#if QAHUB_SDK_UITK
             if (item.Ve != null)
             {
                 if (!(item.Ve is UnityEngine.UIElements.TextField box)) return Error(target + " 은 입력칸(InputField · TMP_InputField · TextField)이 아닙니다");
@@ -633,7 +633,7 @@ namespace ControlCli
                 field.onEndEdit.Invoke(field.text);
                 return "{\"ok\":true,\"text\":" + Json.Str(Tree.TextOf(item)) + "}";
             }
-#if CONTROL_CLI_TMP
+#if QAHUB_SDK_TMP
             var tmp = go.GetComponent<TMPro.TMP_InputField>();
             if (tmp != null)
             {
@@ -664,7 +664,7 @@ namespace ControlCli
             return result;
         }
 
-#if CONTROL_CLI_TMP
+#if QAHUB_SDK_TMP
         private static readonly System.Reflection.MethodInfo TmpValidate = typeof(TMPro.TMP_InputField).GetMethod(
             "Validate", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic, null, new[] { typeof(string), typeof(int), typeof(char) }, null);
 
@@ -703,7 +703,7 @@ namespace ControlCli
         private static IEnumerator Capture(bool png)
         {
             yield return new WaitForEndOfFrame();
-#if CONTROL_CLI_IMAGECONVERSION
+#if QAHUB_SDK_IMAGECONVERSION
             var texture = new Texture2D(Screen.width, Screen.height, TextureFormat.RGB24, false);
             texture.ReadPixels(new Rect(0, 0, Screen.width, Screen.height), 0, 0);
             texture.Apply(false);

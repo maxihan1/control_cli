@@ -18,7 +18,7 @@ namespace ControlCli
 
         // 도는 일이 없고 Input System 이 넣은 이벤트를 받았으면 한가하다 — 명령 답을 그때까지 미룬다. 눌러 둔 손가락 · 키는 바쁨이 아니다.
         public static bool Idle => _job == null
-#if CONTROL_CLI_INPUTSYSTEM && ENABLE_INPUT_SYSTEM
+#if QAHUB_SDK_INPUTSYSTEM && ENABLE_INPUT_SYSTEM
             && !FakeInputSystem.Waiting
 #endif
             ;
@@ -39,7 +39,7 @@ namespace ControlCli
             FakeKeys.ReleaseAll();
             FakeMouse.Reset();
             Tilt = null;
-#if CONTROL_CLI_INPUTSYSTEM && ENABLE_INPUT_SYSTEM
+#if QAHUB_SDK_INPUTSYSTEM && ENABLE_INPUT_SYSTEM
             FakeInputSystem.Forget();
 #endif
         }

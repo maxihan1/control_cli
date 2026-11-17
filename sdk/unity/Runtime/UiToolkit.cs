@@ -1,5 +1,5 @@
 // UI Toolkit(UIDocument) 요소의 화면 자리를 셈하고, EventSystem 이 없는 옛 Input 게임에는 가짜 터치 · 마우스를 panel 에 Pointer · Wheel 이벤트로 보낸다
-#if CONTROL_CLI_UITK
+#if QAHUB_SDK_UITK
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -30,7 +30,7 @@ namespace ControlCli
         // EventSystem 이 없으면 UI Toolkit 은 입력을 스스로 읽는다 — 옛 Input 은 UnityEngine.Input 을 바로 읽어 가짜 Input 을 못 본다.
         // Unity 6 에서 Input System 을 켠 게임은 그 길이 가짜 Touchscreen 을 보므로 보내지 않는다(보내면 두 번 눌린다).
         public static bool Direct =>
-#if ENABLE_LEGACY_INPUT_MANAGER && !(UNITY_6000_0_OR_NEWER && CONTROL_CLI_INPUTSYSTEM && ENABLE_INPUT_SYSTEM)
+#if ENABLE_LEGACY_INPUT_MANAGER && !(UNITY_6000_0_OR_NEWER && QAHUB_SDK_INPUTSYSTEM && ENABLE_INPUT_SYSTEM)
             EventSystem.current == null;
 #else
             false;

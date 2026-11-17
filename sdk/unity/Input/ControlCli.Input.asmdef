@@ -13,7 +13,7 @@
     "precompiledReferences": [],
     "autoReferenced": true,
     "defineConstraints": [
-        "CONTROL_CLI"
+        "QAHUB_SDK"
     ],
     "versionDefines": [],
     "noEngineReferences": false
