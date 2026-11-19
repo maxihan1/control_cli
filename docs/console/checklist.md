@@ -55,7 +55,8 @@
 - [x] 진짜 PC 에서 패드 넷 — Boss Room 을 SDK 0.12.0 으로 다시 구워(boss-room `windows-qa` branch · run 44447960178 · `showcase` 안 건드림) pc-pc1 에서 `pad xbox`(`XInputControllerWindows`) · `ps5`(`DualSenseGamepadHID`) · `ps4`(`DualShock4GamepadHID`) · `switch`(`SwitchProControllerHID`) · `off` 모두 성공(2026-11-19)
 - [x] 패드로 Boss Room 메뉴가 움직인다 — 십자키 위로 「게임 시작」 → 「비밀번호」 선택 이동 · 확인 버튼이 콘솔 자리대로(xbox A · ps5 Cross · switch A(오른쪽)는 눌림, xbox B · ps5 Circle · switch B(아래)는 안 눌림)
 - [x] 창이 초점을 잃은 채(`Application.isFocused` false — 사람이 PC 에서 Alt+Tab) 패드 · `type` · `click` · 스크린샷 모두 들어감
-- 남은 것 — 실물 Xbox 패드 · DualSense 를 꽂은 채 가상 패드(패드를 PC 에 꽂아야 함) · IL2CPP(Windows IL2CPP 는 Windows 에서만 구워져 boss-room 의 Linux runner 로는 안 됨) · 샘플 conform
+- 실물 Xbox 패드 · DualSense 를 꽂은 채 가상 패드 — **안 함**(사용자 2026-11-19 「실물패드는 안꼽을껀데」)
+- 남은 것 — IL2CPP(Windows IL2CPP 는 Windows 에서만 구워져 boss-room 의 Linux runner 로는 안 됨) · 샘플 conform
 
 ## QA Hub 다음 줄 (이 저장소에서는 고치지 않는다)
 - [ ] Q1 명세와 `[계약 변경 필요]` 승인 — 플랫폼과 패드 · `pc` 길 · `app_build.platform` · `GameDriver` 의 키 · 패드 · 증적. **`PC_RUNNER_URL` 은 버림**(2026-11-19 사용자 — 러너는 서버에 두고 PC 는 VISION 기기로, 모바일과 같게 · C3)
