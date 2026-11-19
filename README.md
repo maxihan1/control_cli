@@ -19,7 +19,7 @@ Unity · Godot 게임을 자동화 테스트로 조작하는 SDK 와 CLI.
 | UI | uGUI · TextMeshPro · UI Toolkit(UIDocument) | uGUI | TMP · UI Toolkit (`layout` 은 uGUI 만) |
 | 입력 | 옛 Input · 새 Input System · 둘 다 | 옛 Input | Input System(Touchscreen · Mouse · Keyboard) |
 | 가상 패드 | PlayStation(PS5 · PS4) · Switch · Xbox · 종류 없는 패드 — Input System 게임 · PC 빌드(SDK 0.12.0) | macOS(Unity 6000.0 · Input System 1.11.2, Unity 6000.3 · Input System 1.18.0) · Windows(GitHub runner · Unity 6000.0 · Input System 1.11.2 — xbox 가 `XInputControllerWindows`) — conform 패드 줄 넷 | 실물 패드를 꽂은 채 · `PlayerInput` 을 쓰는 실제 게임 |
-| 플랫폼 | Android(팜 · USB) · PC(Windows · macOS · Linux) · iOS(USB, 17+) · WebGL(브라우저 → relay) | Android · macOS · Linux(Docker) · WebGL(Chrome) · Windows(GitHub runner — GPU 없는 가상 기계 · 디바이스 팜 PC `pc-pc1` 에서 Boss Room 켜기 · 명령 · 스크린샷 · 녹화, zip 깔기는 가짜 팜만) | iOS (CLI 는 가짜 게임 · 가짜 usbmuxd 로 테스트) |
+| 플랫폼 | Android(팜 · USB) · PC(Windows · macOS · Linux) · iOS(USB, 17+) · WebGL(브라우저 → relay) | Android · macOS · Linux(Docker) · WebGL(Chrome) · Windows(GitHub runner — GPU 없는 가상 기계 · 디바이스 팜 PC `pc-pc1` 에서 Boss Room zip 깔기 · 켜기 · 명령 · 스크린샷 · 녹화) | iOS (CLI 는 가짜 게임 · 가짜 usbmuxd 로 테스트) |
 | 드라이버 | Python · C# · Java · Robot Framework (TCP · relay) | Python · Java · C# · Robot (Unity · Godot macOS 앱) | — |
 | Godot | 4.5 이상 · Control UI · 3D 물리 · PC · Android · 웹(relay) | 4.5.2 · 4.7.2 Linux(CI xvfb) · 4.7.2 macOS 앱 · Android(USB) · 웹(Chrome) — conform 47/0/6 | iOS(빌드 안 함) |
 | 인스펙터 · Recorder | `control-cli inspect`(로컬 웹 화면) · 기록 → TS · Python · C# · Java · Robot | Unity 6000.0 · Godot 4.7.2 macOS 앱(기록 → `replay` · 다섯 언어 초록) · Chrome | — |

@@ -869,9 +869,10 @@ export async function fakeFarm(
       const pc = /^\/api\/devices\/([^/]+)\/(install|launch|stop)$/.exec(path);
       if (pc && req.method === 'POST') {
         if (!held.has(pc[1])) return send(409, { value: { error: 'invalid argument', message: '잡은 기기가 아닙니다' } });
-        if (pc[2] === 'install') return (state.zip = { type: req.headers['content-type'], bytes: body }), send(200, { installed: true, game: 'BossRoom' });
-        if (pc[2] === 'launch') return (state.launched = (JSON.parse(raw) as { game: string }).game), send(200, { pid: 4321 });
-        return (state.launched = undefined), send(200, { stopped: true });
+        // 진짜 VISION 은 답을 { value } 로 싼다(2026-11-19 pc-pc1 실측)
+        if (pc[2] === 'install') return (state.zip = { type: req.headers['content-type'], bytes: body }), send(200, { value: { installed: true, game: 'BossRoom' } });
+        if (pc[2] === 'launch') return (state.launched = (JSON.parse(raw) as { game: string }).game), send(200, { value: { pid: 4321 } });
+        return (state.launched = undefined), send(200, { value: { stopped: true } });
       }
       const g = /^\/api\/devices\/([^/]+)\/game$/.exec(path);
       if (g) {

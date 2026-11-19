@@ -2,7 +2,7 @@
 
 ## ▶ 다음 세션은 여기부터 (2026-11-17)
 
-- **C3 VISION 길 — `v0.16.0`(2026-11-19)** — 사용자가 「모바일 스펙과 동일하게」를 골랐다. PC 에 러너를 깔지 않고 PC 를 VISION 기기 `pc-pc1` 로 잡아 쓴다([c3-plan.md](c3-plan.md)). 실물 PC 는 연결돼 있다(DESKTOP-3BNL05I). QA Hub 쪽 Q1 은 그 저장소에서 이 답을 따라 고친다
+- **C3 VISION 길 — `v0.16.1`(2026-11-19)** — 사용자가 「모바일 스펙과 동일하게」를 골랐다. PC 에 러너를 깔지 않고 PC 를 VISION 기기 `pc-pc1` 로 잡아 쓴다([c3-plan.md](c3-plan.md)). 실물 PC 는 연결돼 있다(DESKTOP-3BNL05I). QA Hub 쪽 Q1 은 그 저장소에서 이 답을 따라 고친다
 - **C2 끝** — PR #35 합침 · `v0.15.0` tag(CLI 0.15.0 · SDK 0.12.0 그대로). `launch` · `stop` 을 라이브러리로 내보냈고(`src/launch.ts`), CI `cli` 잡이 `npm test` 를 `ubuntu-latest` · `windows-latest` 에서, `sample` 의 `conform-windows` 잡이 구운 Windows 빌드를 Windows runner 에서 띄워 conform 까지 돈다(「통과 56 · 실패 0 · 미실행 1」 · `pad xbox` 가 `XInputControllerWindows`). 설계와 실측은 [c2-plan.md](c2-plan.md) · [context-notes.md](context-notes.md) 「C2」
 - **게임에는 `windowsHide` 를 걸지 않는다** — 걸면 Unity 창이 숨는다(runner 실측). QA Hub kit 이 게임을 따로 띄울 일이 생겨도 `launch` 를 쓴다
 - **Windows runner 는 화면이 1024×768** — 게임 창이 잘려 conform 이 깨진다. `Set-DisplayResolution -Width 1920 -Height 1080 -Force` 를 먼저 건다(그 위는 거절)
@@ -50,8 +50,8 @@
 - [x] `fakeFarm` · `cli.test.ts` · `npm test` 초록(105개 중 통과 104 · 건너뜀 1)
 - [x] README · HELP
 - [x] 실물 `pc-pc1` — VISION 입구로 잡기(acquire `platform=windows`) → 켜기(사람이 깐 `BossRoomQA`, 4초에 SDK 답) → ping · scenes · tree · screenshot → 끄기 → 놓기 → 녹화(`video-1.mp4` 6MB · `game.log`) 모두 200(2026-11-19). CLI 가 아니라 VISION 화면 탭 안에서 같은 요청을 보냈다 — context-notes 「C3 실물」
-- [ ] 실물 zip 깔기 · CLI 로 끝-끝 — 토큰을 CLI 에 줄 길이 생기면(CLI 브라우저 로그인 또는 사용자가 넣어 준 토큰)
-- [ ] 합친 뒤 `v0.16.0` tag
+- [x] 실물 zip 깔기 · CLI 로 끝-끝 — 사용자가 준 로그인 토큰(15분)으로 `hold --pc` → `open --app BossRoom.zip`(77MB · 28초) → `scenes` → `close` → `release` → 녹화 `video-1.mp4` 17MB · `game.log`. 깔기 답이 `{value}` 로 싸여 와 못 읽던 버그를 고침(0.16.1)
+- [x] 합친 뒤 `v0.16.0` tag · 고친 판 `v0.16.1`
 - 원래 C3 에서 남은 것(VISION 길 위에서 따로) — 샘플 conform · 패드 넷 · 실물 Xbox 패드 · DualSense 를 꽂은 채 가상 패드 · 초점 잃은 창 · `devices` · IL2CPP
 
 ## QA Hub 다음 줄 (이 저장소에서는 고치지 않는다)
