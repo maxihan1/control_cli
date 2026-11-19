@@ -52,7 +52,8 @@
 - [x] 실물 `pc-pc1` — VISION 입구로 잡기(acquire `platform=windows`) → 켜기(사람이 깐 `BossRoomQA`, 4초에 SDK 답) → ping · scenes · tree · screenshot → 끄기 → 놓기 → 녹화(`video-1.mp4` 6MB · `game.log`) 모두 200(2026-11-19). CLI 가 아니라 VISION 화면 탭 안에서 같은 요청을 보냈다 — context-notes 「C3 실물」
 - [x] 실물 zip 깔기 · CLI 로 끝-끝 — 사용자가 준 로그인 토큰(15분)으로 `hold --pc` → `open --app BossRoom.zip`(77MB · 28초) → `scenes` → `close` → `release` → 녹화 `video-1.mp4` 17MB · `game.log`. 깔기 답이 `{value}` 로 싸여 와 못 읽던 버그를 고침(0.16.1)
 - [x] 합친 뒤 `v0.16.0` tag · 고친 판 `v0.16.1`
-- 원래 C3 에서 남은 것(VISION 길 위에서 따로) — 샘플 conform · 패드 넷 · 실물 Xbox 패드 · DualSense 를 꽂은 채 가상 패드 · 초점 잃은 창 · `devices` · IL2CPP
+- [x] 진짜 PC 에서 패드 넷 — Boss Room 을 SDK 0.12.0 으로 다시 구워(boss-room `windows-qa` branch · run 44447960178 · `showcase` 안 건드림) pc-pc1 에서 `pad xbox`(`XInputControllerWindows`) · `ps5`(`DualSenseGamepadHID`) · `ps4`(`DualShock4GamepadHID`) · `switch`(`SwitchProControllerHID`) · `off` 모두 성공(2026-11-19)
+- 원래 C3 에서 남은 것(VISION 길 위에서 따로) — 샘플 conform · 패드 버튼으로 Boss Room 메뉴가 움직이는지 · 실물 Xbox 패드 · DualSense 를 꽂은 채 가상 패드 · 초점 잃은 창 · IL2CPP
 
 ## QA Hub 다음 줄 (이 저장소에서는 고치지 않는다)
 - [ ] Q1 명세와 `[계약 변경 필요]` 승인 — 플랫폼과 패드 · `pc` 길 · `app_build.platform` · `GameDriver` 의 키 · 패드 · 증적. **`PC_RUNNER_URL` 은 버림**(2026-11-19 사용자 — 러너는 서버에 두고 PC 는 VISION 기기로, 모바일과 같게 · C3)
