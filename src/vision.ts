@@ -15,13 +15,15 @@ export async function pcInstall(farm: Conn, serial: string, zip: Uint8Array<Arra
     body: zip,
     signal: AbortSignal.timeout(600_000),
   });
-  const json = (await res.json().catch(() => null)) as { game?: string; value?: { message?: string }; refused?: string; message?: string } | null;
+  const json = (await res.json().catch(() => null)) as { game?: string; value?: { game?: string; message?: string }; refused?: string; message?: string } | null;
   if (!res.ok) {
     const why = json?.value?.message ?? json?.message ?? json?.refused ?? '';
     throw new Error(`VISION 이 PC 게임 깔기를 HTTP ${res.status} 로 거절했습니다${why === '' ? '' : `: ${why}`}`);
   }
-  if (!json?.game) throw new Error('VISION 이 깐 게임 이름을 주지 않았습니다');
-  return json.game;
+  // VISION 은 답을 { value } 로 싼다(실측 2026-11-19) — 싸지 않은 꼴도 받는다.
+  const game = json?.value?.game ?? json?.game;
+  if (!game) throw new Error('VISION 이 깐 게임 이름을 주지 않았습니다');
+  return game;
 }
 
 /** VISION 게임 목록의 이름으로 켠다 — 프로세스가 뜨면 답한다. SDK 준비는 게임 ping 으로 기다린다 */

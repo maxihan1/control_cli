@@ -92,3 +92,6 @@
 - **CLI 코드와의 대응** — CLI 가 보내는 요청 · 받는 칸(`held.serial` · `held.sessionId` · `pid` · `stopped` · `/game` 답을 `value` 로 쌈)이 위와 같다. 가짜 팜(`fakeFarm`)도 같은 꼴이다
 - **zip 깔기는 실물 미확인** — 탭 파일 올리기 도구가 10MB 까지라 Boss Room zip(77MB · run 44435682949)을 못 올렸다. VISION 쪽은 가짜 에이전트 계약 시험이 있다(Devicefarm `tests/contract/pc-agent*.test.ts`)
 - **SDK 0.8.0 Windows 빌드는 ping `app` 이 빈 글자** — productName 으로 채우는 일은 SDK 0.10.0 부터(P3-B). Boss Room 을 새 SDK 로 다시 구우면 채워진다
+- **CLI 끝-끝(같은 날 뒤)** — 사용자가 로그인 토큰을 대화에 붙여 줘 job tmp 파일로 CLI 에 줬다(시험 뒤 지움). `hold --pc` → pc-pc1 · `open --app BossRoom.zip`(77MB, 이 맥 127.0.0.1:4723 로 올려 깔고 켜기까지 28초) · 스크린샷은 SDK 가 1920×1080 jpg(로그인 화면) · `scenes` · `close` 가 `stopped` · `release` 가 녹화 주소 → `ready:true` · `video-1.mp4` 17,127,624 B · `game.log` 2,034 B
+- **깔기 답은 `{value:{installed, game}}`** — 안내서 15절 표는 싸지 않은 꼴로 적었지만 진짜 VISION 은 다른 입구처럼 `value` 로 싼다. `pcInstall` 이 바깥 칸만 봐 「게임 이름을 주지 않았습니다」로 실패했다(깔기 자체는 됐다). 둘 다 받게 고치고 가짜 팜도 진짜처럼 싸게 바꿨다(고치기 전 테스트가 실패하는 것 확인). `launch` · `stop` 은 `call()` 이 이미 `value` 를 벗겨 문제없었다
+- **토큰 15분** — Auth JWT 는 발급 15분이라 시험은 3분 안에 끝내야 했다. 사람이 CLI 를 오래 쓰려면 CLI 브라우저 로그인(토큰 정책 §3)이 먼저다
