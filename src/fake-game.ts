@@ -836,15 +836,20 @@ export interface FakeDevice {
 
 export async function fakeFarm(
   game: FakeGame,
-): Promise<{ url: string; server: Server; held: Set<string>; seen: string[]; state: { sessionGone: boolean; devices: () => FakeDevice[] } }> {
+): Promise<{ url: string; server: Server; held: Set<string>; seen: string[]; state: { sessionGone: boolean; devices: () => FakeDevice[]; zip?: { type?: string; bytes: Buffer }; launched?: string } }> {
   const held = new Set<string>();
   // Appium 이 세션을 이미 끝냈을 때(쉼 300초 · 잡기 시간 끝) · 기기 목록(부를 때마다 읽는다 — 정리 중 → 빈 폰을 흉내 낸다)
-  const state = { sessionGone: false, devices: (): FakeDevice[] => [{ serial: 'R1', state: 'IDLE', detail: 'ready' }] };
+  const state: { sessionGone: boolean; devices: () => FakeDevice[]; zip?: { type?: string; bytes: Buffer }; launched?: string } = {
+    sessionGone: false,
+    devices: (): FakeDevice[] => [{ serial: 'R1', state: 'IDLE', detail: 'ready' }],
+  };
   const seen: string[] = [];
   const server = createServer((req, res) => {
-    let raw = '';
-    req.on('data', (c) => (raw += c));
+    const chunks: Buffer[] = [];
+    req.on('data', (c: Buffer) => chunks.push(c));
     req.on('end', () => {
+      const body = Buffer.concat(chunks);
+      const raw = body.toString();
       const path = req.url ?? '';
       seen.push(`${req.method} ${path}`);
       const send = (status: number, body: unknown) => {
@@ -855,6 +860,19 @@ export async function fakeFarm(
       const hold = /^\/api\/devices\/([^/]+)\/hold$/.exec(path);
       if (hold && req.method === 'POST') return held.add(hold[1]), send(200, { held: { until: Date.now() + 1800_000 } });
       if (hold && req.method === 'DELETE') return held.delete(hold[1]), send(200, { released: true });
+      // VISION 윈도우 PC(ADR-061) — platform=windows 조건 잡기 · zip 깔기 · 켜기 · 끄기. 잡기 답에 녹화 id 가 온다
+      if (path === '/api/devices/acquire' && req.method === 'POST') {
+        const want = JSON.parse(raw) as { filter?: string };
+        if (want.filter !== 'platform=windows') return send(409, { refused: '빈 기기가 없습니다' });
+        return held.add('pc-pc1'), send(200, { held: { serial: 'pc-pc1', until: Date.now() + 1800_000, sessionId: 'hold-1' } });
+      }
+      const pc = /^\/api\/devices\/([^/]+)\/(install|launch|stop)$/.exec(path);
+      if (pc && req.method === 'POST') {
+        if (!held.has(pc[1])) return send(409, { value: { error: 'invalid argument', message: '잡은 기기가 아닙니다' } });
+        if (pc[2] === 'install') return (state.zip = { type: req.headers['content-type'], bytes: body }), send(200, { installed: true, game: 'BossRoom' });
+        if (pc[2] === 'launch') return (state.launched = (JSON.parse(raw) as { game: string }).game), send(200, { pid: 4321 });
+        return (state.launched = undefined), send(200, { stopped: true });
+      }
       const g = /^\/api\/devices\/([^/]+)\/game$/.exec(path);
       if (g) {
         if (req.headers['content-type'] !== 'application/json') return send(415, { value: { error: 'unknown error', message: '본문 형식은 application/json' } });

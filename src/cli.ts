@@ -21,6 +21,7 @@ import { exportTest, FILES, LANGS, replay, steps, type Lang } from './recorder.j
 import { relay, RELAY_PORT, type GameInfo } from './relay.js';
 import { snapshot } from './snapshot.js';
 import { phone } from './usbmux.js';
+import { isPc, pcInstall, pcLaunch, pcStop } from './vision.js';
 
 interface Session {
   /** pc 는 내 컴퓨터에서 도는 게임(Windows · macOS 빌드), ios 는 USB iPhone(usbmuxd)에 바로 붙는다, relay 는 이미 켜진 게임이 relay 에 걸어 왔다 */
@@ -31,6 +32,8 @@ interface Session {
   appium?: string;
   /** open --pc · --ios --app 으로 띄운 게임 — close 가 끈다 */
   pid?: number;
+  /** 디바이스 팜의 윈도우 PC(pc-<이름>)에 VISION 이 켠 게임 이름 — close 가 끈다 */
+  pcGame?: string;
   /** open --port 로 연 게임 포트(USB · PC · iPhone) — 뒤 명령이 --port 를 안 주면 이 포트 */
   port?: number;
   /** open 때 ping 으로 받은 게임 SDK 의 명령 목록 — 밖의 명령은 보내기 전에 거절한다 */
@@ -57,7 +60,9 @@ export const TIMING = { openWaitMs: 60_000, openStepMs: 1000, cleanWaitMs: 20_00
 export const HELP = `control-cli [-s=<세션>] <명령>
 
   hold [--udid <serial>] [--minutes 30|60|120]   디바이스 팜 폰을 잡는다 (udid 가 없으면 빈 폰 하나)
+  hold --pc [--minutes 30|60|120]                 디바이스 팜의 윈도우 PC 하나를 잡는다(pc-<이름>)
   open --app <QA APK 주소>                        잡은 폰에 깔고 켠 뒤 첫 화면을 찍는다
+  open --app <빌드 zip | 게임 이름>                잡은 PC 에 zip 을 깔고(또는 깔린 게임을) 켠다 — close 가 끈다
   open --usb [--app <APK>] [--udid <serial>]      USB 폰 — app 이 있으면 내 컴퓨터 Appium 이 깔고 켠다
   open --pc [--app <실행 파일 · .app>]            내 컴퓨터의 PC 게임 — app 이 있으면 띄우고 close 가 끈다
   open --ios [--app <서명된 .app>] [--udid <UDID>]  USB iPhone(usbmuxd) — app 이 있으면 devicectl 로 깔고 켠다(Xcode 15+ · iOS 17+)
@@ -107,7 +112,7 @@ export const HELP = `control-cli [-s=<세션>] <명령>
   export <기록.json> --lang ${LANGS.join('|')} [--out <파일>]   기록을 그 언어 테스트로(게임 주소는 CONTROL_CLI_GAME)
   crawl [--max ${CRAWL.maxWindows}] [--minutes ${CRAWL.minutes}] [--exclude <정규식>]… [--out <폴더>]   창 훑기
   close                                            Appium 세션을 닫는다
-  release [--udid <serial>]                        폰을 놓는다 — 팜이 깐 게임 · 데이터를 지운다
+  release [--udid <serial>]                        폰 · PC 를 놓는다 — 팜이 깐 게임 · 데이터를 지운다(PC 는 녹화 받는 주소도)
   instrument <Unity · Godot 프로젝트 폴더> [--ref <커밋>] [--relay <주소>]  QA 빌드에 SDK 를 넣는다 — relay 주소를 주면 게임이 그리로 건다(Godot 는 이 CLI 에 실린 SDK · --ref 없음)
 
 주소는 오브젝트 이름(하나뿐일 때) · /Canvas/Panel/Slot[2] 경로 · //*[@tag=Player] · //*[contains(@name,Slot)] · //*[@text=OK]/.. 선택자(AltTester PATH 꼴).
@@ -241,6 +246,7 @@ export async function run(argv: string[], o: Options): Promise<string> {
   await mkdir(o.dir, { recursive: true });
   const file = join(o.dir, `${sname}.json`);
   const heldFile = join(o.dir, 'held');
+  const heldSessionFile = join(o.dir, 'held-session');
   const appium = connect(values.url ?? env.PLATFORM_APPIUM_URL ?? 'http://127.0.0.1:4723', values.token ?? env.PLATFORM_APPIUM_TOKEN);
   const farm = farmOf(appium);
   const port = values.port === undefined ? GAME_PORT : Number(values.port);
@@ -285,22 +291,35 @@ export async function run(argv: string[], o: Options): Promise<string> {
     const minutes = Number(values.minutes ?? 30);
     if (![30, 60, 120].includes(minutes)) throw new Error('--minutes 는 30 · 60 · 120 중 하나입니다');
     let serial = values.udid ?? env.PLATFORM_DEVICE_UDID;
-    if (!serial) {
+    type Held = { held?: { serial?: string; until?: number; sessionId?: string } } | null;
+    let v: Held;
+    if (!serial && values.pc) {
+      // PC 는 VISION 조건 잡기로 — platform 조건이 없으면 VISION 은 폰만 고른다(Devicefarm 안내서 15절).
+      v = (await call(farm, 'POST', '/api/devices/acquire', { minutes, filter: 'platform=windows' })) as Held;
+      serial = v?.held?.serial;
+      if (!serial) throw new Error('VISION 이 잡은 PC 의 serial 을 주지 않았습니다');
+    } else {
       // 다른 실행이 쓰는 폰은 고르지 않는다 — 팜은 QA Hub 를 한 사람으로 본다(게임 명세 「게임 연결」).
-      serial = await idlePhone(farm);
+      serial ??= await idlePhone(farm);
+      v = (await call(farm, 'POST', `/api/devices/${encodeURIComponent(serial)}/hold`, { minutes })) as Held;
     }
-    const v = (await call(farm, 'POST', `/api/devices/${encodeURIComponent(serial)}/hold`, { minutes })) as { held?: { until?: number } } | null;
     await writeFile(heldFile, serial);
+    // PC 녹화는 잡기 동안이라 잡기 id 로 받는다(ADR-061 §3.5) — release 가 받는 주소를 알려 준다.
+    if (v?.held?.sessionId) await writeFile(heldSessionFile, v.held.sessionId);
+    else await rm(heldSessionFile, { force: true });
     const until = v?.held?.until === undefined ? '' : ` — ${new Date(v.held.until).toTimeString().slice(0, 5)} 까지`;
-    return `폰 ${serial} 잡음${until}. 다 쓰면 close 뒤 release`;
+    return `${isPc(serial) ? 'PC' : '폰'} ${serial} 잡음${until}. 다 쓰면 close 뒤 release`;
   }
   if (name === 'release') {
     const serial = values.udid ?? env.PLATFORM_DEVICE_UDID ?? (await readFile(heldFile, 'utf8').catch(() => '')).trim();
     if (!serial) throw new Error('놓을 폰을 모릅니다 — --udid 로 줍니다');
     await call(farm, 'DELETE', `/api/devices/${encodeURIComponent(serial)}/hold`);
-    // 다른 폰을 --udid 로 놓았으면 잡아 둔 폰 기록은 그대로 둔다.
-    if ((await readFile(heldFile, 'utf8').catch(() => '')).trim() === serial) await rm(heldFile, { force: true });
-    return `폰 ${serial} 놓음 — 팜이 깐 게임 · 데이터를 정리합니다`;
+    // 다른 기기를 --udid 로 놓았으면 잡아 둔 기록은 그대로 둔다.
+    const mine = (await readFile(heldFile, 'utf8').catch(() => '')).trim() === serial;
+    const recorded = mine ? (await readFile(heldSessionFile, 'utf8').catch(() => '')).trim() : '';
+    if (mine) await Promise.all([rm(heldFile, { force: true }), rm(heldSessionFile, { force: true })]);
+    if (!isPc(serial)) return `폰 ${serial} 놓음 — 팜이 깐 게임 · 데이터를 정리합니다`;
+    return `PC ${serial} 놓음 — VISION 이 켠 게임을 끄고 Unity 데이터를 지웁니다${recorded ? `\n녹화: GET ${farm.base}/api/sessions/${recorded}/artifacts` : ''}`;
   }
 
   if (name === 'open') {
@@ -318,7 +337,10 @@ export async function run(argv: string[], o: Options): Promise<string> {
       : via === 'ios' ? (await phone(values.udid)).udid
       : (values.udid ?? env.PLATFORM_DEVICE_UDID ?? (via === 'farm' ? (await readFile(heldFile, 'utf8').catch(() => '')).trim() || undefined : undefined));
     if (via === 'farm' && !udid) throw new Error('잡은 폰이 없습니다 — hold 부터 합니다');
-    const app = local ? values.app : (values.app ?? env.PLATFORM_APP);
+    const pc = via === 'farm' && isPc(udid!);
+    // PLATFORM_APP 은 폰 APK 주소다 — PC 에는 쓰지 않는다.
+    const app = local || pc ? values.app : (values.app ?? env.PLATFORM_APP);
+    if (pc && !app) throw new Error('PC 에 켤 게임이 필요합니다 — --app <빌드 zip 경로 | VISION 게임 목록의 이름>');
     if (via === 'farm' && !app) throw new Error('게임을 깔려면 --app 이나 PLATFORM_APP 이 필요합니다(QA APK 주소)');
     const s: Session = { via, udid, refs: {}, ...(values.port === undefined ? {} : { port }) };
     // relay 는 켜기 전에 본다 — --app 으로 켜면 켠 뒤 (다시) 붙은 게임을 고른다.
@@ -330,6 +352,10 @@ export async function run(argv: string[], o: Options): Promise<string> {
       if (app) s.pid = launch(app);
     } else if (via === 'ios') {
       if (app) s.pid = installAndLaunch(udid!, app).pid;
+    } else if (pc) {
+      // zip 이면 VISION 이 깔고 exe 이름을 게임 이름으로 준다. 아니면 이미 깔린(사람이 바로가기를 넣은) 게임의 이름이다.
+      s.pcGame = /\.zip$/i.test(app!) ? await pcInstall(farm, udid!, await readFile(app!)) : app!;
+      await pcLaunch(farm, udid!, s.pcGame);
     } else if (app) s.appium = await openSession(appium, app, udid);
     // 게임이 답하기 전에 실패해도 close 로 Appium 세션 · 띄운 게임을 닫을 수 있게 먼저 적는다.
     await save(file, s);
@@ -349,7 +375,7 @@ export async function run(argv: string[], o: Options): Promise<string> {
     const pid = s.pid ? ` · 프로세스 ${s.pid}` : '';
     const where =
       picked ? `relay · ${picked.platform} · ${picked.model}${via === 'farm' ? ` · 디바이스 팜 ${udid}` : ''}${pid}`
-      : via === 'farm' ? `디바이스 팜 ${udid}` : via === 'usb' ? 'USB' : via === 'pc' ? `PC${pid}` : `iPhone ${udid}${pid}`;
+      : pc ? `VISION PC ${udid} · ${s.pcGame}` : via === 'farm' ? `디바이스 팜 ${udid}` : via === 'usb' ? 'USB' : via === 'pc' ? `PC${pid}` : `iPhone ${udid}${pid}`;
     const engine = info.engine ? ` · ${info.engine} ${info.engineVersion} · SDK ${info.sdkVersion}` : '';
     return `${started}세션 ${sname} 열림 — ${info.app} ${info.version} (${where})${engine}\n${await shot(game, s, appium, file, sname, o.dir)}`;
   }
@@ -379,9 +405,11 @@ export async function run(argv: string[], o: Options): Promise<string> {
     // Appium 이 세션을 이미 끝냈어도(300초 쉼 · 잡기 시간 끝) 파일은 지운다 — 남으면 open 이 막힌다.
     const closed = s.appium ? await call(appium, 'DELETE', `/session/${s.appium}`).then(() => '', (e: unknown) => ` (Appium 세션은 이미 없음: ${e instanceof Error ? e.message : String(e)})`) : '';
     // 띄운 게임이 이미 꺼졌어도 세션은 닫는다.
-    const killed = s.pid === undefined ? '' : stopGame(s) ? ` — 게임(프로세스 ${s.pid})을 껐습니다` : ` — 게임(프로세스 ${s.pid})은 이미 꺼져 있었습니다`;
+    const killed =
+      s.pcGame !== undefined ? await pcStop(farm, s.udid!).then((stopped) => ` — 게임 ${s.pcGame} 을 ${stopped ? '껐습니다' : '끌 것이 없었습니다(이미 꺼짐)'}`, (e: unknown) => ` — 게임 ${s.pcGame} 을 끄지 못했습니다(release 가 끕니다): ${e instanceof Error ? e.message : String(e)}`)
+      : s.pid === undefined ? '' : stopGame(s) ? ` — 게임(프로세스 ${s.pid})을 껐습니다` : ` — 게임(프로세스 ${s.pid})은 이미 꺼져 있었습니다`;
     await rm(file, { force: true });
-    return `세션 ${sname} 닫음${closed}${killed}${s.via === 'farm' ? ' — 폰은 아직 잡혀 있습니다(release)' : ''}`;
+    return `세션 ${sname} 닫음${closed}${killed}${s.via === 'farm' ? ` — ${isPc(s.udid!) ? 'PC 는' : '폰은'} 아직 잡혀 있습니다(release)` : ''}`;
   }
 
   const game = gameOf(s, farm, portOf(s), env);
