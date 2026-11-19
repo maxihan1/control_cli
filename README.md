@@ -25,7 +25,7 @@ Unity · Godot 게임을 자동화 테스트로 조작하는 SDK 와 CLI.
 | 인스펙터 · Recorder | `control-cli inspect`(로컬 웹 화면) · 기록 → TS · Python · C# · Java · Robot | Unity 6000.0 · Godot 4.7.2 macOS 앱(기록 → `replay` · 다섯 언어 초록) · Chrome | — |
 
 「컴파일만 확인」은 `tools/unity-compile-check` 9개 구성과 CLI 테스트까지다 — 샘플 Unity 프로젝트(`sample/`)를 CI 가 판 · 입력 · 플랫폼마다 구워(`.github/workflows/sample.yml`, Unity 라이선스 Secret 필요) 실기기에서 돌려 봐야 「실기기로 확인」으로 옮긴다.
-못 가로채는 것 — 게임 코드가 `UnityEngine.Input` 을 전체 이름으로 부르는 곳 · DLL plugin 안의 입력. 디바이스 팜은 Android 만 받는다.
+못 가로채는 것 — 게임 코드가 `UnityEngine.Input` 을 전체 이름으로 부르는 곳 · DLL plugin 안의 입력. 디바이스 팜은 Android 폰과 윈도우 PC 를 받는다.
 
 ## 게임에 넣기 (QA 빌드만)
 
@@ -103,6 +103,20 @@ npx control-cli release                           # 폰을 놓는다 — 팜이 
 ```
 
 `-s=<이름>` 으로 세션을 여럿 둔다(기본 `default`). 세션 파일 · 화면 파일은 `.control-cli/` 에 떨어진다.
+
+### 루프 — 디바이스 팜의 윈도우 PC
+
+디바이스 팜(VISION)에 윈도우 PC 가 `pc-<이름>` 기기로 붙어 있으면 폰처럼 잡고 쓴다(Devicefarm ADR-061). PC 에 CLI · 러너를 깔지 않는다 — Appium 만 빠지고 나머지는 폰 길과 같다.
+
+```bash
+npx control-cli hold --pc --minutes 30            # 빈 PC 하나를 잡는다(--udid pc-pc1 로 고를 수도)
+npx control-cli open --app ./BossRoom.zip         # 빌드 zip(맨 위나 한 폴더 아래에 exe 하나)을 VISION 이 깔고 켠다 — 게임이 답할 때까지 기다린다
+npx control-cli open --app BossRoomQA             # 이미 깔린 게임(VISION 게임 목록의 이름)은 깔지 않고 켠다
+npx control-cli close                             # VISION 이 켠 게임을 끈다
+npx control-cli release                           # PC 를 놓는다 — VISION 이 Unity 저장 데이터를 지우고, 녹화(video-N.mp4 · game.log) 받는 주소를 알려 준다
+```
+
+명령 · 스크린샷은 폰과 같은 게임 명령 주소로 가고 스크린샷은 게임(SDK)이 찍는다. VISION 이 Unity 게임을 창 모드 전체화면으로 켠다. 깐 빌드는 놓아도 PC 에 남고, 같은 게임의 새 zip 은 덮어쓴다. `PLATFORM_APP`(APK 주소)은 PC 에 쓰지 않는다.
 
 ### 루프 — USB
 
