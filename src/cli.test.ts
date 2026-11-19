@@ -223,6 +223,40 @@ test('conform — 표준 화면이면 PC 는 일시정지 줄만 미실행, 다�
   }
 });
 
+test('VISION 윈도우 PC — 조건 잡기 → zip 깔기 · 켜기 → 명령 · 스크린샷은 SDK → 닫으면 끄기 → 놓으면 녹화 주소', async () => {
+  const f = await fakeFarm(game);
+  const own = await mkdtemp(join(tmpdir(), 'control-cli-'));
+  // PLATFORM_APP 은 폰 APK 주소라 PC 에 쓰지 않는다
+  const pc = (...argv: string[]) => run(argv, { env: { PLATFORM_APPIUM_URL: f.url, PLATFORM_APP: 'http://builds/qa.apk' }, dir: own });
+  try {
+    assert.match(await pc('hold', '--pc'), /PC pc-pc1 잡음/);
+    assert.ok(f.seen.includes('POST /api/devices/acquire'));
+    await assert.rejects(pc('open'), /PC 에 켤 게임/);
+    const zip = join(own, 'BossRoom.zip');
+    await writeFile(zip, Buffer.from([0x50, 0x4b, 3, 4, 0xff]));
+    const opened = await pc('open', '--app', zip);
+    assert.match(opened, /세션 default 열림 — com\.fake\.game 1\.0 \(VISION PC pc-pc1 · BossRoom\)/);
+    assert.match(opened, /- Screenshot: .*\.jpg/);
+    assert.equal(f.state.zip?.type, 'application/zip');
+    assert.deepEqual([...f.state.zip!.bytes], [0x50, 0x4b, 3, 4, 0xff]);
+    assert.equal(f.state.launched, 'BossRoom');
+    assert.ok(!f.seen.includes('POST /wd/hub/session'));
+    assert.match(await pc('click', 'LoginButton'), /^Ran: await game\.click\('LoginButton'\)/);
+    assert.match(await pc('close'), /세션 default 닫음 — 게임 BossRoom 을 껐습니다 — PC 는 아직 잡혀 있습니다/);
+    assert.equal(f.state.launched, undefined);
+    // 사람이 깐 게임은 목록 이름으로 켠다 — 깔지 않는다
+    f.state.zip = undefined;
+    await pc('open', '--app', 'BossRoomQA');
+    assert.equal(f.state.launched, 'BossRoomQA');
+    assert.equal(f.state.zip, undefined);
+    await pc('close');
+    assert.match(await pc('release'), /PC pc-pc1 놓음 — VISION 이 켠 게임을 끄고 Unity 데이터를 지웁니다\n녹화: GET .*\/api\/sessions\/hold-1\/artifacts/);
+    assert.ok(f.seen.includes('DELETE /api/devices/pc-pc1/hold'));
+  } finally {
+    f.server.close();
+  }
+});
+
 test('conform — 팜은 Appium 으로 앱을 뒤로 보내 일시정지 줄까지 57줄 통과', async () => {
   const f = await fakeFarm(standardScreen());
   const own = await mkdtemp(join(tmpdir(), 'control-cli-'));
