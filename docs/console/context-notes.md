@@ -85,3 +85,10 @@
 - **PC 인지는 serial 로 가린다** — VISION 이 PC serial 을 `pc-<이름>` 으로 정했다(ADR-061 §3.3 · 제약 C7). 기기 목록을 한 번 더 묻지 않는다
 - **명령 · 스크린샷은 손대지 않는다** — VISION `/game` 입구가 폰과 같아 `farmLink` 그대로다. Appium 세션이 없으면 스크린샷은 SDK 가 찍는다(이미 PC · USB 길이 그렇다). VISION 은 1MB 넘는 글자 답을 조각으로 이어 붙인다(16MB 까지)
 - **넘겨받은 글** — Devicefarm 세션이 main 체크아웃에 커밋 안 하고 둔 `vision-pc-handoff.md` 를 이 branch 로 옮겨 실었다
+
+## 2026-11-19 C3 실물 — VISION pc-pc1
+- **토큰** — 사람 PAT 는 없다. VISION 웹(`https://vision.maxihan.com` — `farm.maxihan.com` 은 응답 없음)에 통합계정으로 로그인한 탭이 Auth JWT(`aud=devicefarm` · 15분)를 sessionStorage `df-token` 에 든다. 그 값을 탭 밖으로 꺼내는 일은 자동 권한 판정이 두 번 막았다(무단 접근). 그래서 **탭 안에서** 같은 origin 으로 VISION API 를 불렀다 — 토큰은 탭 밖에 안 나온다. CLI 코드 자체는 실물로 못 돌렸다
+- **확인한 것(모두 200)** — `POST /api/devices/acquire {"minutes":30,"filter":"platform=windows"}` → pc-pc1 OCCUPIED · `GET …/games` → `[{"name":"BossRoomQA","unity":true,"by":"person"}]` · `POST …/launch {"game":"BossRoomQA"}` → `{"pid":12680}` · `/game ping` 이 세 번째(4초)에 답 — Unity 6000.3.10f1 · SDK 0.8.0 · protocol 2 · `scenes` MainMenu · `tree` 9.5KB · `screenshot` jpg 답 32만 자(VISION 이 조각을 이어 붙임) · `POST …/stop {}` → `{"stopped":true}` · `DELETE …/hold` → IDLE · `GET /api/sessions/hold-…/artifacts` → `ready:true` · `video-1.mp4` 6,061,228 B · `game.log` 2,010 B · errors 없음
+- **CLI 코드와의 대응** — CLI 가 보내는 요청 · 받는 칸(`held.serial` · `held.sessionId` · `pid` · `stopped` · `/game` 답을 `value` 로 쌈)이 위와 같다. 가짜 팜(`fakeFarm`)도 같은 꼴이다
+- **zip 깔기는 실물 미확인** — 탭 파일 올리기 도구가 10MB 까지라 Boss Room zip(77MB · run 44435682949)을 못 올렸다. VISION 쪽은 가짜 에이전트 계약 시험이 있다(Devicefarm `tests/contract/pc-agent*.test.ts`)
+- **SDK 0.8.0 Windows 빌드는 ping `app` 이 빈 글자** — productName 으로 채우는 일은 SDK 0.10.0 부터(P3-B). Boss Room 을 새 SDK 로 다시 구우면 채워진다
