@@ -134,6 +134,16 @@ test('방금 놓은 폰을 팜이 정리하는 동안은 기다렸다가 잡는�
   }
 });
 
+test('--pc 없이 잡으면 목록 앞에 빈 PC 가 있어도 폰을 잡는다', async () => {
+  farm.state.devices = () => [{ serial: 'pc-pc1', state: 'IDLE', detail: 'ready' }, { serial: 'R1', state: 'IDLE', detail: 'ready' }];
+  try {
+    assert.match(await cli('hold'), /폰 R1 잡음/);
+  } finally {
+    farm.state.devices = () => [{ serial: 'R1', state: 'IDLE', detail: 'ready' }];
+    await cli('release');
+  }
+});
+
 test('빈 폰도 정리 중인 폰도 없으면 기다리지 않고 다른 실행이 쓰는 중이라고 거절한다', async () => {
   let calls = 0;
   farm.state.devices = () => (calls++, [{ serial: 'R1', state: 'OCCUPIED', detail: 'session' }]);

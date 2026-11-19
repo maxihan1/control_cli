@@ -56,6 +56,7 @@
 - [x] 패드로 Boss Room 메뉴가 움직인다 — 십자키 위로 「게임 시작」 → 「비밀번호」 선택 이동 · 확인 버튼이 콘솔 자리대로(xbox A · ps5 Cross · switch A(오른쪽)는 눌림, xbox B · ps5 Circle · switch B(아래)는 안 눌림)
 - [x] 창이 초점을 잃은 채(`Application.isFocused` false — 사람이 PC 에서 Alt+Tab) 패드 · `type` · `click` · 스크린샷 모두 들어감
 - 실물 Xbox 패드 · DualSense 를 꽂은 채 가상 패드 — **안 함**(사용자 2026-11-19 「실물패드는 안꼽을껀데」)
+- [x] `--pc` 없는 `hold` 가 VISION 목록의 빈 PC 를 폰으로 잡지 않는다 — `idlePhone` 이 `pc-` 줄을 뺀다(목록 앞에 빈 `pc-pc1` 이 있으면 PC 를 잡고 `open --app <APK>` 가 깨질 수 있었음 · 2026-11-19)
 - 남은 것 — IL2CPP(Windows IL2CPP 는 Windows 에서만 구워져 boss-room 의 Linux runner 로는 안 됨) · 샘플 conform
 
 ## QA Hub 다음 줄 (이 저장소에서는 고치지 않는다)

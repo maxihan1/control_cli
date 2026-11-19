@@ -137,7 +137,8 @@ async function idlePhone(farm: Conn): Promise<string> {
   const end = Date.now() + TIMING.cleanWaitMs;
   for (;;) {
     const v = (await call(farm, 'GET', '/api/devices')) as { devices?: { serial?: string; state?: string; detail?: string }[] } | null;
-    const devices = v?.devices ?? [];
+    // VISION 목록에는 PC(pc-<이름>)도 있다 — 폰만 본다. PC 는 hold --pc 로 잡는다.
+    const devices = (v?.devices ?? []).filter((d) => !isPc(d.serial ?? ''));
     const idle = devices.find((d) => d.state === 'IDLE' && d.serial)?.serial;
     if (idle) return idle;
     if (!devices.some((d) => d.detail === 'cleaning')) throw new Error('잡을 수 있는 빈 폰이 없습니다 — 폰이 다른 실행에 쓰이는 중일 수 있습니다');
