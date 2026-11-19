@@ -78,3 +78,10 @@
 
 ## 근거 자료 (저장소 밖)
 - 조사 보고서 `~/Downloads/콘솔 게임 QA 방식과 적용 방안.md` · 조사 노트 `~/Downloads/qahub-handoff/조사 노트/windows_virtual_console_pads.md`(1~5절)
+
+## 2026-11-19 C3 — VISION 길로 바꿈
+- **사용자 결정** — 「모바일에서 러너는 어디에 있어? 모바일 스펙과 동일하게 가지고 가고 싶은데?」. 모바일은 러너가 QA Hub 서버(컨테이너)에 있고 VISION(`DEVICE_FARM_URL`)이 폰을 잡아 준다. 같게 가면 PC 도 러너는 서버에, PC 는 VISION 기기 `pc-<이름>`(Devicefarm ADR-061 · 11-18)이다. 원래 C3 · QA Hub Q1 의 「PC 에 러너 한 벌 더 · `PC_RUNNER_URL`」은 버린다
+- **`open --pc` 는 남긴다** — 같은 컴퓨터에서 켠 게임에 바로 붙는 길이라 사람이 손으로 시험할 때 쓴다. VISION 길과 겹치지 않는다
+- **PC 인지는 serial 로 가린다** — VISION 이 PC serial 을 `pc-<이름>` 으로 정했다(ADR-061 §3.3 · 제약 C7). 기기 목록을 한 번 더 묻지 않는다
+- **명령 · 스크린샷은 손대지 않는다** — VISION `/game` 입구가 폰과 같아 `farmLink` 그대로다. Appium 세션이 없으면 스크린샷은 SDK 가 찍는다(이미 PC · USB 길이 그렇다). VISION 은 1MB 넘는 글자 답을 조각으로 이어 붙인다(16MB 까지)
+- **넘겨받은 글** — Devicefarm 세션이 main 체크아웃에 커밋 안 하고 둔 `vision-pc-handoff.md` 를 이 branch 로 옮겨 실었다

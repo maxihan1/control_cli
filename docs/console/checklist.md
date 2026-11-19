@@ -2,7 +2,7 @@
 
 ## ▶ 다음 세션은 여기부터 (2026-11-17)
 
-- **다음은 C3 — Windows PC 가 와야 한다(세션을 띄우지 않았다)** — 사용자가 PC(Windows 10/11 · Steam · 패드 변환 도구 없음 · 실물 Xbox 패드 · DualSense)를 준비하면 그때 main 에서 branch 를 떼고 `c3-plan.md` 부터 쓴다. QA Hub 쪽 Q1(명세 · 계약 변경 승인)은 그 저장소에서 따로 간다
+- **지금 C3 — VISION 윈도우 PC 길(2026-11-19 시작)** — 사용자가 「모바일 스펙과 동일하게」를 골랐다. PC 에 러너를 깔지 않고 PC 를 VISION 기기 `pc-pc1` 로 잡아 쓴다([c3-plan.md](c3-plan.md)). 실물 PC 는 연결돼 있다(DESKTOP-3BNL05I). QA Hub 쪽 Q1 은 그 저장소에서 이 답을 따라 고친다
 - **C2 끝** — PR #35 합침 · `v0.15.0` tag(CLI 0.15.0 · SDK 0.12.0 그대로). `launch` · `stop` 을 라이브러리로 내보냈고(`src/launch.ts`), CI `cli` 잡이 `npm test` 를 `ubuntu-latest` · `windows-latest` 에서, `sample` 의 `conform-windows` 잡이 구운 Windows 빌드를 Windows runner 에서 띄워 conform 까지 돈다(「통과 56 · 실패 0 · 미실행 1」 · `pad xbox` 가 `XInputControllerWindows`). 설계와 실측은 [c2-plan.md](c2-plan.md) · [context-notes.md](context-notes.md) 「C2」
 - **게임에는 `windowsHide` 를 걸지 않는다** — 걸면 Unity 창이 숨는다(runner 실측). QA Hub kit 이 게임을 따로 띄울 일이 생겨도 `launch` 를 쓴다
 - **Windows runner 는 화면이 1024×768** — 게임 창이 잘려 conform 이 깨진다. `Set-DisplayResolution -Width 1920 -Height 1080 -Force` 를 먼저 건다(그 위는 거절)
@@ -43,15 +43,18 @@
 - [x] README Windows 예시 · 지원 표
 - [x] 합친 뒤 `v0.15.0` tag
 
-## C3. Windows PC 실측 (PC 가 준비된 뒤)
-- [ ] 샘플 · Boss Room Windows 빌드로 `open --pc` · conform · 패드 넷(`pad xbox` 가 `XInputControllerWindows` — runner 에서는 C2 가 봤다)
-- [ ] 실물 Xbox 패드 · DualSense 를 꽂은 채 가상 패드 입력이 들어간다
-- [ ] 창이 초점을 잃은 상태의 입력 · `devices` 목록
-- [ ] IL2CPP 빌드
-- [ ] README 지원 표 「실기기로 확인」 · context-notes
+## C3. VISION 윈도우 PC 길 (2026-11-19 사용자 「모바일 스펙과 동일하게」 — [c3-plan.md](c3-plan.md))
+- [x] 설계 · 구현 계획 — `c3-plan.md` · 넘겨받은 글 [vision-pc-handoff.md](vision-pc-handoff.md)
+- [ ] `src/vision.ts` — `isPc` · `pcInstall` · `pcLaunch` · `pcStop` · 라이브러리로 내보내기
+- [ ] CLI — `hold --pc`(acquire `platform=windows`) · `open --app <zip|게임 이름>` · `close` 가 끄기 · `release` 가 녹화 주소
+- [ ] `fakeFarm` · `cli.test.ts` · `npm test` 초록
+- [ ] README · HELP
+- [ ] 실물 `pc-pc1` — Boss Room 윈도우 QA 빌드로 잡기 → 깔기 → 켜기 → 명령 · 스크린샷 → 끄기 → 놓기 → 녹화 목록
+- [ ] 합친 뒤 `v0.16.0` tag
+- 원래 C3 에서 남은 것(VISION 길 위에서 따로) — 샘플 conform · 패드 넷 · 실물 Xbox 패드 · DualSense 를 꽂은 채 가상 패드 · 초점 잃은 창 · `devices` · IL2CPP
 
 ## QA Hub 다음 줄 (이 저장소에서는 고치지 않는다)
-- [ ] Q1 명세와 `[계약 변경 필요]` 승인 — 플랫폼과 패드 · `pc` 길 · `app_build.platform` · `PC_RUNNER_URL` · `GameDriver` 의 키 · 패드 · 증적
+- [ ] Q1 명세와 `[계약 변경 필요]` 승인 — 플랫폼과 패드 · `pc` 길 · `app_build.platform` · `GameDriver` 의 키 · 패드 · 증적. **`PC_RUNNER_URL` 은 버림**(2026-11-19 사용자 — 러너는 서버에 두고 PC 는 VISION 기기로, 모바일과 같게 · C3)
 - [ ] Q2 kit · 러너 — PC 길(control-cli `v0.15.0`)
 - [ ] Q3 admin — 빌드 · 실행 요청 · 배분 · 화면
 - [ ] Q4 케이스 작성 지침

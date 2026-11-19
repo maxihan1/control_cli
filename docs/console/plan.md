@@ -109,6 +109,8 @@ Q1 명세 ──────┴────────────────�
 
 ### C3. Windows PC 실측 (PC 가 준비된 뒤 · 사용자 손이 든다)
 
+> **2026-11-19 바뀜** — 사용자 「모바일 스펙과 동일하게」. PC 에 러너 · CLI 를 깔지 않고 VISION 기기(`pc-<이름>`, Devicefarm ADR-061)로 잡아 쓴다. 아래 Q1 · Q2 의 `PC_RUNNER_URL` · PC 러너도 버린다. 새 계획은 [c3-plan.md](c3-plan.md).
+
 - 샘플과 Boss Room 의 Windows 빌드(Mono, 가능하면 IL2CPP)로 `open --pc` · conform · 패드 넷.
 - 실물 Xbox 패드 · DualSense 를 꽂은 채 가상 패드 입력이 들어가는지(이번 변경의 핵심 회귀 확인).
 - 게임 창이 초점을 잃은 상태의 입력, `devices` 목록에 실물 장치가 맞게 찍히는지.
