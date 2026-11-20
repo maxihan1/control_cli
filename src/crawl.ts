@@ -70,7 +70,8 @@ export async function crawl(game: Game, o: CrawlOptions): Promise<string> {
   // base 는 창 루트 경로 — 시작 화면은 뿌리가 여럿이라 '' 로 전체 경로를 쓴다.
   const record = async (key: string, title: string, entries: Entry[], from: WindowRecord['연곳'], base: string) => {
     const depth = base === '' ? 0 : (entries[0]?.depth ?? 0);
-    const body = entries.filter((e) => e.shown).map((e) => `${'  '.repeat(Math.max(0, e.depth - depth))}- ${line(e.node)}`);
+    // 줄인 목록은 자식 하나뿐인 중간 오브젝트를 빼니, 줄마다 게임 명령이 받는 주소를 붙인다.
+    const body = entries.filter((e) => e.shown).map((e) => `${'  '.repeat(Math.max(0, e.depth - depth))}- ${line(e.node)} [주소=${e.address}]`);
     const rel = (e: Entry) => frame(e.path.slice(base.length));
     const r: WindowRecord = {
       주소: key,
