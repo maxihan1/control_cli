@@ -44,7 +44,7 @@ namespace ControlCli
         public static string Members(GameObject go, string component)
         {
             var c = ComponentOf(go, component ?? "");
-            if (c == null) return Fail(go.name + " 에 " + component + " 컴포넌트가 없습니다");
+            if (c == null) return Fail(Missing(go, component));
             const BindingFlags flags = Member | BindingFlags.Static | BindingFlags.DeclaredOnly;
             var fields = new List<string>();
             var props = new List<string>();
@@ -98,7 +98,7 @@ namespace ControlCli
             var dot = (method ?? "").LastIndexOf('.');
             if (dot <= 0 || dot == method.Length - 1) return Fail("method 는 「컴포넌트.메서드」 꼴이어야 합니다 (예: PlayerController.Jump)");
             var component = ComponentOf(go, method.Substring(0, dot));
-            if (component == null) return Fail(go.name + " 에 " + method.Substring(0, dot) + " 컴포넌트가 없습니다");
+            if (component == null) return Fail(Missing(go, method.Substring(0, dot)));
             return Guard(method, () => Invoke(component, component.GetType(), method.Substring(dot + 1), args, method));
         }
 
@@ -131,15 +131,30 @@ namespace ControlCli
             parts = (prop ?? "").Split('.');
             component = parts.Length < 2 ? null : ComponentOf(go, parts[0]);
             if (parts.Length < 2) problem = "prop 은 「컴포넌트.칸」 꼴이어야 합니다 (예: Transform.position)";
-            else if (component == null) problem = go.name + " 에 " + parts[0] + " 컴포넌트가 없습니다";
+            else if (component == null) problem = Missing(go, parts[0]);
             return component != null;
         }
 
+        // 타입 이름 · 전체 이름이 같은 것이 먼저, 없으면 물려받은 타입 이름 — UIHUDButton 은 Button.interactable 로도 읽힌다.
         private static Component ComponentOf(GameObject go, string name)
         {
-            foreach (var c in go.GetComponents<Component>())
+            var all = go.GetComponents<Component>();
+            foreach (var c in all)
                 if (c != null && (c.GetType().Name == name || c.GetType().FullName == name)) return c;
+            foreach (var c in all)
+                if (c != null)
+                    for (var t = c.GetType().BaseType; t != null; t = t.BaseType)
+                        if (t.Name == name || t.FullName == name) return c;
             return null;
+        }
+
+        // 오류 글만 보고 고쳐 쓰게 붙은 컴포넌트 이름을 단다 — TMP 글자는 Text 가 아니라 TextMeshProUGUI 다.
+        private static string Missing(GameObject go, string name)
+        {
+            var names = new List<string>();
+            foreach (var c in go.GetComponents<Component>())
+                if (c != null) names.Add(c.GetType().Name);
+            return go.name + " 에 " + name + " 컴포넌트가 없습니다 — 붙은 것: " + string.Join(" · ", names);
         }
 
         // 「타입.칸[.칸…]」에서 가장 긴 앞부분이 타입이다 — UnityEngine.Time.timeScale 은 UnityEngine.Time 의 timeScale.

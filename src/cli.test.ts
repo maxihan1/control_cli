@@ -365,6 +365,39 @@ test('찾기 · 설정 명령 — Ran 줄이 kit 의 game.* 이름 · 인자 꼴
   }
 });
 
+test('컴포넌트 이름 — 물려받은 타입 이름으로도 찾고, 없으면 붙은 컴포넌트 이름을 알려 준다', async () => {
+  // Boss Room 의 HUD 버튼 — UIHUDButton 이 Button 을 물려받고, 글자는 TMP 다.
+  const hud = 'Unity.BossRoom.Gameplay.UI.UIHUDButton';
+  const pc = await fakeTcp(new FakeGame([
+    node('Button0', {
+      components: ['UnityEngine.RectTransform', 'UnityEngine.UI.Image', hud],
+      bases: { [hud]: ['UnityEngine.UI.Button', 'UnityEngine.UI.Selectable'] },
+      props: { 'UIHUDButton.interactable': true },
+      set: (p, v) => (p === 'UIHUDButton.interactable' ? v === 'true' : undefined),
+      methods: { 'UIHUDButton.Press': () => 'pressed' },
+      members: { UIHUDButton: { fields: [], properties: [], methods: [] } },
+    }, [node('Text', { components: ['UnityEngine.RectTransform', 'UnityEngine.CanvasRenderer', 'TMPro.TextMeshProUGUI'], props: { 'TextMeshProUGUI.text': 'Attack' } })]),
+  ]));
+  const cn = (...argv: string[]) => cli('-s=cn', ...argv, '--port', String(pc.port));
+  try {
+    await cn('open', '--pc');
+    assert.match(await cn('get', 'Button0', 'Button.interactable'), /\n- 값: true/);
+    assert.match(await cn('get', 'Button0', 'Selectable.interactable'), /\n- 값: true/);
+    assert.match(await cn('set', 'Button0', 'Button.interactable', 'false'), /\n- 값: false/);
+    assert.match(await cn('call', 'Button0', 'Button.Press'), /\n- 값: "pressed"/);
+    assert.match(await cn('members', 'Button0', 'UnityEngine.UI.Button'), /\n- 값: \{"fields":\[\]/);
+    assert.match(await cn('get', 'Text', 'TextMeshProUGUI.text'), /\n- 값: "Attack"/);
+    const missing = /Text 에 Text 컴포넌트가 없습니다 — 붙은 것: RectTransform · CanvasRenderer · TextMeshProUGUI/;
+    await assert.rejects(cn('get', 'Text', 'Text.text'), missing);
+    await assert.rejects(cn('set', 'Text', 'Text.text', 'x'), missing);
+    await assert.rejects(cn('call', 'Text', 'Text.SetText', 'x'), missing);
+    await assert.rejects(cn('members', 'Text', 'Text'), missing);
+    await cn('close');
+  } finally {
+    pc.server.close();
+  }
+});
+
 test('입력 명령 — Ran 줄이 kit 의 game.* 이름 · 인자 꼴로 찍히고, 좌표는 Ran 줄이 없고, 음수도 읽는다', async () => {
   const pc = await fakeTcp(standardScreen());
   const io = (...argv: string[]) => cli('-s=io', ...argv, '--port', String(pc.port));
