@@ -197,6 +197,24 @@ static func _bad(target: String, why: String) -> String:
 static func _re(p: String) -> RegEx:
 	return RegEx.create_from_string(p)
 
+# [ 를 닫는 ] — = · , 바로 뒤(빈칸 건너)에서 연 따옴표 안의 ] 는 값의 일부다([contains(@text,"[QA] 갑옷")]). 안 닫힌 따옴표는 보통 글자다.
+static func _close(target: String, i: int) -> int:
+	var j := i + 1
+	while j < target.length():
+		var ch := target[j]
+		if ch == "]":
+			return j
+		if ch == "\"" or ch == "'":
+			var k := j - 1
+			while k > i and target[k] == " ":
+				k -= 1
+			if k > i and (target[k] == "=" or target[k] == ","):
+				var q := target.find(ch, j + 1)
+				if q > 0:
+					j = q
+		j += 1
+	return -1
+
 # / 로 시작하지 않으면 이름 그대로(아래 어디서나 그 이름). 꼴이 틀리면 까닭 글자를 돌려준다.
 static func steps(target: String):
 	if target == "":
@@ -217,7 +235,7 @@ static func steps(target: String):
 			i += 1
 		var step := {"raw": "", "deep": deep, "name": name, "conds": [], "index": null}
 		while i < target.length() and target[i] == "[":
-			var end := target.find("]", i)
+			var end := _close(target, i)
 			if end < 0:
 				return _bad(target, "%s 를 닫는 ] 가 없습니다" % target.substr(i))
 			var inside := target.substr(i + 1, end - i - 1)

@@ -45,7 +45,7 @@ export function steps(target: string): Step[] {
     while (i < target.length && target[i] !== '/' && target[i] !== '[') name += target[i++];
     const step: Step = { raw: '', deep, name, conds: [] };
     while (target[i] === '[') {
-      const end = target.indexOf(']', i);
+      const end = close(target, i);
       if (end < 0) throw bad(target, `${target.slice(i)} 를 닫는 ] 가 없습니다`);
       const inside = target.slice(i + 1, end);
       // 조건 · 순번 꼴이 아닌 [ ] 는 이름의 일부다([DOTween] · Slot[A]) — 단계 전체가 이름이고 끝의 [숫자]만 순번(옛 경로 규칙 그대로).
@@ -66,6 +66,19 @@ export function steps(target: string): Step[] {
     out.push(step);
   }
   return out;
+}
+
+// [ 를 닫는 ] — = · , 바로 뒤(빈칸 건너)에서 연 따옴표 안의 ] 는 값의 일부다([contains(@text,"[QA] 갑옷")]). 안 닫힌 따옴표는 보통 글자다.
+function close(target: string, i: number): number {
+  for (let j = i + 1; j < target.length; j++) {
+    const ch = target[j];
+    if (ch === ']') return j;
+    if ((ch === '"' || ch === "'") && /[=,]\s*$/.test(target.slice(i + 1, j))) {
+      const q = target.indexOf(ch, j + 1);
+      if (q > 0) j = q;
+    }
+  }
+  return -1;
 }
 
 function cond(step: Step, inside: string, target: string): void {

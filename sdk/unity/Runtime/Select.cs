@@ -70,7 +70,7 @@ namespace ControlCli
                 var step = new Step { Deep = deep, Name = target.Substring(nameStart, i - nameStart) };
                 while (i < target.Length && target[i] == '[')
                 {
-                    var end = target.IndexOf(']', i);
+                    var end = Close(target, i);
                     if (end < 0) throw Bad(target, target.Substring(i) + " 를 닫는 ] 가 없습니다");
                     var inside = target.Substring(i + 1, end - i - 1);
                     // 조건 · 순번 꼴이 아닌 [ ] 는 이름의 일부다([DOTween] · Slot[A]) — 단계 전체가 이름이고 끝의 [숫자]만 순번(옛 경로 규칙 그대로).
@@ -95,6 +95,23 @@ namespace ControlCli
                 steps.Add(step);
             }
             return steps;
+        }
+
+        // [ 를 닫는 ] — = · , 바로 뒤(빈칸 건너)에서 연 따옴표 안의 ] 는 값의 일부다([contains(@text,"[QA] 갑옷")]). 안 닫힌 따옴표는 보통 글자다.
+        private static int Close(string target, int i)
+        {
+            for (var j = i + 1; j < target.Length; j++)
+            {
+                var ch = target[j];
+                if (ch == ']') return j;
+                if (ch != '"' && ch != '\'') continue;
+                var k = j - 1;
+                while (k > i && char.IsWhiteSpace(target[k])) k--;
+                if (k <= i || (target[k] != '=' && target[k] != ',')) continue;
+                var q = target.IndexOf(ch, j + 1);
+                if (q > 0) j = q;
+            }
+            return -1;
         }
 
         private static void AddCond(Step step, string inside, string target)

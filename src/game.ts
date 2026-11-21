@@ -156,6 +156,15 @@ export interface PressOptions {
   interval?: number;
 }
 
+/** click — 카메라 · 횟수 · 오브젝트 안 자리. at 은 화면 사각형 안 비율 [x, y](왼쪽 아래 0,0 · 오른쪽 위 1,1), 없으면 가운데 */
+export interface ClickOptions extends PressOptions {
+  camera?: string;
+  at?: [number, number];
+}
+
+// click 이 누르기 전에 그 자리의 맨 위가 대상(또는 그 위아래 줄)이 되길 기다리는 한도 — 장면이 막 바뀐 뒤 페이드 · 막 뜨는 팝업이 덮는 동안.
+export const READY = { maxMs: 3000, stepMs: 100 };
+
 // 기다리기는 짧은 find 를 되풀이한다 — 명령 하나가 팜 15초 · SDK 10초 한도에 걸리지 않게(게임 명세 「게임 연결」). 장면은 크면 10초를 넘겨 따로 둔다.
 export const WAIT = { timeoutMs: 10_000, intervalMs: 300, sceneMs: 30_000 };
 
@@ -254,8 +263,34 @@ export class Game {
     return this.find(`${f.path}/..`, o);
   }
 
-  async click(target: string, o: { camera?: string } & PressOptions = {}): Promise<void> {
-    await this.call({ cmd: 'click', target, ...extra(o), ...given({ count: o.count, interval: o.interval }) });
+  /** 누르기 전에 그 자리에 입력이 닿기를(READY 한도) 기다린다 — 다른 것이 덮은 채로 한도가 지나면 덮은 것을 알리며 던진다. at 이면 사각형 안 그 비율 자리를 누른다 */
+  async click(target: string, o: ClickOptions = {}): Promise<void> {
+    const p = await this.reach(target, o);
+    const press = given({ count: o.count, interval: o.interval });
+    if (o.at) await this.call({ cmd: 'tap', x: p!.x, y: p!.y, ...press });
+    else await this.call({ cmd: 'click', target, ...extra(o), ...press });
+  }
+
+  // 누를 자리 — 맨 위가 대상 · 그 아래 · 그 조상이고 누를 수 있으면 바로. 맞는 것이 없거나(물리 없는 월드 오브젝트 · EventSystem 없음) 못 누르는 채 한도가 지나면 예전처럼 누른다.
+  // 대상이 없거나 화면에 비친 자리가 없으면 확인 없이 SDK 에 맡긴다(at 이면 자리를 셀 수 없어 던진다).
+  private async reach(target: string, o: ClickOptions): Promise<{ x: number; y: number } | undefined> {
+    if (o.at && !(o.at.length === 2 && o.at.every((v) => typeof v === 'number' && v >= 0 && v <= 1))) throw new Error(`at 은 0~1 두 수입니다 — [0.05, 0.05] 는 왼쪽 아래 가장자리 (받은 값 ${JSON.stringify(o.at)})`);
+    const pick = this.caps === undefined || this.caps.includes('find-at');
+    const end = Date.now() + READY.maxMs;
+    for (;;) {
+      const f = await this.find(target, extra(o));
+      if (o.at && !f?.rect) throw new Error(f ? `${target} 은 화면 사각형(rect)이 없어 at 을 셀 수 없습니다 — 화면에 안 비쳤거나 SDK 0.8.0 이전입니다` : `켜진 오브젝트 중에 ${target} 이 없습니다`);
+      const p = o.at && f?.rect ? { x: Math.round(f.rect[0] + f.rect[2] * o.at[0]), y: Math.round(f.rect[1] + f.rect[3] * o.at[1]) } : f?.x !== undefined && f.y !== undefined ? { x: f.x, y: f.y } : undefined;
+      if (!f || !p || !pick) return p;
+      const top = await this.findAt(p.x, p.y, extra({ camera: o.camera }));
+      const covered = top && top.path !== f.path && !top.path.startsWith(`${f.path}/`) && !f.path.startsWith(`${top.path}/`) ? top.path : undefined;
+      if (!covered && f.interactable !== false) return p;
+      if (Date.now() >= end) {
+        if (covered) throw new Error(`${target} 을 누를 자리 (${p.x}, ${p.y}) 를 ${covered} 가 덮고 있습니다 — ${READY.maxMs / 1000}초 기다려도 그대로입니다. 페이드 · 팝업이 걷히길 wait 로 기다리거나, 덮은 것을 누르는 게 맞으면 그것을 누릅니다`);
+        return p;
+      }
+      await sleep(READY.stepMs);
+    }
   }
 
   /** via 는 사이에 지날 자리 주소들, duration 은 처음부터 끝까지의 초 */

@@ -65,3 +65,17 @@ test('꼴이 틀리면 까닭을 던지고, 없음 · 여럿은 하나 고르기
   assert.match(r('//*[@component=Button]').problem!, /맞는 것이 2개라 하나를 고를 수 없습니다 — \[순번\] · 조건을 더하거나 find-all 로 경로를 봅니다/);
   assert.equal(r('//*[@component=Button]').missing, false);
 });
+
+test('따옴표로 감싼 값 안의 [ ] 는 값의 일부다 — 값 가운데 따옴표 · 안 닫힌 따옴표는 예전 그대로', () => {
+  const qa: View<N> = { ...view, roots: [n('Bag', {}, [n('Text', { text: '[QA] 용비늘 갑옷' }), n('Text', { text: "It's" })])] };
+  const at = (t: string) => select(steps(t), qa).trails.map((x) => pathOf(x, qa));
+  assert.deepEqual(at('/Bag/Text[contains(@text,"[QA] 용비늘 갑옷")]'), ['/Bag/Text[0]']);
+  assert.deepEqual(at("//Text[@text='[QA] 용비늘 갑옷']"), ['/Bag/Text[0]']);
+  assert.deepEqual(at('//Text[@text= "[QA] 용비늘 갑옷" ][0]'), ['/Bag/Text[0]']);
+  // 값 가운데 따옴표는 여는 따옴표가 아니다.
+  assert.deepEqual(at("//Text[@text=It's]"), ['/Bag/Text[1]']);
+  // 따옴표 없이는 첫 ] 에서 끊긴다.
+  assert.throws(() => steps('//Text[contains(@text,[QA] 갑옷)]'), /꼴이 틀렸습니다/);
+  // 안 닫힌 따옴표는 보통 글자 — 예전처럼 첫 ] 까지가 값이다.
+  assert.equal(steps('//Text[@text="[QA]')[0].conds[0].value, '"[QA');
+});
