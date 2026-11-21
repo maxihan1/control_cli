@@ -226,7 +226,7 @@ npx control-cli open --relay                                       # 세션 … 
 
 | 명령 | 하는 일 | Ran 줄 |
 |---|---|---|
-| `click <ref\|주소> [--count <n>] [--interval <초>]` | 가운데를 가짜 터치로 누른다. 월드 오브젝트는 주 카메라(MainCamera 태그 — 없으면 그 layer 를 그리는 켜진 카메라 중 맨 위)로 비춘 자리. `--count 2` 면 `--interval`(기본 0.1초) 간격으로 두 번(SDK 0.6.0) | `game.click('LoginButton')` · `game.click('Slot', { count: 2 })` |
+| `click <ref\|주소> [--count <n>] [--interval <초>] [--at <x,y>]` | 가운데를 가짜 터치로 누른다. `--at 0.05,0.05` 는 화면 사각형 안 그 비율 자리(왼쪽 아래 0,0 · 오른쪽 위 1,1 — 창 본문이 덮은 바탕의 가장자리). 누르기 전에 그 자리의 맨 위(`find-at`)가 대상 · 그 아래 · 그 조상이고 누를 수 있을 때까지 3초까지 기다린다 — 다른 것(페이드 · 막 뜬 팝업)이 덮은 채면 덮은 것의 경로로 실패하고, 아무것도 안 맞거나 못 누르는 채면 예전처럼 누른다. 월드 오브젝트는 주 카메라(MainCamera 태그 — 없으면 그 layer 를 그리는 켜진 카메라 중 맨 위)로 비춘 자리. `--count 2` 면 `--interval`(기본 0.1초) 간격으로 두 번(SDK 0.6.0) | `game.click('LoginButton')` · `game.click('Slot', { count: 2 })` |
 | `drag <ref\|주소> <ref\|주소> [--via <주소>]… [--duration <초>]` | 앞 자리에서 뒤 자리로 끈다 — 마디마다 적어도 10프레임. `--via` 는 지날 자리(여러 번 줄 수 있다), `--duration` 은 처음부터 끝까지 초(SDK 0.6.0) | `game.drag('/Hud/Bag/Slot[0]', '/Hud/Bag/Slot[3]')` · `game.drag('A', 'C', { via: ['B'] })` |
 | `type <ref\|주소> <글자>` | InputField · TMP_InputField · UI Toolkit TextField 에 바로 넣는다(화면 키보드 없이). 글자 수 제한 · 거르기는 그 칸 규칙대로, 키로 칠 때의 차례(글자마다 거르고 거른 결과로 자름)다 — 글자 수 8 · 영숫자 칸에 `qa_user01!` 면 `qauser01`. uGUI · TMP 는 SDK 가 그 칸의 거르개를 글자마다 부른다. 비밀번호 칸이면 Ran 줄에 글자 대신 `'***'` | `game.type('IdInput', 'qa_user01')` |
 | `text <ref\|주소>` | 글자 읽기 — 버튼처럼 누를 것에 제 글자가 없으면 켜진 자식 중 첫 글자 | `game.text('StatusText')` |
@@ -285,7 +285,7 @@ npx control-cli open --relay                                       # 세션 … 
 
 없는 주소의 실패 글 끝에는 이름이 비슷한 것(끊긴 단계 이름이 대소문자 없이 든 것, 셋까지)의 경로가 달린다 — 실행 중에 만든 `Enemy(Clone)` · 복사한 `Button (1)` · 다른 부모 아래로 옮긴 것: `켜진 오브젝트 중에 Enemy 이 없습니다 — 이름이 비슷한 것: /Spawn/Enemy(Clone)`.
 
-값 양끝 공백은 떼고 `'…'` · `"…"` 는 벗긴다. `id` 는 QA 빌드가 장면 오브젝트에 붙인 **영구 id**(장면 파일 속 번호 — 빌드마다 같다) 또는 instance id(실행 중 만든 오브젝트 — 켤 때마다 바뀐다)다. 읽기 · 쓰기 명령(`find` · `get` · `set` · `call` · `components` · `members` · `text-set`)은 `--inactive` 로 꺼진 오브젝트도 찾는다 — 그때 경로 순번은 꺼진 형제까지 센다. 월드 오브젝트의 화면 자리는 `--camera <카메라 오브젝트 주소>` 로 고른 카메라로 셈한다(기본 주 카메라).
+값 양끝 공백은 떼고 `'…'` · `"…"` 는 벗긴다. 따옴표로 감싼 값 안의 `]` 는 값의 일부다 — `//Text[contains(@text,"[QA] 용비늘 갑옷")]`. `id` 는 QA 빌드가 장면 오브젝트에 붙인 **영구 id**(장면 파일 속 번호 — 빌드마다 같다) 또는 instance id(실행 중 만든 오브젝트 — 켤 때마다 바뀐다)다. 읽기 · 쓰기 명령(`find` · `get` · `set` · `call` · `components` · `members` · `text-set`)은 `--inactive` 로 꺼진 오브젝트도 찾는다 — 그때 경로 순번은 꺼진 형제까지 센다. 월드 오브젝트의 화면 자리는 `--camera <카메라 오브젝트 주소>` 로 고른 카메라로 셈한다(기본 주 카메라).
 액션 뒤에는 트리가 두 번 같을 때까지(3초 상한) 기다렸다 화면을 찍는다. **기다리기**는 0.3초마다 짧은 `find` 를 되풀이한다 — 명령 하나가 팜 15초 · SDK 10초 한도에 안 걸린다.
 
 ### 가짜 입력

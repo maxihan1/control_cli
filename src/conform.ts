@@ -376,6 +376,14 @@ const stepsFor = (s: Sample): Step[] => [
     },
   },
   {
+    cmds: ['find', 'find-all'],
+    label: '따옴표로 감싼 값 안의 ] 는 값의 일부다 — [contains(@name,"Login]")] 는 꼴 오류 없이 빈 목록',
+    run: async (g) => {
+      same('따옴표 안 ]', (await g.findAll('//*[contains(@name,"Login]")]')).length, 0);
+      same('따옴표 값', (await g.find(`//*[@name='LoginButton']`))?.path, s.loginButtons[0]);
+    },
+  },
+  {
     cmds: ['find'],
     label: `B ${s.byText[0]}/.. → ${s.byText[2]} · parent Item → Bag 칸`,
     run: async (g) => {

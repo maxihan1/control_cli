@@ -69,7 +69,7 @@ export const HELP = `control-cli [-s=<세션>] <명령>
   open --relay [주소] [--game <이름>] [--app …]   relay 에 걸어 온 게임 — 주소가 없으면 이 컴퓨터 relay(없으면 띄운다). --app 이면 깔고 켜기는 팜 · --pc · --ios 길
   relay [--port 13101] [--token <비밀값>] · relay status [주소]   게임이 거는 중계를 띄운다 · 붙은 게임을 본다
   snapshot [--png]                                 줄인 오브젝트 목록 + 스크린샷 파일(--png 은 게임이 PNG 로)
-  click <ref|주소> [--count <n>] [--interval <초>]  Ran: await game.click('LoginButton')
+  click <ref|주소> [--count <n>] [--interval <초>] [--at <x,y>]  Ran: await game.click('LoginButton') — --at 은 사각형 안 비율(왼쪽 아래 0,0)
   drag <ref|주소> <ref|주소> [--via <주소>]… [--duration <초>]
   type <ref|주소> <글자>
   text <ref|주소>                                  글자 읽기
@@ -178,6 +178,7 @@ export async function run(argv: string[], o: Options): Promise<string> {
       add: { type: 'boolean' },
       inactive: { type: 'boolean' },
       camera: { type: 'string' },
+      at: { type: 'string' },
       png: { type: 'boolean' },
       wait: { type: 'string' },
       duration: { type: 'string' },
@@ -498,8 +499,11 @@ export async function run(argv: string[], o: Options): Promise<string> {
     case 'click': {
       const a = target(args[0]);
       const f = flags('camera', 'count', 'interval');
-      await game.click(a, f.o);
-      return after(ran('click', quote(a), ...f.shown));
+      const spot = values.at === undefined ? undefined : values.at.split(',').map((v) => Number(v.trim()));
+      if (spot && !(spot.length === 2 && spot.every((v) => Number.isFinite(v)))) throw new Error('--at 은 「x,y」 비율입니다 — 0.05,0.05 는 왼쪽 아래 가장자리');
+      const o = spot ? { ...f.o, at: spot as [number, number] } : f.o;
+      await game.click(a, o);
+      return after(ran('click', quote(a), ...opts(spot ? [...f.list, `at: [${spot.join(', ')}]`] : f.list)));
     }
     case 'drag': {
       const [a, b] = [target(args[0]), target(args[1], '놓을 자리')];

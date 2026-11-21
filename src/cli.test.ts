@@ -10,13 +10,14 @@ import { capabilities } from './appium.js';
 import { run, TIMING } from './cli.js';
 import { CONFORM } from './conform.js';
 import { button, fakeFarm, FakeGame, fakeRelayGame, fakeTcp, fakeUsbmux, node, standardScreen } from './fake-game.js';
-import { SETTLE, WAIT } from './game.js';
+import { READY, SETTLE, WAIT } from './game.js';
 import { relay } from './relay.js';
 
 const WIN = process.platform === 'win32';
 
 Object.assign(SETTLE, { maxMs: 30, stepMs: 5 });
 Object.assign(WAIT, { intervalMs: 5 });
+Object.assign(READY, { maxMs: 200, stepMs: 5 });
 Object.assign(CONFORM, { waitMs: 50, holdS: 0.1, dragS: 0, keyS: 0 });
 Object.assign(TIMING, { openWaitMs: 200, openStepMs: 5, cleanWaitMs: 100, cleanStepMs: 5 });
 
@@ -222,7 +223,7 @@ test('conform — 표준 화면이면 PC 는 일시정지 줄만 미실행, 다�
   const bad = await fakeTcp(new FakeGame([node('Boot')]));
   try {
     await cli('-s=cf', 'open', '--pc', '--port', String(ok.port));
-    assert.match(await cli('-s=cf', 'conform', '--port', String(ok.port)), /통과 57 · 실패 0 · 미실행 1$/);
+    assert.match(await cli('-s=cf', 'conform', '--port', String(ok.port)), /통과 58 · 실패 0 · 미실행 1$/);
     await cli('-s=cf', 'close');
     await cli('-s=cf2', 'open', '--pc', '--port', String(bad.port));
     await assert.rejects(cli('-s=cf2', 'conform', '--port', String(bad.port)), /통과 \d+ · 실패 [1-9]/);
@@ -267,14 +268,14 @@ test('VISION 윈도우 PC — 조건 잡기 → zip 깔기 · 켜기 → 명령 
   }
 });
 
-test('conform — 팜은 Appium 으로 앱을 뒤로 보내 일시정지 줄까지 58줄 통과', async () => {
+test('conform — 팜은 Appium 으로 앱을 뒤로 보내 일시정지 줄까지 59줄 통과', async () => {
   const f = await fakeFarm(standardScreen());
   const own = await mkdtemp(join(tmpdir(), 'control-cli-'));
   const fc = (...argv: string[]) => run(argv, { env: { PLATFORM_APPIUM_URL: f.url, PLATFORM_APP: 'http://builds/qa.apk' }, dir: own });
   try {
     await fc('hold');
     await fc('-s=fc', 'open');
-    assert.match(await fc('-s=fc', 'conform'), /통과 58 · 실패 0 · 미실행 0$/);
+    assert.match(await fc('-s=fc', 'conform'), /통과 59 · 실패 0 · 미실행 0$/);
     assert.ok(f.seen.includes('POST /wd/hub/session/S1/execute/sync'));
     await fc('-s=fc', 'close');
     await fc('release');
@@ -405,6 +406,33 @@ test('컴포넌트 이름 — 물려받은 타입 이름으로도 찾고, 없으
   }
 });
 
+test('click — 덮은 것이 걷히길 기다렸다 누르고, 그대로면 덮은 것을 알린다 · --at 은 사각형 안 비율 자리', async () => {
+  let presses = 0;
+  // 같은 자리에 먼저 걸리는 Fade 가 맨 위다(가짜 find-at 은 트리 차례로 맞춘다).
+  const fade = node('Fade', { at: [540, 960] });
+  const ok = node('OkButton', { kind: 'Button', interactable: true, at: [540, 960], onClick: () => presses++ });
+  const shade = node('Shade', { kind: 'Button', interactable: true, at: [540, 960] });
+  const g = new FakeGame([node('Hud', {}, [fade, ok]), node('Window', {}, [shade])]);
+  const pc = await fakeTcp(g);
+  const ck = (...argv: string[]) => cli('-s=ck', ...argv, '--port', String(pc.port));
+  try {
+    await ck('open', '--pc');
+    await assert.rejects(ck('click', 'OkButton'), /OkButton 을 누를 자리 \(540, 960\) 를 \/Hud\/Fade 가 덮고 있습니다 — 0\.2초 기다려도 그대로입니다/);
+    assert.equal(presses, 0);
+    setTimeout(() => (fade.active = false), 30);
+    assert.match(await ck('click', 'OkButton'), /^Ran: await game\.click\('OkButton'\)/);
+    assert.equal(presses, 1);
+    // 가짜 사각형은 자리 둘레 100×100 — 왼쪽 아래 가장자리를 누른다.
+    assert.match(await ck('click', 'Shade', '--at', '0.05,0.05'), /^Ran: await game\.click\('Shade', \{ at: \[0\.05, 0\.05\] \}\)/);
+    assert.deepEqual(g.commands.filter((c) => c.cmd === 'tap').map((c) => [c.x, c.y]), [[495, 915]]);
+    await assert.rejects(ck('click', 'Shade', '--at', '2,0'), /at 은 0~1 두 수입니다/);
+    await assert.rejects(ck('click', 'Shade', '--at', 'x'), /--at 은 「x,y」 비율입니다/);
+    await ck('close');
+  } finally {
+    pc.server.close();
+  }
+});
+
 test('입력 명령 — Ran 줄이 kit 의 game.* 이름 · 인자 꼴로 찍히고, 좌표는 Ran 줄이 없고, 음수도 읽는다', async () => {
   const pc = await fakeTcp(standardScreen());
   const io = (...argv: string[]) => cli('-s=io', ...argv, '--port', String(pc.port));
@@ -503,7 +531,7 @@ test('relay 로 연 게임은 conform 이 일시정지 줄(Appium 없음) 말고
   let ws = await fakeRelayGame(game, url);
   try {
     assert.match(await cli('-s=relay', 'open', '--relay', url), /^세션 relay 열림 — com\.fake\.game 1\.0 \(relay · macOS · FakeBook\) · fake 0 · SDK 0\.3\.0/m);
-    assert.match(await cli('-s=relay', 'conform'), /\n통과 57 · 실패 0 · 미실행 1$/);
+    assert.match(await cli('-s=relay', 'conform'), /\n통과 58 · 실패 0 · 미실행 1$/);
     ws.close();
     // relay 가 끊김을 알기 전이면 502(끊겼습니다), 안 뒤면 404(붙어 있지 않습니다)
     await assert.rejects(cli('-s=relay', 'snapshot'), /relay 에 붙어 있지 않습니다|relay 와 끊겼습니다/);

@@ -121,3 +121,8 @@
 - **버튼 글자** — find 답(그래서 `text` · `wait --text`)만 누를 것에 제 글자가 없으면 켜진 자식 중 첫 글자(안쪽 다른 누를 것은 건너뜀). 트리 · `@text` 까지 바꾸면 `//*[@text=확인]` 이 버튼과 자식 Text 둘에 맞아 기존 케이스가 「여럿」으로 깨져서다
 - **Camera.main 이 없을 때** — 켜진 화면 카메라 중 그 오브젝트 layer 를 그리는 것, 여럿이면 depth 가 큰 것. 좌표 찾기(find-at)는 Default layer
 - **확인** — conform 에 B 줄 하나(LoginButton `[@component=Selectable|BaseButton]` · HoldBox interactable · TmpLoginButton 글자 「TMP Login」 · `components LoginButto` 힌트)를 더해 58줄. 실제 Unity · Godot 샘플 CI 가 C# · GDScript 쪽을 돌린다. 카메라는 샘플에 MainCamera 가 있어 컴파일만 본다
+
+## 2026-11-21 — BRM 보류 케이스 셋 (test_platform 세션이 전한 사용자 지시)
+- **click --at** — 화면 사각형 안 비율 자리(왼쪽 아래 0,0). kit 이 `find` 의 rect 로 셈해 `tap` 으로 보낸다 — SDK · 명령 정의를 안 바꿔 엔진마다 따로 넣지 않는다. rect 는 SDK 0.8.0 부터라 없으면 던진다. 쓰임: BRM-FN-439 창 바깥 어두운 Shade(가운데는 창 본문이 덮음)
+- **누르기 전 입력이 닿나** — kit `game.click` 이 누를 자리를 `find-at` 으로 보고, 맨 위가 대상 · 그 아래 · 그 조상이고 interactable 이 false 가 아닐 때까지 `READY`(3초 · 0.1초 간격)만큼 기다린다. 다른 것이 덮은 채 한도가 지나면 덮은 것의 경로로 던진다. 아무것도 안 맞을 때(물리 없는 월드 오브젝트 · EventSystem 없음)와 못 누르는 채일 때는 예전처럼 누른다 — 앞은 덮였는지 모르고, 뒤는 꺼진 버튼을 일부러 누르는 케이스가 있어서다. SDK 안에서 프레임마다 기다리면 MCP · 다른 언어 드라이버도 덮지만, SDK 답 미루기 · Godot 를 따로 손대야 해 kit 에만 했다(케이스는 TS kit). click 마다 find · find-at 이 한 번씩 더 간다
+- **따옴표 안 ]** — `[ ` 를 닫는 `]` 를 찾을 때 `=` · `,` 바로 뒤(빈칸 건너)에서 연 따옴표 안은 건너뛴다. 값 가운데 따옴표(`It's`) · 안 닫힌 따옴표는 예전처럼 보통 글자. select.ts · Select.cs · nodes.gd 같은 규칙, conform 에 줄 하나(59줄)
