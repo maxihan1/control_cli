@@ -110,6 +110,7 @@ test('B 줄 — waitForProp 은 값이 될 때까지 get 을 되풀이하고, �
   const game = direct(g);
   const cube = byName(g, 'WorldCube');
   let later = 3;
+  cube.components = [...cube.components!, 'Sample.Probe'];
   cube.props!['Probe.count'] = 0;
   g.onGet = () => {
     if (later-- === 0) cube.props!['Probe.count'] = 10;

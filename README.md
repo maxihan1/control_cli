@@ -281,6 +281,8 @@ npx control-cli open --relay                                       # 세션 … 
 | `[…][…]` | 조건을 모두 | `//*[@tag=Enemy][@layer=Water]` |
 | `[n]` · `[-1]` | 그 단계에 맞은 형제 중 n번째(0부터) · 마지막 | `//Bag/Slot[-1]` |
 
+**컴포넌트**(`get` · `set` · `call` · `members` 의 앞 낱말)는 타입 이름 · 전체 이름이 같은 것을 먼저 찾고, 없으면 물려받은 타입 이름으로 찾는다 — `Button` 을 물려받은 `UIHUDButton` 은 `Button.interactable` 로도 읽힌다. 트리 줄 머리는 종류라(TMP 글자도 `Text`) 컴포넌트 이름과 다를 수 있다. 못 찾으면 실패 글 끝에 붙은 컴포넌트 이름이 달린다 — `… Text 컴포넌트가 없습니다 — 붙은 것: RectTransform · CanvasRenderer · TextMeshProUGUI`(`components` 로도 본다).
+
 값 양끝 공백은 떼고 `'…'` · `"…"` 는 벗긴다. `id` 는 QA 빌드가 장면 오브젝트에 붙인 **영구 id**(장면 파일 속 번호 — 빌드마다 같다) 또는 instance id(실행 중 만든 오브젝트 — 켤 때마다 바뀐다)다. 읽기 · 쓰기 명령(`find` · `get` · `set` · `call` · `components` · `members` · `text-set`)은 `--inactive` 로 꺼진 오브젝트도 찾는다 — 그때 경로 순번은 꺼진 형제까지 센다. 월드 오브젝트의 화면 자리는 `--camera <카메라 오브젝트 주소>` 로 고른 카메라로 셈한다(기본 주 카메라).
 액션 뒤에는 트리가 두 번 같을 때까지(3초 상한) 기다렸다 화면을 찍는다. **기다리기**는 0.3초마다 짧은 `find` 를 되풀이한다 — 명령 하나가 팜 15초 · SDK 10초 한도에 안 걸린다.
 

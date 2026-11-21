@@ -108,3 +108,8 @@
 - **확인 버튼 자리** — 「게임 시작」을 고르고 빈 칸으로 누르면 「아이디와 비밀번호를 입력해 주세요」가 뜬다(`text-set` 으로 「x」로 바꿔 두고 하나씩 눌러 갈랐다). xbox: A 눌림 · B 안 눌림. ps5: Cross 눌림 · Circle 안 눌림. switch: **A(오른쪽 · east) 눌림 · B(아래 · south) 안 눌림** — Input System 의 Switch layout 이 오른쪽 A 를 Submit 으로 둔다. 진짜 Switch 와 같은 자리다
 - **초점 잃은 창** — 사람이 PC 에서 Alt+Tab 으로 PowerShell 을 앞에 둔 채 `static-get UnityEngine.Application.isFocused` false. 그 상태에서 패드 이동 · 확인, `type`(아이디 칸 qa01), `click`(게임 시작), 스크린샷(1920×1080 그대로 그려짐) 모두 됐다 — SDK 의 `runInBackground` · Input System `IgnoreFocus` 가 Windows 실제 PC 에서도 맞다
 - **IL2CPP** — boss-room 윈도우 QA 빌드는 `ubuntu-latest` 의 game-ci 다. Unity 는 Windows IL2CPP 를 Windows 에서만 굽는다 — 하려면 windows runner 잡이 따로 든다. 이번에는 안 했다
+
+## 2026-11-21 — 컴포넌트 이름 맞추기
+- **왜** — Boss Room 케이스 `get('/BossRoomHudCanvas/Hero Action Bar/Button0', 'Button.interactable')` 가 「Button 컴포넌트가 없습니다」로 실패했다. 그 버튼은 Button 을 물려받은 `UIHUDButton` 인데 `Props.ComponentOf` 가 이름이 글자 그대로 같은 것만 찾았다. 트리 줄 머리는 TMP 글자도 `Text` 라 작성 AI 가 `Text.text` 로 읽다가도 같은 꼴로 실패했다
+- **규칙** — 타입 이름 · 전체 이름이 같은 것이 먼저, 없으면 물려받은 타입(BaseType 사슬) 이름. 못 찾으면 오류 글 끝에 「— 붙은 것: RectTransform · CanvasRenderer · TextMeshProUGUI」(get · set · call · members 모두). 가짜 SDK 는 `bases`(전체 이름 → 물려받은 타입)로 같은 규칙을 흉내 낸다
+- **Godot 는 그대로** — 앞 낱말을 노드 클래스 줄기(`is_class`) · 스크립트 줄기에서 찾아 이미 물려받은 이름이 맞고, `members` 실패 글에 클래스 줄기가 달린다

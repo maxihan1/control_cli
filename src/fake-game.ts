@@ -27,6 +27,8 @@ export interface FakeNode extends Node {
   layer?: string;
   /** 붙은 컴포넌트 전체 이름 — UnityEngine.UI.Button · Sample.TouchProbe */
   components?: string[];
+  /** 컴포넌트 전체 이름 → 물려받은 타입 전체 이름 — UIHUDButton 은 UnityEngine.UI.Button 을 물려받는다 */
+  bases?: Record<string, string[]>;
   /** instance id 흉내 — node() 가 늘어나는 번호를 준다(다시 만든 장면은 새 번호). 영구 id 흉내는 직접 준다 */
   id?: string;
   /** 꺼진 오브젝트 — inactive 로만 보인다 */
@@ -46,6 +48,16 @@ let ids = 0;
 export const node = (name: string, extra: Partial<FakeNode> = {}, children?: FakeNode[]): FakeNode => ({ name, id: String(++ids), ...extra, ...(children ? { children } : {}) });
 const INPUTS = ['InputField', 'TMP_InputField', 'TextField'];
 const short = (full: string) => full.slice(full.lastIndexOf('.') + 1);
+// SDK Props.ComponentOf 와 같은 규칙 — 주소 앞(dot 까지)이 타입 이름 · 전체 이름인 컴포넌트가 먼저, 없으면 물려받은 타입 이름인 것.
+// 찾은 컴포넌트 이름으로 바꾼 주소를 준다. components 를 안 적은 가짜 · UI Toolkit 요소(칸을 바로 읽는다)는 주소 그대로.
+const componentPath = (n: FakeNode | undefined, path: string, dot: number): string | { error: string } => {
+  const list = n?.components;
+  if (!list || dot <= 0 || list.some((t) => t.startsWith('UnityEngine.UIElements.'))) return path;
+  const name = path.slice(0, dot);
+  const same = (t: string) => short(t) === name || t === name;
+  const hit = list.find(same) ?? list.find((t) => n.bases?.[t]?.some(same));
+  return hit ? short(hit) + path.slice(dot) : { error: `${n.name} 에 ${name} 컴포넌트가 없습니다 — 붙은 것: ${list.map(short).join(' · ')}` };
+};
 export const button = (name: string, label: string, onClick?: () => void): FakeNode => node(name, { kind: 'Button', interactable: true, onClick }, [node('Text', { text: label })]);
 // SDK 처럼 입력 명령 하나는 8초 안 — SDK 답 한도 10초 · 팜 15초
 // SDK 처럼 프레임 바닥도 센다(느린 폰 30fps) — 누를 때마다 2프레임, drag · swipe 는 마디마다 10프레임
@@ -318,7 +330,9 @@ export class FakeGame {
         if (!f.node) return { ok: false, error: `켜진 오브젝트 중에 ${c.target as string} 이 없습니다` };
         return { ok: true, components: (f.node.components ?? []).map((t) => ({ name: short(t), type: t })) };
       case 'members': {
-        const m = f.node?.members?.[c.component as string];
+        const k = componentPath(f.node, c.component as string, (c.component as string).length);
+        if (typeof k !== 'string') return { ok: false, error: k.error };
+        const m = f.node?.members?.[k];
         return m ? { ok: true, ...(m as object) } : { ok: false, error: `${c.target as string} 에 ${c.component as string} 컴포넌트가 없습니다` };
       }
       case 'text-set':
@@ -342,9 +356,12 @@ export class FakeGame {
         if (!f.node) return { ok: false, error: '없음' };
         f.node.text = f.node.accept ? f.node.accept(c.text as string) : (c.text as string);
         return { ok: true, text: f.node.password ? '***' : f.node.text };
-      case 'get':
+      case 'get': {
         this.onGet?.();
-        return f.node?.props && (c.prop as string) in f.node.props ? { ok: true, value: f.node.props[c.prop as string] } : { ok: false, error: `${c.prop as string} 칸이 없습니다` };
+        const k = componentPath(f.node, c.prop as string, (c.prop as string).indexOf('.'));
+        if (typeof k !== 'string') return { ok: false, error: k.error };
+        return f.node?.props && k in f.node.props ? { ok: true, value: f.node.props[k] } : { ok: false, error: `${c.prop as string} 칸이 없습니다` };
+      }
       case 'errors':
         return { ok: true, last: 0, errors: [] };
       case 'logs':
@@ -477,11 +494,15 @@ export class FakeGame {
         return { ok: true, jpg: Buffer.from('jpg').toString('base64') };
       case 'call': {
         if (!f.node) return { ok: false, error: `켜진 오브젝트 중에 ${c.target as string} 이 없습니다` };
-        const m = f.node.methods?.[c.method as string];
+        const k = componentPath(f.node, c.method as string, (c.method as string).lastIndexOf('.'));
+        if (typeof k !== 'string') return { ok: false, error: k.error };
+        const m = f.node.methods?.[k];
         return m ? { ok: true, value: m(...((c.args as string[] | undefined) ?? [])) ?? null } : { ok: false, error: `${c.method as string} 메서드가 없습니다` };
       }
       case 'set': {
-        const v = f.node?.set?.(c.prop as string, c.value as string);
+        const k = componentPath(f.node, c.prop as string, (c.prop as string).indexOf('.'));
+        if (typeof k !== 'string') return { ok: false, error: k.error };
+        const v = f.node?.set?.(k, c.value as string);
         return v === undefined ? { ok: false, error: `${c.prop as string} 칸이 없습니다` } : { ok: true, value: v };
       }
       case 'static-call': {
