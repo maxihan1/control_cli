@@ -222,7 +222,7 @@ test('conform — 표준 화면이면 PC 는 일시정지 줄만 미실행, 다�
   const bad = await fakeTcp(new FakeGame([node('Boot')]));
   try {
     await cli('-s=cf', 'open', '--pc', '--port', String(ok.port));
-    assert.match(await cli('-s=cf', 'conform', '--port', String(ok.port)), /통과 56 · 실패 0 · 미실행 1$/);
+    assert.match(await cli('-s=cf', 'conform', '--port', String(ok.port)), /통과 57 · 실패 0 · 미실행 1$/);
     await cli('-s=cf', 'close');
     await cli('-s=cf2', 'open', '--pc', '--port', String(bad.port));
     await assert.rejects(cli('-s=cf2', 'conform', '--port', String(bad.port)), /통과 \d+ · 실패 [1-9]/);
@@ -267,14 +267,14 @@ test('VISION 윈도우 PC — 조건 잡기 → zip 깔기 · 켜기 → 명령 
   }
 });
 
-test('conform — 팜은 Appium 으로 앱을 뒤로 보내 일시정지 줄까지 57줄 통과', async () => {
+test('conform — 팜은 Appium 으로 앱을 뒤로 보내 일시정지 줄까지 58줄 통과', async () => {
   const f = await fakeFarm(standardScreen());
   const own = await mkdtemp(join(tmpdir(), 'control-cli-'));
   const fc = (...argv: string[]) => run(argv, { env: { PLATFORM_APPIUM_URL: f.url, PLATFORM_APP: 'http://builds/qa.apk' }, dir: own });
   try {
     await fc('hold');
     await fc('-s=fc', 'open');
-    assert.match(await fc('-s=fc', 'conform'), /통과 57 · 실패 0 · 미실행 0$/);
+    assert.match(await fc('-s=fc', 'conform'), /통과 58 · 실패 0 · 미실행 0$/);
     assert.ok(f.seen.includes('POST /wd/hub/session/S1/execute/sync'));
     await fc('-s=fc', 'close');
     await fc('release');
@@ -365,18 +365,20 @@ test('찾기 · 설정 명령 — Ran 줄이 kit 의 game.* 이름 · 인자 꼴
   }
 });
 
-test('컴포넌트 이름 — 물려받은 타입 이름으로도 찾고, 없으면 붙은 컴포넌트 이름을 알려 준다', async () => {
+test('컴포넌트 이름 — 물려받은 타입 이름으로도 찾고, 없으면 붙은 컴포넌트 · 이름이 비슷한 것을 알려 준다', async () => {
   // Boss Room 의 HUD 버튼 — UIHUDButton 이 Button 을 물려받고, 글자는 TMP 다.
   const hud = 'Unity.BossRoom.Gameplay.UI.UIHUDButton';
   const pc = await fakeTcp(new FakeGame([
     node('Button0', {
+      kind: 'UIHUDButton',
+      interactable: true,
       components: ['UnityEngine.RectTransform', 'UnityEngine.UI.Image', hud],
       bases: { [hud]: ['UnityEngine.UI.Button', 'UnityEngine.UI.Selectable'] },
       props: { 'UIHUDButton.interactable': true },
       set: (p, v) => (p === 'UIHUDButton.interactable' ? v === 'true' : undefined),
       methods: { 'UIHUDButton.Press': () => 'pressed' },
       members: { UIHUDButton: { fields: [], properties: [], methods: [] } },
-    }, [node('Text', { components: ['UnityEngine.RectTransform', 'UnityEngine.CanvasRenderer', 'TMPro.TextMeshProUGUI'], props: { 'TextMeshProUGUI.text': 'Attack' } })]),
+    }, [node('Text', { text: 'Attack', components: ['UnityEngine.RectTransform', 'UnityEngine.CanvasRenderer', 'TMPro.TextMeshProUGUI'], props: { 'TextMeshProUGUI.text': 'Attack' } })]),
   ]));
   const cn = (...argv: string[]) => cli('-s=cn', ...argv, '--port', String(pc.port));
   try {
@@ -392,6 +394,11 @@ test('컴포넌트 이름 — 물려받은 타입 이름으로도 찾고, 없으
     await assert.rejects(cn('set', 'Text', 'Text.text', 'x'), missing);
     await assert.rejects(cn('call', 'Text', 'Text.SetText', 'x'), missing);
     await assert.rejects(cn('members', 'Text', 'Text'), missing);
+    // 선택자도 물려받은 이름으로 맞고, 버튼 글자는 자식에서 읽고, 없는 이름은 비슷한 것을 알린다.
+    assert.match(await cn('find-all', '//*[@component=Selectable]'), /"path":"\/Button0"/);
+    assert.match(await cn('text', 'Button0'), /\n- 값: "Attack"/);
+    await assert.rejects(cn('click', 'Butto'), /켜진 오브젝트 중에 Butto 이 없습니다 — 이름이 비슷한 것: \/Button0/);
+    await assert.rejects(cn('click', '/Button0/Tex'), /\(Tex 에서 끊김\) — 이름이 비슷한 것: \/Button0\/Text/);
     await cn('close');
   } finally {
     pc.server.close();
@@ -496,7 +503,7 @@ test('relay 로 연 게임은 conform 이 일시정지 줄(Appium 없음) 말고
   let ws = await fakeRelayGame(game, url);
   try {
     assert.match(await cli('-s=relay', 'open', '--relay', url), /^세션 relay 열림 — com\.fake\.game 1\.0 \(relay · macOS · FakeBook\) · fake 0 · SDK 0\.3\.0/m);
-    assert.match(await cli('-s=relay', 'conform'), /\n통과 56 · 실패 0 · 미실행 1$/);
+    assert.match(await cli('-s=relay', 'conform'), /\n통과 57 · 실패 0 · 미실행 1$/);
     ws.close();
     // relay 가 끊김을 알기 전이면 502(끊겼습니다), 안 뒤면 404(붙어 있지 않습니다)
     await assert.rejects(cli('-s=relay', 'snapshot'), /relay 에 붙어 있지 않습니다|relay 와 끊겼습니다/);

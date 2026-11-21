@@ -462,6 +462,8 @@ func _found(trail: Array, all: bool, cam, into: Dictionary) -> Dictionary:
 	var n: Node = trail[-1]
 	into["path"] = Nodes.path_of(trail, all)
 	var text = Nodes.text_of(n)
+	if text == null and Nodes.kind_of(n) != "":
+		text = Nodes.label(n)
 	if text != null:
 		into["text"] = text
 	if Nodes.kind_of(n) != "":

@@ -113,3 +113,11 @@
 - **왜** — Boss Room 케이스 `get('/BossRoomHudCanvas/Hero Action Bar/Button0', 'Button.interactable')` 가 「Button 컴포넌트가 없습니다」로 실패했다. 그 버튼은 Button 을 물려받은 `UIHUDButton` 인데 `Props.ComponentOf` 가 이름이 글자 그대로 같은 것만 찾았다. 트리 줄 머리는 TMP 글자도 `Text` 라 작성 AI 가 `Text.text` 로 읽다가도 같은 꼴로 실패했다
 - **규칙** — 타입 이름 · 전체 이름이 같은 것이 먼저, 없으면 물려받은 타입(BaseType 사슬) 이름. 못 찾으면 오류 글 끝에 「— 붙은 것: RectTransform · CanvasRenderer · TextMeshProUGUI」(get · set · call · members 모두). 가짜 SDK 는 `bases`(전체 이름 → 물려받은 타입)로 같은 규칙을 흉내 낸다
 - **Godot 는 그대로** — 앞 낱말을 노드 클래스 줄기(`is_class`) · 스크립트 줄기에서 찾아 이미 물려받은 이름이 맞고, `members` 실패 글에 클래스 줄기가 달린다
+
+## 2026-11-21 — 찾기에서 놓치는 곳 다섯 (사용자 「5개 모두 수정 해」)
+- **선택자 `[@component=…]`** — `Props.ComponentOf` 와 같이 물려받은 타입 이름도 맞는다(Select.cs `Attr`). Godot 는 원래 클래스 줄기로 맞췄다
+- **Button 없는 클릭 영역** — Selectable 이 없으면 `IPointerClickHandler` · `IPointerDownHandler` 컴포넌트 이름이 종류다(EventTrigger · OnScreenButton · 게임 슬롯 · 카드). 창 훑기가 누르고 snapshot 에 누를 것으로 보인다. 창 훑기 지문(종류가 든다)이 그런 화면에서 한 번 바뀐다. layout 검사는 Unity 는 그대로 Selectable 만, Godot 는 종류를 쓰니 새 것도 본다. Godot 는 게임 스크립트의 `_gui_input` · `_input_event` 또는 그 신호에 건 게임 스크립트 — 누름 · 바퀴 · 끌기를 못 갈라 스크롤 칸도 종류가 붙는다. `OnMouseDown` 은 가짜 입력이 안 부르니 뺐다
+- **없는 이름의 힌트** — 「없습니다」 끝에 끊긴 단계 이름이 대소문자 없이 든 것의 경로 셋까지. `Enemy` 로 `Enemy(Clone)` 을 바로 찾게 하면 원본 · 복제본이 같이 맞아 「여럿이라 못 고릅니다」가 새로 생겨 힌트로만 했다. Select.cs · select.ts · nodes.gd 같은 글
+- **버튼 글자** — find 답(그래서 `text` · `wait --text`)만 누를 것에 제 글자가 없으면 켜진 자식 중 첫 글자(안쪽 다른 누를 것은 건너뜀). 트리 · `@text` 까지 바꾸면 `//*[@text=확인]` 이 버튼과 자식 Text 둘에 맞아 기존 케이스가 「여럿」으로 깨져서다
+- **Camera.main 이 없을 때** — 켜진 화면 카메라 중 그 오브젝트 layer 를 그리는 것, 여럿이면 depth 가 큰 것. 좌표 찾기(find-at)는 Default layer
+- **확인** — conform 에 B 줄 하나(LoginButton `[@component=Selectable|BaseButton]` · HoldBox interactable · TmpLoginButton 글자 「TMP Login」 · `components LoginButto` 힌트)를 더해 58줄. 실제 Unity · Godot 샘플 CI 가 C# · GDScript 쪽을 돌린다. 카메라는 샘플에 MainCamera 가 있어 컴파일만 본다
