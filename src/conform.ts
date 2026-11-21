@@ -62,6 +62,9 @@ export interface Sample {
   loginButtons: string[];
   /** find-at · rect 를 볼 것 */
   pointed: string[];
+  /** LoginButton 이 물려받은 타입 이름 · 누를 것과 그 글자(제 글자가 없으면 자식 글자) */
+  baseComponent: string;
+  childLabel: [string, string];
   textSet: string[];
   /** TouchProbe 의 static 타입 이름 · components 의 type · Output 칸 타입 · Say 인자 타입 */
   probe: string;
@@ -87,6 +90,8 @@ export const UNITY: Sample = {
   byText: ['//*[@text=UITK Login]', '/UitkDocument/UitkPanel/UitkLoginButton', '/UitkDocument/UitkPanel'],
   loginButtons: ['/SampleCanvas/LoginButton', '/SampleCanvas/TmpLoginButton', '/UitkDocument/UitkPanel/UitkLoginButton'],
   pointed: ['LoginButton', 'UitkLoginButton', 'WorldCube'],
+  baseComponent: 'Selectable',
+  childLabel: ['/SampleCanvas/TmpLoginButton', 'TMP Login'],
   textSet: ['StatusText', 'TmpStatusText', 'UitkStatusText'],
   probe: 'Sample.TouchProbe',
   probeType: 'Sample.TouchProbe',
@@ -111,6 +116,8 @@ export const GODOT: Sample = {
   byText: ['//*[@text=Login]', '/SampleCanvas/LoginButton', '/SampleCanvas'],
   loginButtons: ['/SampleCanvas/LoginButton'],
   pointed: ['LoginButton', 'WorldCube'],
+  baseComponent: 'BaseButton',
+  childLabel: ['/SampleCanvas/LoginButton', 'Login'],
   textSet: ['StatusText'],
   probe: 'TouchProbe',
   probeType: 'res://touch_probe.gd',
@@ -355,6 +362,17 @@ const stepsFor = (s: Sample): Step[] => [
       same('component', (await g.find('//*[@component=TouchProbe]'))?.path, '/SampleCanvas');
       same('text', (await g.find(s.byText[0]))?.path, s.byText[1]);
       same('contains', (await g.findAll('//*[contains(@name,LoginButton)]')).map((f) => f.path).sort(), s.loginButtons);
+    },
+  },
+  {
+    cmds: ['find', 'components'],
+    label: `B 물려받은 이름 [@component=${s.baseComponent}] · 버튼 없이 누름을 받는 HoldBox · ${s.childLabel[0]} 글자 · 없는 이름에 비슷한 것`,
+    run: async (g) => {
+      same(`[@component=${s.baseComponent}]`, (await g.find(`//LoginButton[@component=${s.baseComponent}]`))?.path, s.loginButtons[0]);
+      same('HoldBox interactable', (await g.find('HoldBox'))?.interactable, true);
+      same(`${s.childLabel[0]} 글자`, (await g.find(s.childLabel[0]))?.text, s.childLabel[1]);
+      const missing = await g.components('LoginButto').then(() => '', (e: Error) => e.message);
+      if (!missing.includes(`이름이 비슷한 것: ${s.loginButtons[0]}`)) throw new Error(`components LoginButto 실패 글 ${JSON.stringify(missing)} — 「이름이 비슷한 것: ${s.loginButtons[0]}」이 들어야 합니다`);
     },
   },
   {

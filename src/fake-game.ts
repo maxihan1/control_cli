@@ -58,6 +58,16 @@ const componentPath = (n: FakeNode | undefined, path: string, dot: number): stri
   const hit = list.find(same) ?? list.find((t) => n.bases?.[t]?.some(same));
   return hit ? short(hit) + path.slice(dot) : { error: `${n.name} 에 ${name} 컴포넌트가 없습니다 — 붙은 것: ${list.map(short).join(' · ')}` };
 };
+// SDK Tree.Label 과 같은 규칙 — 누를 것에 제 글자가 없으면 켜진 자식 중 첫 글자(안쪽의 다른 누를 것은 건너뛴다)
+const label = (n: FakeNode): string | undefined => {
+  for (const c of (n.children ?? []).filter((x) => x.active !== false)) {
+    if (c.kind) continue;
+    if (c.text) return c.text;
+    const t = label(c);
+    if (t !== undefined) return t;
+  }
+  return undefined;
+};
 export const button = (name: string, label: string, onClick?: () => void): FakeNode => node(name, { kind: 'Button', interactable: true, onClick }, [node('Text', { text: label })]);
 // SDK 처럼 입력 명령 하나는 8초 안 — SDK 답 한도 10초 · 팜 15초
 // SDK 처럼 프레임 바닥도 센다(느린 폰 30fps) — 누를 때마다 2프레임, drag · swipe 는 마디마다 10프레임
@@ -187,20 +197,20 @@ export class FakeGame {
       children: (n) => shown(n.children ?? []),
       attr: (n, k) => {
         const v = k === 'name' ? n.name : k === 'text' ? (n.password && n.text ? '***' : n.text) : k === 'tag' ? n.tag : k === 'layer' ? n.layer : k === 'id' ? n.id : undefined;
-        if (k === 'component') return (n.components ?? []).flatMap((c) => [short(c), c]);
+        if (k === 'component') return (n.components ?? []).flatMap((c) => [c, ...(n.bases?.[c] ?? [])]).flatMap((c) => [short(c), c]);
         return v === undefined ? [] : [v];
       },
     };
   }
 
   // SDK 의 Tree.Find 와 같은 규칙 — select.ts. 없음은 {}, 여럿 · 틀린 꼴은 error
-  private find(target: string, all = false): { node?: FakeNode; path?: string; trail?: FakeNode[]; error?: string } {
+  private find(target: string, all = false): { node?: FakeNode; path?: string; trail?: FakeNode[]; error?: string; missing?: string } {
     const v = this.view(all);
     try {
       const path = steps(target);
-      const r = one(target, select(path, v), !all, path);
+      const r = one(target, select(path, v), !all, path, v);
       if (r.trail) return { node: r.trail[r.trail.length - 1], trail: r.trail, path: pathOf(r.trail, v) };
-      return r.missing ? {} : { error: r.problem };
+      return r.missing ? { missing: r.problem } : { error: r.problem };
     } catch (e) {
       return { error: e instanceof Error ? e.message : String(e) };
     }
@@ -213,7 +223,7 @@ export class FakeGame {
     const at = camera ? n.atBy?.[camera] : n.at;
     return {
       path: pathOf(trail, this.view(all)),
-      ...(n.text !== undefined ? { text: n.text } : {}),
+      ...(n.text !== undefined ? { text: n.text } : n.kind && label(n) !== undefined ? { text: label(n) } : {}),
       ...(n.kind ? { interactable: n.interactable } : {}),
       ...(n.id ? { id: n.id } : {}),
       ...(active && at ? { x: at[0], y: at[1] } : {}),
@@ -327,7 +337,7 @@ export class FakeGame {
         return hit ? { ok: true, found: true, ...this.found(hit, false, c.camera as string | undefined) } : { ok: true, found: false };
       }
       case 'components':
-        if (!f.node) return { ok: false, error: `켜진 오브젝트 중에 ${c.target as string} 이 없습니다` };
+        if (!f.node) return { ok: false, error: f.missing };
         return { ok: true, components: (f.node.components ?? []).map((t) => ({ name: short(t), type: t })) };
       case 'members': {
         const k = componentPath(f.node, c.component as string, (c.component as string).length);
@@ -336,13 +346,13 @@ export class FakeGame {
         return m ? { ok: true, ...(m as object) } : { ok: false, error: `${c.target as string} 에 ${c.component as string} 컴포넌트가 없습니다` };
       }
       case 'text-set':
-        if (!f.node) return { ok: false, error: `켜진 오브젝트 중에 ${c.target as string} 이 없습니다` };
+        if (!f.node) return { ok: false, error: f.missing };
         if (INPUTS.includes(f.node.kind ?? '')) return { ok: false, error: `${c.target as string} 은 입력칸이라 type 으로 넣습니다` };
         if (f.node.text === undefined) return { ok: false, error: `${c.target as string} 에 글자 컴포넌트(Text · TMP_Text · UI Toolkit Label/Button)가 없습니다` };
         f.node.text = c.text as string;
         return { ok: true, text: f.node.text };
       case 'click':
-        if (!f.node) return { ok: false, error: `켜진 오브젝트 중에 ${c.target as string} 이 없습니다` };
+        if (!f.node) return { ok: false, error: f.missing };
         this.clicks.push(f.path!);
         for (let i = 0; i < Number(c.count ?? 1); i++) f.node.onClick?.();
         return { ok: true, x: 1, y: 1 };
@@ -477,7 +487,7 @@ export class FakeGame {
         this.onInput?.();
         return { ok: true };
       case 'pointer':
-        if (!f.node) return { ok: false, error: `켜진 오브젝트 중에 ${c.target as string} 이 없습니다` };
+        if (!f.node) return { ok: false, error: f.missing };
         if (f.node.components?.some((t) => t.startsWith('UnityEngine.UIElements.'))) return { ok: false, error: `${c.target as string} 은 UI Toolkit 요소라 pointer 를 못 보냅니다 — mouse-move · touch-down 으로` };
         if (!['down', 'up', 'enter', 'exit'].includes(c.event as string)) return { ok: false, error: 'event 는 down · up · enter · exit 중 하나입니다' };
         f.node.onPointer?.(c.event as PointerAction, c.event === 'up' ? 0 : undefined);
@@ -493,7 +503,7 @@ export class FakeGame {
         if (c.format === 'png') return { ok: true, png: Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).toString('base64') };
         return { ok: true, jpg: Buffer.from('jpg').toString('base64') };
       case 'call': {
-        if (!f.node) return { ok: false, error: `켜진 오브젝트 중에 ${c.target as string} 이 없습니다` };
+        if (!f.node) return { ok: false, error: f.missing };
         const k = componentPath(f.node, c.method as string, (c.method as string).lastIndexOf('.'));
         if (typeof k !== 'string') return { ok: false, error: k.error };
         const m = f.node.methods?.[k];
@@ -627,7 +637,11 @@ export function standardScreen(idAccept = keyFilter(8)): FakeGame {
       let presses = 0;
       return node(name, { kind: 'Button', interactable: true, onClick: () => (out.text = `${label} ${from.text} ${++presses}`), ...extra });
     };
-    const uguiButton = (at: [number, number]): Partial<FakeNode> => ({ components: ['UnityEngine.RectTransform', 'UnityEngine.UI.Image', 'UnityEngine.UI.Button'], at });
+    const uguiButton = (at: [number, number]): Partial<FakeNode> => ({
+      components: ['UnityEngine.RectTransform', 'UnityEngine.UI.Image', 'UnityEngine.UI.Button'],
+      bases: { 'UnityEngine.UI.Button': ['UnityEngine.UI.Selectable', 'UnityEngine.EventSystems.UIBehaviour', 'UnityEngine.MonoBehaviour'] },
+      at,
+    });
     let cubes = 0;
     const position = [0, 0, 5];
     game.onKey = (key) => (touch.text = `key ${key}`);
@@ -641,7 +655,10 @@ export function standardScreen(idAccept = keyFilter(8)): FakeGame {
     const pointerText = node('PointerText', { text: 'last - · held -' });
     let last = '-';
     let held = '-';
+    // PointerBox 는 Selectable 없이 IPointerDownHandler 로 누름을 받는다 — SDK 는 그 컴포넌트 이름을 종류로 찍는다.
     const holdBox = node('HoldBox', {
+      kind: 'PointerBox',
+      interactable: true,
       at: [810, 900],
       components: ['UnityEngine.RectTransform', 'UnityEngine.UI.Image', 'Sample.PointerBox'],
       onPointer: (e, seconds) => {
@@ -706,7 +723,7 @@ export function standardScreen(idAccept = keyFilter(8)): FakeGame {
           touch,
           tmpStatus,
           tmpId,
-          login('TmpLoginButton', 'tmp login', tmpStatus, tmpId, uguiButton([810, 1500])),
+          login('TmpLoginButton', 'tmp login', tmpStatus, tmpId, { ...uguiButton([810, 1500]), children: [node('Text (TMP)', { text: 'TMP Login' })] }),
           node('Bag', {}, [node('Slot', {}, [node('Item', { movable: true })]), node('Slot'), node('Slot'), node('Slot')]),
           node('HiddenText', { active: false, text: 'hidden', props: { 'Text.text': 'hidden' } }),
           input,

@@ -127,13 +127,30 @@ export function pathOf<T>(trail: T[], v: View<T>): string {
   return out;
 }
 
-/** 한 것을 짚는 명령 — 없음(missing: 기다리기가 되풀이할 수 있다) · 여럿(몇 번 해도 같다)을 갈라 말한다. shown 은 켜진 것만 본 찾기인가 */
-export function one<T>(target: string, r: { trails: T[][]; stop?: number }, shown: boolean, path?: Step[]): { trail?: T[]; problem?: string; missing: boolean } {
+/** 끊긴 단계 이름이 (대소문자 없이) 든 것 셋까지 — 실행 중에 만든 Enemy(Clone) · 복사한 Button (1) · 다른 부모 아래로 옮긴 것을 알린다 */
+function near<T>(name: string, v: View<T>): string {
+  if (name === '*' || name === '..') return '';
+  const found: string[] = [];
+  const walk = (level: T[], trail: T[]) => {
+    for (const n of level) {
+      if (found.length === 3) return;
+      const t = [...trail, n];
+      if (v.attr(n, 'name')[0].toLowerCase().includes(name.toLowerCase())) found.push(pathOf(t, v));
+      walk(v.children(n), t);
+    }
+  };
+  walk(v.roots, []);
+  return found.length ? ` — 이름이 비슷한 것: ${found.join(' · ')}` : '';
+}
+
+/** 한 것을 짚는 명령 — 없음(missing: 기다리기가 되풀이할 수 있다) · 여럿(몇 번 해도 같다)을 갈라 말한다. shown 은 켜진 것만 본 찾기인가, v 를 주면 없음 글에 이름이 비슷한 것을 단다 */
+export function one<T>(target: string, r: { trails: T[][]; stop?: number }, shown: boolean, path?: Step[], v?: View<T>): { trail?: T[]; problem?: string; missing: boolean } {
   const bare = !target.startsWith('/');
   if (r.trails.length === 1) return { trail: r.trails[0], missing: false };
   if (r.trails.length === 0) {
     const where = bare || r.stop === undefined ? '' : ` (${(path ?? steps(target))[r.stop].raw} 에서 끊김)`;
-    return { problem: `${shown ? '켜진 ' : ''}오브젝트 중에 ${target} 이 없습니다${where}`, missing: true };
+    const hint = v && r.stop !== undefined ? near((path ?? steps(target))[r.stop].name, v) : '';
+    return { problem: `${shown ? '켜진 ' : ''}오브젝트 중에 ${target} 이 없습니다${where}${hint}`, missing: true };
   }
   return {
     problem: bare

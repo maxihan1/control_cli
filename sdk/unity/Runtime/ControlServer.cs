@@ -78,7 +78,7 @@ namespace ControlCli
             public float scale = -1;
             // 꺼진 오브젝트 · 숨은 요소도 찾는다(읽기 · 쓰기 명령만 — 누르기 · 끌기는 켜진 것만).
             public bool inactive;
-            // 월드 오브젝트의 화면 자리를 셀 카메라 오브젝트 주소 — 비면 Camera.main.
+            // 월드 오브젝트의 화면 자리를 셀 카메라 오브젝트 주소 — 비면 주 카메라(Tree.MainCamera).
             public string camera;
             public string component;
             public string format;
@@ -538,7 +538,7 @@ namespace ControlCli
         {
             var item = trail[trail.Count - 1];
             var sb = new StringBuilder("\"path\":").Append(Json.Str(Select.PathOf(trail, all)));
-            var text = Tree.TextOf(item);
+            var text = Tree.TextOf(item) ?? (Tree.KindOf(item) != null ? Tree.Label(item) : null);
             if (text != null) sb.Append(",\"text\":").Append(Json.Str(text));
             if (Tree.KindOf(item) != null) sb.Append(",\"interactable\":").Append(Tree.Interactable(item) ? "true" : "false");
             var ids = Select.Attr(item, "id");
@@ -560,7 +560,7 @@ namespace ControlCli
             return sb.ToString();
         }
 
-        // camera 칸 — 비면 null(Camera.main). 꺼진 Camera 컴포넌트도 화면 자리를 셈할 수 있다.
+        // camera 칸 — 비면 null(주 카메라 — Tree.MainCamera). 꺼진 Camera 컴포넌트도 화면 자리를 셈할 수 있다.
         private static bool CameraOf(string address, out Camera cam, out string problem)
         {
             cam = null;

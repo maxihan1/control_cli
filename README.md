@@ -226,10 +226,10 @@ npx control-cli open --relay                                       # 세션 … 
 
 | 명령 | 하는 일 | Ran 줄 |
 |---|---|---|
-| `click <ref\|주소> [--count <n>] [--interval <초>]` | 가운데를 가짜 터치로 누른다. 월드 오브젝트는 주 카메라로 비춘 자리. `--count 2` 면 `--interval`(기본 0.1초) 간격으로 두 번(SDK 0.6.0) | `game.click('LoginButton')` · `game.click('Slot', { count: 2 })` |
+| `click <ref\|주소> [--count <n>] [--interval <초>]` | 가운데를 가짜 터치로 누른다. 월드 오브젝트는 주 카메라(MainCamera 태그 — 없으면 그 layer 를 그리는 켜진 카메라 중 맨 위)로 비춘 자리. `--count 2` 면 `--interval`(기본 0.1초) 간격으로 두 번(SDK 0.6.0) | `game.click('LoginButton')` · `game.click('Slot', { count: 2 })` |
 | `drag <ref\|주소> <ref\|주소> [--via <주소>]… [--duration <초>]` | 앞 자리에서 뒤 자리로 끈다 — 마디마다 적어도 10프레임. `--via` 는 지날 자리(여러 번 줄 수 있다), `--duration` 은 처음부터 끝까지 초(SDK 0.6.0) | `game.drag('/Hud/Bag/Slot[0]', '/Hud/Bag/Slot[3]')` · `game.drag('A', 'C', { via: ['B'] })` |
 | `type <ref\|주소> <글자>` | InputField · TMP_InputField · UI Toolkit TextField 에 바로 넣는다(화면 키보드 없이). 글자 수 제한 · 거르기는 그 칸 규칙대로, 키로 칠 때의 차례(글자마다 거르고 거른 결과로 자름)다 — 글자 수 8 · 영숫자 칸에 `qa_user01!` 면 `qauser01`. uGUI · TMP 는 SDK 가 그 칸의 거르개를 글자마다 부른다. 비밀번호 칸이면 Ran 줄에 글자 대신 `'***'` | `game.type('IdInput', 'qa_user01')` |
-| `text <ref\|주소>` | 글자 읽기 | `game.text('StatusText')` |
+| `text <ref\|주소>` | 글자 읽기 — 버튼처럼 누를 것에 제 글자가 없으면 켜진 자식 중 첫 글자 | `game.text('StatusText')` |
 | `get <ref\|주소> <컴포넌트.칸> [--inactive]` | 속성 읽기 — 게임이 폰에서 셈하는 값. `material` · `materials` · `mesh` 는 읽기만 해도 사본을 만들어 거절한다(`shared…` 를 읽는다). UI Toolkit 요소는 요소 칸을 바로(`value` · `text` · `layout.height`) | `game.get('Player', 'PlayerController.moveSpeed')` |
 | `find <ref\|주소> [--inactive] [--camera 주소]` | 있으면 `{path, text?, interactable?, id?, x?, y?, rect?, screen?, active?}`(`x` · `y` 는 누를 자리, `rect` 는 화면 사각형 `[x, y, w, h]`, `screen` 은 화면 크기 `[w, h]` — 모두 픽셀 · 왼쪽 아래 0,0), 없으면 `null` | `game.find('//*[@tag=Boss]')` |
 | `find-all <주소> [--inactive] [--camera 주소]` | 맞는 것 전부 — 없으면 빈 목록 | `game.findAll('//Inventory/Slot')` |
@@ -276,12 +276,14 @@ npx control-cli open --relay                                       # 세션 … 
 | `/` · `//` | 바로 아래 · 아래 어디서나 | `//Bag/Slot` |
 | `*` | 아무 이름 | `/Canvas/*` |
 | `..` | 부모 | `//*[@text=확인]/..` — 글자의 버튼 |
-| `[@칸=값]` | 칸이 값과 같다 — `name` · `tag` · `layer`(이름 · 번호) · `component`(붙은 컴포넌트 · UI Toolkit 요소 타입) · `text` · `id` | `//*[@tag=Player]` · `//*[@component=Button]` |
+| `[@칸=값]` | 칸이 값과 같다 — `name` · `tag` · `layer`(이름 · 번호) · `component`(붙은 컴포넌트와 그 물려받은 타입 · UI Toolkit 요소 타입) · `text` · `id` | `//*[@tag=Player]` · `//*[@component=Button]` |
 | `[contains(@칸,값)]` | 값이 들어 있다 | `//*[contains(@name,Slot)]` |
 | `[…][…]` | 조건을 모두 | `//*[@tag=Enemy][@layer=Water]` |
 | `[n]` · `[-1]` | 그 단계에 맞은 형제 중 n번째(0부터) · 마지막 | `//Bag/Slot[-1]` |
 
-**컴포넌트**(`get` · `set` · `call` · `members` 의 앞 낱말)는 타입 이름 · 전체 이름이 같은 것을 먼저 찾고, 없으면 물려받은 타입 이름으로 찾는다 — `Button` 을 물려받은 `UIHUDButton` 은 `Button.interactable` 로도 읽힌다. 트리 줄 머리는 종류라(TMP 글자도 `Text`) 컴포넌트 이름과 다를 수 있다. 못 찾으면 실패 글 끝에 붙은 컴포넌트 이름이 달린다 — `… Text 컴포넌트가 없습니다 — 붙은 것: RectTransform · CanvasRenderer · TextMeshProUGUI`(`components` 로도 본다).
+**컴포넌트**(`get` · `set` · `call` · `members` 의 앞 낱말)는 타입 이름 · 전체 이름이 같은 것을 먼저 찾고, 없으면 물려받은 타입 이름으로 찾는다 — `Button` 을 물려받은 `UIHUDButton` 은 `Button.interactable` 로도 읽힌다. 트리 줄 머리는 종류라(TMP 글자도 `Text`) 컴포넌트 이름과 다를 수 있다. 못 찾으면 실패 글 끝에 붙은 컴포넌트 이름이 달린다 — `… Text 컴포넌트가 없습니다 — 붙은 것: RectTransform · CanvasRenderer · TextMeshProUGUI`(`components` 로도 본다). 선택자 `[@component=…]` 도 물려받은 타입 이름으로 맞는다.
+
+없는 주소의 실패 글 끝에는 이름이 비슷한 것(끊긴 단계 이름이 대소문자 없이 든 것, 셋까지)의 경로가 달린다 — 실행 중에 만든 `Enemy(Clone)` · 복사한 `Button (1)` · 다른 부모 아래로 옮긴 것: `켜진 오브젝트 중에 Enemy 이 없습니다 — 이름이 비슷한 것: /Spawn/Enemy(Clone)`.
 
 값 양끝 공백은 떼고 `'…'` · `"…"` 는 벗긴다. `id` 는 QA 빌드가 장면 오브젝트에 붙인 **영구 id**(장면 파일 속 번호 — 빌드마다 같다) 또는 instance id(실행 중 만든 오브젝트 — 켤 때마다 바뀐다)다. 읽기 · 쓰기 명령(`find` · `get` · `set` · `call` · `components` · `members` · `text-set`)은 `--inactive` 로 꺼진 오브젝트도 찾는다 — 그때 경로 순번은 꺼진 형제까지 센다. 월드 오브젝트의 화면 자리는 `--camera <카메라 오브젝트 주소>` 로 고른 카메라로 셈한다(기본 주 카메라).
 액션 뒤에는 트리가 두 번 같을 때까지(3초 상한) 기다렸다 화면을 찍는다. **기다리기**는 0.3초마다 짧은 `find` 를 되풀이한다 — 명령 하나가 팜 15초 · SDK 10초 한도에 안 걸린다.
@@ -454,8 +456,8 @@ robot --pythonpath drivers/python --variable GAME:tcp://127.0.0.1:13100 drivers/
 | `cmd` | 칸 | 답 |
 |---|---|---|
 | `ping` | | `{ok, app, version, engine, engineVersion, sdkVersion, protocol, input, pads, caps}` — `engine` 부터는 protocol 2(SDK 0.3.0)부터. `input`(`old` · `new` · `both` — 게임이 읽는 입력)과 `pads`(만들 수 있는 가상 패드 종류)는 Unity SDK 0.12.0 부터. `caps` 는 명령 이름 뒤에 기능 이름(`commands.json` 의 `features` — `rect` 는 SDK 0.8.0)을 싣는다. CLI 는 `open` 때 받은 `caps` 밖 명령을 보내지 않고 거절한다. 명령 정의는 `protocol/commands.json` |
-| `tree` | | `{ok, scene, screen:[w,h], tree:[{name, text?, kind?, interactable?, children?}]}` — 켜진 오브젝트만. `kind` 는 Selectable 종류(Button · Toggle · InputField · TMP_InputField …) 또는 UI Toolkit 컨트롤(Button · Toggle · RadioButton · TextField · DropdownField · Slider). `text` 는 Text · InputField · TextMeshPro(TMP_Text · TMP_InputField) · UI Toolkit(TextElement · TextField). UI Toolkit 은 숨은 요소(display none · 안 보임)를 빼고 컨트롤 속은 내보내지 않는다. 비밀번호 칸 글자는 `***` |
-| `find` | `target` · `inactive`? · `camera`? | `{ok, found:false}` 또는 `{ok, found:true, path, text?, interactable?, id?, x?, y?, rect?, screen?, active?}` — 여럿이 맞거나 꼴이 틀리면 실패. `id` 는 게임 오브젝트만, `x` · `y` 는 켜지고 화면에 비친 것만, `active:false` 는 `inactive` 로 찾은 꺼진 것. 선택자 · `inactive` · `camera` 는 SDK 0.5.0 부터. `rect` · `screen` 은 아래 「화면 사각형」 |
+| `tree` | | `{ok, scene, screen:[w,h], tree:[{name, text?, kind?, interactable?, children?}]}` — 켜진 오브젝트만. `kind` 는 Selectable 종류(Button · Toggle · InputField · TMP_InputField …), Selectable 없이 누름을 받는 컴포넌트(`IPointerClickHandler` · `IPointerDownHandler` — EventTrigger · OnScreenButton · 게임 스크립트) 또는 UI Toolkit 컨트롤(Button · Toggle · RadioButton · TextField · DropdownField · Slider). `text` 는 Text · InputField · TextMeshPro(TMP_Text · TMP_InputField) · UI Toolkit(TextElement · TextField). UI Toolkit 은 숨은 요소(display none · 안 보임)를 빼고 컨트롤 속은 내보내지 않는다. 비밀번호 칸 글자는 `***` |
+| `find` | `target` · `inactive`? · `camera`? | `{ok, found:false}` 또는 `{ok, found:true, path, text?, interactable?, id?, x?, y?, rect?, screen?, active?}` — 여럿이 맞거나 꼴이 틀리면 실패. `text` 는 누를 것에 제 글자가 없으면 켜진 자식 중 첫 글자(트리 · `@text` 는 제 글자만). `id` 는 게임 오브젝트만, `x` · `y` 는 켜지고 화면에 비친 것만, `active:false` 는 `inactive` 로 찾은 꺼진 것. 선택자 · `inactive` · `camera` 는 SDK 0.5.0 부터. `rect` · `screen` 은 아래 「화면 사각형」 |
 | `find-all` | `target` · `inactive`? · `camera`? | `{ok, found:[…]}` — `find` 의 칸 목록, 없으면 빈 목록 |
 | `find-at` | `x` · `y` · `camera`? | `find` 와 같은 답 — UI Toolkit(맨 앞 panel) → uGUI(EventSystem raycast) → 3D · 2D 물리 차례, 트리에 없는 속 칸은 트리에 있는 조상으로 |
 | `click` | `target` · `camera`? · `count`? · `interval`? | `{ok, x, y}` — 가짜 터치가 다 나가고 게임이 처리한 뒤 답한다. 켜진 것만. `count`(기본 1) · `interval`(초, 기본 0.1)은 SDK 0.6.0 부터 |
