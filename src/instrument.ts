@@ -147,6 +147,20 @@ export function instrument(project: string, ref: string | undefined, relayAddres
   return { asmdefs, warnings, define: settings !== undefined };
 }
 
+// instrument 를 돌리고 개발사가 볼 결과 글을 만든다 — CLI 와 개발사 zip 입구(handoff-main.ts)가 같은 글을 찍는다.
+export function instrumentUnity(project: string, ref: string | undefined, relayAddress?: string): string {
+  const { asmdefs, warnings, define } = instrument(project, ref, relayAddress);
+  return [
+    ref ? `QA Hub SDK(${ref})를 Packages/manifest.json에 추가했습니다` : `QA Hub SDK(${UNITY_SDK_VERSION})를 ${EMBEDDED}에 추가했습니다`,
+    ...(relayAddress ? [`relay 주소를 구웠습니다 — 게임이 ${relayAddress} 로 겁니다`] : []),
+    ...asmdefs.map((a) => `asmdef 참조 추가: ${a}`),
+    ...warnings.map((w) => `경고: ${w}`),
+    define
+      ? `QA 빌드 설정을 ${SETTINGS_FILE}에 추가했습니다. 이대로 빌드하면 SDK가 들어갑니다. 바뀐 파일은 커밋하지 마세요.`
+      : `${SETTINGS_FILE} 파일을 고치지 못했습니다(파일이 없거나 텍스트 형식이 아닙니다). 빌드 스크립트의 Scripting Define Symbols에 QAHUB_SDK를 직접 넣어야 SDK가 빌드에 들어갑니다.`,
+  ].join('\n');
+}
+
 // ── Godot ──────────────────────────────────────────────
 
 // CLI 에 실린 Godot SDK — npm 패키지 files 에 sdk/godot 이 든다. CLI 판 = SDK 판이라 --ref 를 받지 않는다.

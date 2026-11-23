@@ -13,7 +13,7 @@ import { crawl, CRAWL } from './crawl.js';
 import { installAndLaunch, terminate } from './devicectl.js';
 import { Game, settled, WAIT, type At, type FindOptions, type PingReply, type PrefType, type WaitOptions } from './game.js';
 import { inspect, INSPECT_PORT } from './inspect.js';
-import { instrument, instrumentGodot, EMBEDDED, SETTINGS_FILE, UNITY_SDK_VERSION } from './instrument.js';
+import { instrumentGodot, instrumentUnity } from './instrument.js';
 import { driverLink, farmLink, GAME_PORT, iosLink, relayLink, tcpLink, usbLink, type Command, type Reply } from './link.js';
 import { serve, VERSION } from './mcp.js';
 import { exportTest, FILES, LANGS, replay, steps, type Lang } from './recorder.js';
@@ -210,16 +210,7 @@ export async function run(argv: string[], o: Options): Promise<string> {
         ...(gameAddress ? [`relay 주소를 구웠습니다 — 게임이 ${gameAddress} 로 겁니다`] : []),
       ].join('\n');
     }
-    const { asmdefs, warnings, define } = instrument(folders[0], values.ref, gameAddress);
-    return [
-      values.ref ? `QA Hub SDK(${values.ref})를 Packages/manifest.json에 추가했습니다` : `QA Hub SDK(${UNITY_SDK_VERSION})를 ${EMBEDDED}에 추가했습니다`,
-      ...(gameAddress ? [`relay 주소를 구웠습니다 — 게임이 ${gameAddress} 로 겁니다`] : []),
-      ...asmdefs.map((a) => `asmdef 참조 추가: ${a}`),
-      ...warnings.map((w) => `경고: ${w}`),
-      define
-        ? `QA 빌드 설정을 ${SETTINGS_FILE}에 추가했습니다. 이대로 빌드하면 SDK가 들어갑니다. 바뀐 파일은 커밋하지 마세요.`
-        : `${SETTINGS_FILE} 파일을 고치지 못했습니다(파일이 없거나 텍스트 형식이 아닙니다). 빌드 스크립트의 Scripting Define Symbols에 QAHUB_SDK를 직접 넣어야 SDK가 빌드에 들어갑니다.`,
-    ].join('\n');
+    return instrumentUnity(folders[0], values.ref, gameAddress);
   }
 
   // 기록 파일만 읽는다 — 세션이 없어도 된다.
