@@ -1,10 +1,10 @@
 # QA Hub SDK 연동 가이드
 
-Unity 게임의 QA 빌드에 QA Hub SDK를 넣는 방법입니다. 명령 한 줄을 실행하고 평소처럼 빌드해서 보내 주시면 됩니다.
+Unity 게임의 QA 빌드에 QA Hub SDK를 넣는 방법입니다. Android 게임과 Windows 게임 모두 같은 방법으로 넣습니다. 명령 한 줄을 실행하고 평소처럼 빌드해서 보내 주시면 됩니다.
 
 ## 준비물
 
-- Unity 2021.3 LTS 이상으로 만든 Android 게임 프로젝트
+- Unity 2021.3 LTS 이상으로 만든 Android 또는 Windows 게임 프로젝트
 - Node.js 22 이상
 - QAhub.zip (이 가이드와 함께 받은 파일)
 
@@ -20,10 +20,16 @@ node QAhub/dist/main.js instrument <Unity 프로젝트 폴더>
 
 `<Unity 프로젝트 폴더>` 자리에는 프로젝트 폴더의 경로를 씁니다. Assets 폴더와 Packages 폴더가 들어 있는 폴더입니다.
 
+Windows의 명령 프롬프트나 PowerShell에서는 아래처럼 씁니다.
+
+```
+node QAhub\dist\main.js instrument C:\Projects\MyGame
+```
+
 아래처럼 나오면 끝난 것입니다.
 
 ```
-QA Hub SDK(0.11.0)를 Packages/QAHubSDK에 추가했습니다
+QA Hub SDK(0.13.0)를 Packages/QAHubSDK에 추가했습니다
 asmdef 참조 추가: Assets/…/Game.asmdef
 QA 빌드 설정을 ProjectSettings/ProjectSettings.asset에 추가했습니다. 이대로 빌드하면 SDK가 들어갑니다. 바뀐 파일은 커밋하지 마세요.
 ```
@@ -48,14 +54,16 @@ QA 빌드 설정을 ProjectSettings/ProjectSettings.asset에 추가했습니다.
 
 아래 여섯 가지를 보내 주세요.
 
-- **QA 빌드**: SDK를 넣은 뒤 평소대로 만든 Android APK. 운영 서버가 아니라 QA 서버에 접속하도록 만들어 주세요.
+- **QA 빌드**: SDK를 넣은 뒤 평소대로 만든 빌드. 운영 서버가 아니라 QA 서버에 접속하도록 만들어 주세요.
+  - Android: APK
+  - Windows: 빌드 폴더 전체를 묶은 zip. 실행 파일(.exe)은 zip 맨 위나 폴더 하나 아래에 하나만 둡니다.
 - **1번 명령의 출력**: 화면에 나온 내용 전부
 - **QA 서버 주소**: QA 빌드가 접속하는 서버의 주소
 - **테스트 계정**: 아이디와 비밀번호 여러 개. 테스트 기기마다 하나씩 씁니다. 소셜 로그인만 있는 게임이면 게스트 로그인이나 개발용 로그인을 열어 주세요.
 - **기획서**: 게임 규칙, 수치표, 확률표
-- **게임 정보**: Unity 버전, 입력 방식(Input Manager, Input System, 둘 다), 사용하는 UI(uGUI, TextMesh Pro, UI Toolkit), 화면 방향, 서버 통신 방식(REST, 소켓), 첫 실행 때 뜨는 화면(약관, 권한, 추가 다운로드, 튜토리얼)
+- **게임 정보**: Unity 버전, 입력 방식(Input Manager, Input System, 둘 다), 사용하는 UI(uGUI, TextMesh Pro, UI Toolkit), 화면 방향, 서버 통신 방식(REST, 소켓), 첫 실행 때 뜨는 화면(약관, 권한, 추가 다운로드, 튜토리얼). Windows 게임은 패드를 읽는 방식(Input System, Rewired, Steam Input)도 알려 주세요.
 
-빌드할 때마다 versionCode를 올려 주세요. 버전이 같으면 테스트 환경에 새 빌드가 설치되지 않습니다.
+Android 게임은 빌드할 때마다 versionCode를 올려 주세요. 버전이 같으면 테스트 환경에 새 빌드가 설치되지 않습니다.
 
 ## 지원하는 Unity 버전
 
@@ -64,3 +72,5 @@ QA 빌드 설정을 ProjectSettings/ProjectSettings.asset에 추가했습니다.
 | 2021.3 LTS, 2022.3 LTS, 6000.0, 6000.3 | 지원합니다. |
 | 2023.1, 2023.2, 6000.1, 6000.2 | 테스트되지 않았으나 지원될 것으로 예상됩니다. 이 버전을 사용한다면 미리 알려 주세요. |
 | 2020.3 이하 | 지원하지 않습니다. |
+
+Windows 게임의 IL2CPP 빌드는 테스트되지 않았으나 지원될 것으로 예상됩니다. Mono 빌드는 지원합니다.
