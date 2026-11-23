@@ -1,6 +1,6 @@
 # QA Hub SDK 연동 가이드
 
-Unity 게임의 QA 빌드에 QA Hub SDK를 넣는 방법입니다. Android 게임과 Windows 게임 모두 같은 방법으로 넣습니다. 명령 한 줄을 실행하고 평소처럼 빌드해서 보내 주시면 됩니다.
+Unity 게임의 QA 빌드에 QA Hub SDK를 넣는 방법을 안내합니다. Android와 Windows 게임 모두 방법은 같습니다. 명령 한 줄만 실행한 뒤 평소처럼 빌드해서 보내 주세요.
 
 ## 준비물
 
