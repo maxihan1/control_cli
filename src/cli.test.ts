@@ -3,18 +3,21 @@ import assert from 'node:assert/strict';
 import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, sep } from 'node:path';
 import { after, before, test } from 'node:test';
 
 import { capabilities } from './appium.js';
 import { run, TIMING } from './cli.js';
 import { CONFORM } from './conform.js';
 import { button, fakeFarm, FakeGame, fakeRelayGame, fakeTcp, fakeUsbmux, node, standardScreen } from './fake-game.js';
-import { SETTLE, WAIT } from './game.js';
+import { READY, SETTLE, WAIT } from './game.js';
 import { relay } from './relay.js';
+
+const WIN = process.platform === 'win32';
 
 Object.assign(SETTLE, { maxMs: 30, stepMs: 5 });
 Object.assign(WAIT, { intervalMs: 5 });
+Object.assign(READY, { maxMs: 200, stepMs: 5 });
 Object.assign(CONFORM, { waitMs: 50, holdS: 0.1, dragS: 0, keyS: 0 });
 Object.assign(TIMING, { openWaitMs: 200, openStepMs: 5, cleanWaitMs: 100, cleanStepMs: 5 });
 
@@ -132,6 +135,16 @@ test('방금 놓은 폰을 팜이 정리하는 동안은 기다렸다가 잡는�
   }
 });
 
+test('--pc 없이 잡으면 목록 앞에 빈 PC 가 있어도 폰을 잡는다', async () => {
+  farm.state.devices = () => [{ serial: 'pc-pc1', state: 'IDLE', detail: 'ready' }, { serial: 'R1', state: 'IDLE', detail: 'ready' }];
+  try {
+    assert.match(await cli('hold'), /폰 R1 잡음/);
+  } finally {
+    farm.state.devices = () => [{ serial: 'R1', state: 'IDLE', detail: 'ready' }];
+    await cli('release');
+  }
+});
+
 test('빈 폰도 정리 중인 폰도 없으면 기다리지 않고 다른 실행이 쓰는 중이라고 거절한다', async () => {
   let calls = 0;
   farm.state.devices = () => (calls++, [{ serial: 'R1', state: 'OCCUPIED', detail: 'session' }]);
@@ -155,18 +168,28 @@ test('정리가 기다림 한도를 넘기면 다른 실행 탓이 아니라 팜
 test('PC — 띄운 게임에 adb 없이 붙고, 스크린샷은 게임이 찍고, key 는 Ran 줄을 남기고, close 가 게임을 끈다', async () => {
   const pc = await fakeTcp(game);
   const port = String(pc.port);
-  const macos = join(dir, 'Game.app', 'Contents', 'MacOS');
-  await mkdir(macos, { recursive: true });
-  // exec 로 sh 를 sleep 으로 바꾼다 — close 가 끈 프로세스가 곧 게임이라 고아가 남지 않는다.
-  await writeFile(join(macos, 'game'), '#!/bin/sh\nexec sleep 30\n', { mode: 0o755 });
+  // 가짜 게임 — 끝에 폴더 구분 글자를 붙여 연다(셸이 붙여 주는 꼴).
+  let app = join(dir, 'Game.app') + sep;
+  if (WIN) {
+    // Windows 는 sh 스크립트를 못 띄운다 — node 를 게임 삼아 띄우고, 인자 없이도 살아 있게 멈춰 있는 모듈을 물린다.
+    app = process.execPath + sep;
+    await writeFile(join(dir, 'stay.cjs'), 'setInterval(() => {}, 1000);\n');
+    process.env.NODE_OPTIONS = `--require "${join(dir, 'stay.cjs').replaceAll('\\', '/')}"`;
+  } else {
+    const macos = join(dir, 'Game.app', 'Contents', 'MacOS');
+    await mkdir(macos, { recursive: true });
+    // exec 로 sh 를 sleep 으로 바꾼다 — close 가 끈 프로세스가 곧 게임이라 고아가 남지 않는다.
+    await writeFile(join(macos, 'game'), '#!/bin/sh\nexec sleep 30\n', { mode: 0o755 });
+  }
   try {
-    const opened = await cli('-s=pc', 'open', '--pc', '--app', join(dir, 'Game.app'), '--port', port);
+    const opened = await cli('-s=pc', 'open', '--pc', '--app', app, '--port', port);
     assert.match(opened, /세션 pc 열림 — com\.fake\.game 1\.0 \(PC · 프로세스 \d+\)/);
     assert.equal(await readFile(/- Screenshot: (.*\.jpg)/.exec(opened)![1], 'utf8'), 'jpg');
     assert.match(await cli('-s=pc', 'key', 'Escape', '--port', port), /Ran: await game\.key\('Escape'\)/);
     assert.equal(game.keys.at(-1), 'Escape');
     assert.match(await cli('-s=pc', 'close'), /게임\(프로세스 \d+\)을 껐습니다/);
   } finally {
+    delete process.env.NODE_OPTIONS;
     pc.server.close();
   }
 });
@@ -200,7 +223,7 @@ test('conform — 표준 화면이면 PC 는 일시정지 줄만 미실행, 다�
   const bad = await fakeTcp(new FakeGame([node('Boot')]));
   try {
     await cli('-s=cf', 'open', '--pc', '--port', String(ok.port));
-    assert.match(await cli('-s=cf', 'conform', '--port', String(ok.port)), /통과 52 · 실패 0 · 미실행 1$/);
+    assert.match(await cli('-s=cf', 'conform', '--port', String(ok.port)), /통과 58 · 실패 0 · 미실행 1$/);
     await cli('-s=cf', 'close');
     await cli('-s=cf2', 'open', '--pc', '--port', String(bad.port));
     await assert.rejects(cli('-s=cf2', 'conform', '--port', String(bad.port)), /통과 \d+ · 실패 [1-9]/);
@@ -211,14 +234,48 @@ test('conform — 표준 화면이면 PC 는 일시정지 줄만 미실행, 다�
   }
 });
 
-test('conform — 팜은 Appium 으로 앱을 뒤로 보내 일시정지 줄까지 53줄 통과', async () => {
+test('VISION 윈도우 PC — 조건 잡기 → zip 깔기 · 켜기 → 명령 · 스크린샷은 SDK → 닫으면 끄기 → 놓으면 녹화 주소', async () => {
+  const f = await fakeFarm(game);
+  const own = await mkdtemp(join(tmpdir(), 'control-cli-'));
+  // PLATFORM_APP 은 폰 APK 주소라 PC 에 쓰지 않는다
+  const pc = (...argv: string[]) => run(argv, { env: { PLATFORM_APPIUM_URL: f.url, PLATFORM_APP: 'http://builds/qa.apk' }, dir: own });
+  try {
+    assert.match(await pc('hold', '--pc'), /PC pc-pc1 잡음/);
+    assert.ok(f.seen.includes('POST /api/devices/acquire'));
+    await assert.rejects(pc('open'), /PC 에 켤 게임/);
+    const zip = join(own, 'BossRoom.zip');
+    await writeFile(zip, Buffer.from([0x50, 0x4b, 3, 4, 0xff]));
+    const opened = await pc('open', '--app', zip);
+    assert.match(opened, /세션 default 열림 — com\.fake\.game 1\.0 \(VISION PC pc-pc1 · BossRoom\)/);
+    assert.match(opened, /- Screenshot: .*\.jpg/);
+    assert.equal(f.state.zip?.type, 'application/zip');
+    assert.deepEqual([...f.state.zip!.bytes], [0x50, 0x4b, 3, 4, 0xff]);
+    assert.equal(f.state.launched, 'BossRoom');
+    assert.ok(!f.seen.includes('POST /wd/hub/session'));
+    assert.match(await pc('click', 'LoginButton'), /^Ran: await game\.click\('LoginButton'\)/);
+    assert.match(await pc('close'), /세션 default 닫음 — 게임 BossRoom 을 껐습니다 — PC 는 아직 잡혀 있습니다/);
+    assert.equal(f.state.launched, undefined);
+    // 사람이 깐 게임은 목록 이름으로 켠다 — 깔지 않는다
+    f.state.zip = undefined;
+    await pc('open', '--app', 'BossRoomQA');
+    assert.equal(f.state.launched, 'BossRoomQA');
+    assert.equal(f.state.zip, undefined);
+    await pc('close');
+    assert.match(await pc('release'), /PC pc-pc1 놓음 — VISION 이 켠 게임을 끄고 Unity 데이터를 지웁니다\n녹화: GET .*\/api\/sessions\/hold-1\/artifacts/);
+    assert.ok(f.seen.includes('DELETE /api/devices/pc-pc1/hold'));
+  } finally {
+    f.server.close();
+  }
+});
+
+test('conform — 팜은 Appium 으로 앱을 뒤로 보내 일시정지 줄까지 59줄 통과', async () => {
   const f = await fakeFarm(standardScreen());
   const own = await mkdtemp(join(tmpdir(), 'control-cli-'));
   const fc = (...argv: string[]) => run(argv, { env: { PLATFORM_APPIUM_URL: f.url, PLATFORM_APP: 'http://builds/qa.apk' }, dir: own });
   try {
     await fc('hold');
     await fc('-s=fc', 'open');
-    assert.match(await fc('-s=fc', 'conform'), /통과 53 · 실패 0 · 미실행 0$/);
+    assert.match(await fc('-s=fc', 'conform'), /통과 59 · 실패 0 · 미실행 0$/);
     assert.ok(f.seen.includes('POST /wd/hub/session/S1/execute/sync'));
     await fc('-s=fc', 'close');
     await fc('release');
@@ -309,6 +366,73 @@ test('찾기 · 설정 명령 — Ran 줄이 kit 의 game.* 이름 · 인자 꼴
   }
 });
 
+test('컴포넌트 이름 — 물려받은 타입 이름으로도 찾고, 없으면 붙은 컴포넌트 · 이름이 비슷한 것을 알려 준다', async () => {
+  // Boss Room 의 HUD 버튼 — UIHUDButton 이 Button 을 물려받고, 글자는 TMP 다.
+  const hud = 'Unity.BossRoom.Gameplay.UI.UIHUDButton';
+  const pc = await fakeTcp(new FakeGame([
+    node('Button0', {
+      kind: 'UIHUDButton',
+      interactable: true,
+      components: ['UnityEngine.RectTransform', 'UnityEngine.UI.Image', hud],
+      bases: { [hud]: ['UnityEngine.UI.Button', 'UnityEngine.UI.Selectable'] },
+      props: { 'UIHUDButton.interactable': true },
+      set: (p, v) => (p === 'UIHUDButton.interactable' ? v === 'true' : undefined),
+      methods: { 'UIHUDButton.Press': () => 'pressed' },
+      members: { UIHUDButton: { fields: [], properties: [], methods: [] } },
+    }, [node('Text', { text: 'Attack', components: ['UnityEngine.RectTransform', 'UnityEngine.CanvasRenderer', 'TMPro.TextMeshProUGUI'], props: { 'TextMeshProUGUI.text': 'Attack' } })]),
+  ]));
+  const cn = (...argv: string[]) => cli('-s=cn', ...argv, '--port', String(pc.port));
+  try {
+    await cn('open', '--pc');
+    assert.match(await cn('get', 'Button0', 'Button.interactable'), /\n- 값: true/);
+    assert.match(await cn('get', 'Button0', 'Selectable.interactable'), /\n- 값: true/);
+    assert.match(await cn('set', 'Button0', 'Button.interactable', 'false'), /\n- 값: false/);
+    assert.match(await cn('call', 'Button0', 'Button.Press'), /\n- 값: "pressed"/);
+    assert.match(await cn('members', 'Button0', 'UnityEngine.UI.Button'), /\n- 값: \{"fields":\[\]/);
+    assert.match(await cn('get', 'Text', 'TextMeshProUGUI.text'), /\n- 값: "Attack"/);
+    const missing = /Text 에 Text 컴포넌트가 없습니다 — 붙은 것: RectTransform · CanvasRenderer · TextMeshProUGUI/;
+    await assert.rejects(cn('get', 'Text', 'Text.text'), missing);
+    await assert.rejects(cn('set', 'Text', 'Text.text', 'x'), missing);
+    await assert.rejects(cn('call', 'Text', 'Text.SetText', 'x'), missing);
+    await assert.rejects(cn('members', 'Text', 'Text'), missing);
+    // 선택자도 물려받은 이름으로 맞고, 버튼 글자는 자식에서 읽고, 없는 이름은 비슷한 것을 알린다.
+    assert.match(await cn('find-all', '//*[@component=Selectable]'), /"path":"\/Button0"/);
+    assert.match(await cn('text', 'Button0'), /\n- 값: "Attack"/);
+    await assert.rejects(cn('click', 'Butto'), /켜진 오브젝트 중에 Butto 이 없습니다 — 이름이 비슷한 것: \/Button0/);
+    await assert.rejects(cn('click', '/Button0/Tex'), /\(Tex 에서 끊김\) — 이름이 비슷한 것: \/Button0\/Text/);
+    await cn('close');
+  } finally {
+    pc.server.close();
+  }
+});
+
+test('click — 덮은 것이 걷히길 기다렸다 누르고, 그대로면 덮은 것을 알린다 · --at 은 사각형 안 비율 자리', async () => {
+  let presses = 0;
+  // 같은 자리에 먼저 걸리는 Fade 가 맨 위다(가짜 find-at 은 트리 차례로 맞춘다).
+  const fade = node('Fade', { at: [540, 960] });
+  const ok = node('OkButton', { kind: 'Button', interactable: true, at: [540, 960], onClick: () => presses++ });
+  const shade = node('Shade', { kind: 'Button', interactable: true, at: [540, 960] });
+  const g = new FakeGame([node('Hud', {}, [fade, ok]), node('Window', {}, [shade])]);
+  const pc = await fakeTcp(g);
+  const ck = (...argv: string[]) => cli('-s=ck', ...argv, '--port', String(pc.port));
+  try {
+    await ck('open', '--pc');
+    await assert.rejects(ck('click', 'OkButton'), /OkButton 을 누를 자리 \(540, 960\) 를 \/Hud\/Fade 가 덮고 있습니다 — 0\.2초 기다려도 그대로입니다/);
+    assert.equal(presses, 0);
+    setTimeout(() => (fade.active = false), 30);
+    assert.match(await ck('click', 'OkButton'), /^Ran: await game\.click\('OkButton'\)/);
+    assert.equal(presses, 1);
+    // 가짜 사각형은 자리 둘레 100×100 — 왼쪽 아래 가장자리를 누른다.
+    assert.match(await ck('click', 'Shade', '--at', '0.05,0.05'), /^Ran: await game\.click\('Shade', \{ at: \[0\.05, 0\.05\] \}\)/);
+    assert.deepEqual(g.commands.filter((c) => c.cmd === 'tap').map((c) => [c.x, c.y]), [[495, 915]]);
+    await assert.rejects(ck('click', 'Shade', '--at', '2,0'), /at 은 0~1 두 수입니다/);
+    await assert.rejects(ck('click', 'Shade', '--at', 'x'), /--at 은 「x,y」 비율입니다/);
+    await ck('close');
+  } finally {
+    pc.server.close();
+  }
+});
+
 test('입력 명령 — Ran 줄이 kit 의 game.* 이름 · 인자 꼴로 찍히고, 좌표는 Ran 줄이 없고, 음수도 읽는다', async () => {
   const pc = await fakeTcp(standardScreen());
   const io = (...argv: string[]) => cli('-s=io', ...argv, '--port', String(pc.port));
@@ -331,6 +455,12 @@ test('입력 명령 — Ran 줄이 kit 의 game.* 이름 · 인자 꼴로 찍히
     assert.match(await io('tilt', '0', '-5', '0', '--duration', '1'), /^Ran: await game\.tilt\(\[0, -5, 0\], \{ duration: 1 \}\)/);
     assert.match(await io('pointer', 'HoldBox', 'enter'), /^Ran: await game\.pointer\('HoldBox', 'enter'\)/);
     assert.match(await io('input-reset'), /^Ran: await game\.resetInput\(\)/);
+    assert.match(await io('pad', 'ps5'), /^Ran: await game\.pad\('ps5'\)\n- 패드: ps5 · DualSenseGamepadHID · south Cross · east Circle · .*\n- 장치: DualSenseGamepadHID\(가상\)/);
+    assert.match(await io('key', 'Pad.Cross'), /^Ran: await game\.key\('Pad\.Cross'\)/);
+    await assert.rejects(io('key', 'Pad.A'), /ps5 패드에 없는 이름입니다: Pad\.A/);
+    assert.equal(await io('pad'), '- 패드: ps5 · DualSenseGamepadHID · south Cross · east Circle · west Square · north Triangle · leftShoulder L1 · rightShoulder R1 · leftTrigger L2 · rightTrigger R2 · select Create · start Options · leftStick L3 · rightStick R3\n- 장치: DualSenseGamepadHID(가상)');
+    assert.match(await io('pad', 'off'), /^Ran: await game\.pad\('off'\)\n- 패드: off\n- 장치: 없음/);
+    await assert.rejects(io('pad', 'wii'), /pad \[xbox\|ps5\|ps4\|switch\|generic\|off\] 꼴이어야 합니다/);
     await assert.rejects(io('pointer', 'HoldBox', 'press'), /pointer <ref\|주소> <down\|up\|enter\|exit> 꼴이어야 합니다/);
     await assert.rejects(io('long-press', 'HoldBox', '--duration', '9'), /long-press 은 8초 안이어야 합니다/);
     await assert.rejects(io('touch-up', 'x'), /touch-up <손가락 번호> 꼴이어야 합니다/);
@@ -348,7 +478,7 @@ test('입력 명령 — Ran 줄이 kit 의 game.* 이름 · 인자 꼴로 찍히
   }
 });
 
-test('iPhone — usbmuxd 로 USB 폰(Wi-Fi 쪽 말고)의 13100 에 붙고, 스크린샷은 게임이 찍는다', async () => {
+test('iPhone — usbmuxd 로 USB 폰(Wi-Fi 쪽 말고)의 13100 에 붙고, 스크린샷은 게임이 찍는다', { skip: WIN && 'usbmuxd 는 Unix 소켓 — Windows 에서는 --ios 를 거절한다' }, async () => {
   const path = join(dir, 'usbmuxd.sock');
   const mux = await fakeUsbmux(game, path);
   process.env.USBMUXD_SOCKET_ADDRESS = `UNIX:${path}`;
@@ -365,6 +495,11 @@ test('iPhone — usbmuxd 로 USB 폰(Wi-Fi 쪽 말고)의 13100 에 붙고, 스�
     delete process.env.USBMUXD_SOCKET_ADDRESS;
     mux.server.close();
   }
+});
+
+test('Windows 에서는 --usb · --ios 를 열기 전에 거절한다', { skip: !WIN && 'Windows 에서만' }, async () => {
+  await assert.rejects(cli('-s=winusb', 'open', '--usb'), /Windows 에서는 --usb 를 못 씁니다 — --pc · --relay · 디바이스 팜만 됩니다/);
+  await assert.rejects(cli('-s=winios', 'open', '--ios'), /Windows 에서는 --ios 를 못 씁니다/);
 });
 
 test('--usb · --pc · --ios 는 하나만 쓰고, PC 는 팜용 PLATFORM_APP 을 띄우지 않는다', async () => {
@@ -410,7 +545,7 @@ test('relay 로 연 게임은 conform 이 일시정지 줄(Appium 없음) 말고
   let ws = await fakeRelayGame(game, url);
   try {
     assert.match(await cli('-s=relay', 'open', '--relay', url), /^세션 relay 열림 — com\.fake\.game 1\.0 \(relay · macOS · FakeBook\) · fake 0 · SDK 0\.3\.0/m);
-    assert.match(await cli('-s=relay', 'conform'), /\n통과 52 · 실패 0 · 미실행 1$/);
+    assert.match(await cli('-s=relay', 'conform'), /\n통과 58 · 실패 0 · 미실행 1$/);
     ws.close();
     // relay 가 끊김을 알기 전이면 502(끊겼습니다), 안 뒤면 404(붙어 있지 않습니다)
     await assert.rejects(cli('-s=relay', 'snapshot'), /relay 에 붙어 있지 않습니다|relay 와 끊겼습니다/);

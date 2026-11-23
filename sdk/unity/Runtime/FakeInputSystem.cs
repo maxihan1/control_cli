@@ -1,4 +1,4 @@
-// 새 Input System 을 쓰는 게임에 같은 가짜 입력을 장치 이벤트로 넣는다 — 폰은 손가락마다 Touchscreen, PC 는 마우스 손가락을 Mouse 로, 키는 Keyboard · Gamepad, 기울기는 Accelerometer
+// 새 Input System 을 쓰는 게임에 같은 가짜 입력을 장치 이벤트로 넣는다 — 폰은 손가락마다 Touchscreen, PC 는 마우스 손가락을 Mouse 로, 키는 Keyboard, 패드 키는 FakePad 의 가상 패드, 기울기는 Accelerometer
 #if QAHUB_SDK_INPUTSYSTEM && ENABLE_INPUT_SYSTEM
 using System;
 using System.Collections.Generic;
@@ -14,7 +14,6 @@ namespace ControlCli
         private static Touchscreen _screen;
         private static Mouse _mouse;
         private static Keyboard _keyboard;
-        private static Gamepad _gamepad;
         private static Accelerometer _accelerometer;
         private static uint _queuedAt;
         private static int _queuedFrame;
@@ -24,7 +23,7 @@ namespace ControlCli
         private static bool _fingerDown;
         private static Vector2 _mouseAt, _sentAt;
         private static int _sentButtons;
-        private static bool _mouseDirty, _keysSent, _padSent;
+        private static bool _mouseDirty, _keysSent;
         private static Vector3? _sentTilt;
 
         // 넣은 이벤트는 다음 Input System 업데이트(보통 다음 프레임 처음, FixedUpdate 처리 게임이면 다음 FixedUpdate)에 처리된다 — 그 전까지 바쁘다.
@@ -35,7 +34,7 @@ namespace ControlCli
         // 거둘 때(FakeInput.Reset) — 앞서 넣은 이벤트를 더 기다리지 않는다.
         public static void Forget() => _queued = false;
 
-        // 폰에는 진짜 장치가 늘 있다 — 새로 만든 장치는 PlayerInput 짝짓기 밖이라 있는 것부터 쓴다.
+        // 폰에는 진짜 장치가 늘 있다 — 새로 만든 장치는 PlayerInput 짝짓기 밖이라 있는 것부터 쓴다. 패드만은 늘 자기 장치다(FakePad).
         private static T Device<T>(ref T kept, T current) where T : InputDevice
         {
             if (kept == null || !kept.added) kept = current != null && current.added ? current : InputSystem.AddDevice<T>();
@@ -109,16 +108,15 @@ namespace ControlCli
             _mouseDirty = false;
         }
 
-        // 누른 키 전부를 한 상태로 — 키보드 키는 Keyboard, JoystickButton 은 Gamepad. 한 번이라도 보낸 장치는 다 뗄 때도 보낸다.
+        // 누른 키 전부를 한 상태로 — 키보드 키는 Keyboard, JoystickButton 은 가상 패드(FakePad). 한 번이라도 보낸 장치는 다 뗄 때도 보낸다.
         private static void PublishKeys()
         {
             var keys = new List<Key>();
-            var pad = default(GamepadState);
             var padUsed = false;
             foreach (var kv in FakeKeys.All)
             {
                 if (TryKey(kv.Key, out var key)) keys.Add(key);
-                else padUsed |= Pad(kv.Key, kv.Value, ref pad);
+                else padUsed |= FakePad.Is(kv.Key);
             }
             if (keys.Count > 0 || _keysSent)
             {
@@ -126,37 +124,7 @@ namespace ControlCli
                 _keysSent = keys.Count > 0;
                 Queued();
             }
-            if (padUsed || _padSent)
-            {
-                InputSystem.QueueStateEvent(Device(ref _gamepad, Gamepad.current), pad);
-                _padSent = padUsed;
-                Queued();
-            }
-        }
-
-        // AltTester 와 같은 짝 — JoystickButton0~15 는 단추(6 · 7 은 방아쇠 값), 16~19 는 왼 스틱 x · y · 오른 스틱 x · y(값 = 세기).
-        private static readonly GamepadButton[] Buttons =
-        {
-            GamepadButton.South, GamepadButton.East, GamepadButton.West, GamepadButton.North, GamepadButton.LeftShoulder, GamepadButton.RightShoulder,
-            GamepadButton.LeftTrigger, GamepadButton.RightTrigger, GamepadButton.Select, GamepadButton.Start, GamepadButton.LeftStick, GamepadButton.RightStick,
-            GamepadButton.DpadUp, GamepadButton.DpadDown, GamepadButton.DpadLeft, GamepadButton.DpadRight,
-        };
-
-        private static bool Pad(KeyCode code, float power, ref GamepadState pad)
-        {
-            var n = code - KeyCode.JoystickButton0;
-            switch (n)
-            {
-                case 6: pad.leftTrigger = Mathf.Abs(power); return true;
-                case 7: pad.rightTrigger = Mathf.Abs(power); return true;
-                case 16: pad.leftStick.x = power; return true;
-                case 17: pad.leftStick.y = power; return true;
-                case 18: pad.rightStick.x = power; return true;
-                case 19: pad.rightStick.y = power; return true;
-            }
-            if (n < 0 || n >= Buttons.Length) return false;
-            pad = pad.WithButton(Buttons[n]);
-            return true;
+            if (padUsed || FakePad.Sent) FakePad.Publish();
         }
 
         private static void PublishTilt()
@@ -180,7 +148,7 @@ namespace ControlCli
             return _accelerometer;
         }
 
-        private static void Queued()
+        internal static void Queued()
         {
             _queuedAt = InputState.updateCount;
             _queuedFrame = Time.frameCount;

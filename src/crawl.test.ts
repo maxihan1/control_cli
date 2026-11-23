@@ -60,7 +60,17 @@ test('버튼을 하나씩 눌러 새 창을 찍고 닫는다 — 창 안은 한 
         ['/HudCanvas/PanelLayer/ItemTip', 'ItemTip', '/HudCanvas/PanelLayer/InventoryPanel /HudCanvas/PanelLayer/InventoryPanel/Grid/Slot[0] 검'],
       ],
     );
-    assert.equal(await readFile(join(out, '002.yml'), 'utf8'), '# /HudCanvas/PanelLayer/ShopPanel\n# 연 곳: scene:World 의 ShopButton 「상점」\n- ShopPanel\n  - Text Title "상점"\n  - Button BuyButton\n    - Text Text "구매"\n  - Button CloseButton\n    - Text Text "닫기"\n');
+    assert.equal(await readFile(join(out, '002.yml'), 'utf8'), [
+        '# /HudCanvas/PanelLayer/ShopPanel',
+        '# 연 곳: scene:World 의 ShopButton 「상점」',
+        '- ShopPanel [주소=ShopPanel]',
+        '  - Text Title "상점" [주소=Title]',
+        '  - Button BuyButton [주소=BuyButton]',
+        '    - Text Text "구매" [주소=/HudCanvas/PanelLayer/ShopPanel/BuyButton/Text]',
+        '  - Button CloseButton [주소=CloseButton]',
+        '    - Text Text "닫기" [주소=/HudCanvas/PanelLayer/ShopPanel/CloseButton/Text]',
+        '',
+      ].join('\n'));
     assert.ok(!fake.clicks.some((p) => p.includes('Slot[1]')));
     // 다 닫고 처음 화면으로 돌아왔다
     assert.equal(fake.roots[0].children![0].children!.length, 0);
@@ -98,4 +108,17 @@ test('이름이 같은 뿌리(Canvas 둘) 아래 버튼도 누르고, 도중 오
   assert.match(await crawl(game, { out, exclude: [] }), /- 창 2개 · 누른 버튼 1개 · \d+초\n- 멈춘 까닭: 오류로 멈춤: 디바이스 팜이 게임 명령을 HTTP 409/);
   const list = JSON.parse(await readFile(join(out, 'list.json'), 'utf8')) as WindowRecord[];
   assert.deepEqual(list.map((r) => r.주소), ['scene:Boot', '/Canvas[1]/Layer/Menu']);
+});
+
+test('줄인 목록에서 빠진 중간 오브젝트도 줄마다 붙은 주소에 들어간다', async () => {
+  const canvas = node('Canvas', {}, []);
+  const popup: FakeNode = node('Popup', {}, [node('Frame', {}, [node('Body', {}, [button('OkButton', '확인')])])]);
+  popup.children!.push(button('CloseButton', '닫기', () => void canvas.children!.pop()));
+  canvas.children!.push(button('OpenButton', '열기', () => void canvas.children!.push(popup)));
+  const fake = new FakeGame([canvas]);
+  const out = await mkdtemp(join(tmpdir(), 'crawl-'));
+  await crawl(gameOf(fake), { out, exclude: [] });
+  const text = await readFile(join(out, '002.yml'), 'utf8');
+  assert.ok(!text.includes('- Frame') && !text.includes('- Body'), text);
+  assert.match(text, /- Button OkButton \[주소=OkButton\]\n {4}- Text Text "확인" \[주소=\/Canvas\/Popup\/Frame\/Body\/OkButton\/Text\]\n/);
 });

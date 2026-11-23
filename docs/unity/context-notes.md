@@ -11,7 +11,7 @@
 
 ## 2026-11-03 — 계획 검토에서 고친 것
 
-- Input System 은 새 장치를 만들지 않고 `Touchscreen.current` 를 먼저 쓴다 — 새 장치는 PlayerInput 짝짓기 밖이다
+- Input System 은 새 장치를 만들지 않고 `Touchscreen.current` 를 먼저 쓴다 — 새 장치는 PlayerInput 짝짓기 밖이다. **패드만은 2026-11-17(SDK 0.12.0)에 뒤집었다** — 실물 패드(DualSense · Switch Pro · Xbox)는 상태 형식이 layout 마다 달라 `Gamepad.current` 에 `GamepadState` 를 보내면 예외도 로그도 없이 버려진다. 패드 입력은 늘 SDK 가 만든 가상 패드에 넣고, `PlayerInput`(한 명 구성)은 그 패드의 버튼이 눌리면 조작 묶음을 바꾼다(이 맥 실측 — [docs/console/context-notes.md](../console/context-notes.md)). 터치 · 마우스 · 키보드는 그대로 있는 장치부터 쓴다
 - `UnityEngine.TouchPhase` 와 `InputSystem.TouchPhase` 는 숫자가 달라(Began 0 vs 1) 명시적으로 짝짓는다
 - UI Toolkit 「옛 Input + EventSystem 없음」은 SDK 가 EventSystem 을 만들지 않고 panel 에 Pointer 이벤트를 보낸다 — 만들면 QA 빌드에서만 `EventSystem.current` 가 달라진다
 - 하네스 플랫폼 축은 뺀다 — SDK 에 플랫폼 `#if` 가 없고, 플랫폼 API 차이(예: CS0117 IsJoystickPreconfigured)는 PlaybackEngines DLL 에서 나와 정의로는 못 잡는다

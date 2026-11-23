@@ -70,7 +70,7 @@ namespace ControlCli
                 var step = new Step { Deep = deep, Name = target.Substring(nameStart, i - nameStart) };
                 while (i < target.Length && target[i] == '[')
                 {
-                    var end = target.IndexOf(']', i);
+                    var end = Close(target, i);
                     if (end < 0) throw Bad(target, target.Substring(i) + " 를 닫는 ] 가 없습니다");
                     var inside = target.Substring(i + 1, end - i - 1);
                     // 조건 · 순번 꼴이 아닌 [ ] 는 이름의 일부다([DOTween] · Slot[A]) — 단계 전체가 이름이고 끝의 [숫자]만 순번(옛 경로 규칙 그대로).
@@ -95,6 +95,23 @@ namespace ControlCli
                 steps.Add(step);
             }
             return steps;
+        }
+
+        // [ 를 닫는 ] — = · , 바로 뒤(빈칸 건너)에서 연 따옴표 안의 ] 는 값의 일부다([contains(@text,"[QA] 갑옷")]). 안 닫힌 따옴표는 보통 글자다.
+        private static int Close(string target, int i)
+        {
+            for (var j = i + 1; j < target.Length; j++)
+            {
+                var ch = target[j];
+                if (ch == ']') return j;
+                if (ch != '"' && ch != '\'') continue;
+                var k = j - 1;
+                while (k > i && char.IsWhiteSpace(target[k])) k--;
+                if (k <= i || (target[k] != '=' && target[k] != ',')) continue;
+                var q = target.IndexOf(ch, j + 1);
+                if (q > 0) j = q;
+            }
+            return -1;
         }
 
         private static void AddCond(Step step, string inside, string target)
@@ -197,17 +214,12 @@ namespace ControlCli
 #if QAHUB_SDK_UITK
                     if (item.Ve != null)
                     {
-                        list.Add(item.Ve.GetType().Name);
-                        list.Add(item.Ve.GetType().FullName);
+                        Types(list, item.Ve.GetType());
                         break;
                     }
 #endif
                     foreach (var c in item.Go.GetComponents<Component>())
-                        if (c != null)
-                        {
-                            list.Add(c.GetType().Name);
-                            list.Add(c.GetType().FullName);
-                        }
+                        if (c != null) Types(list, c.GetType());
                     break;
                 case "tag":
                     if (item.Go != null) list.Add(item.Go.tag);
@@ -230,6 +242,16 @@ namespace ControlCli
                     break;
             }
             return list;
+        }
+
+        // 물려받은 타입 이름도 — UIHUDButton 은 [@component=Button] 에도 맞는다(Props.ComponentOf 와 같은 규칙).
+        private static void Types(List<string> list, Type t)
+        {
+            for (; t != null; t = t.BaseType)
+            {
+                list.Add(t.Name);
+                list.Add(t.FullName);
+            }
         }
 
         // 줄을 SDK 가 받는 경로로 — 같은 이름 형제가 있으면 [순번](CLI snapshot 의 flatten 과 같은 셈). all 이면 꺼진 형제까지 센다.
@@ -270,13 +292,33 @@ namespace ControlCli
             if (r.Trails.Count == 0)
             {
                 missing = true;
-                problem = (all ? "" : "켜진 ") + "오브젝트 중에 " + target + " 이 없습니다" + (bare || r.Stop < 0 ? "" : " (" + path[r.Stop].Raw + " 에서 끊김)");
+                problem = (all ? "" : "켜진 ") + "오브젝트 중에 " + target + " 이 없습니다" + (bare || r.Stop < 0 ? "" : " (" + path[r.Stop].Raw + " 에서 끊김)") + (r.Stop < 0 ? "" : Near(path[r.Stop].Name, all));
                 return null;
             }
             problem = bare
                 ? target + " 이 " + r.Trails.Count + "개라 하나를 고를 수 없습니다 — 경로로 주소를 씁니다"
                 : target + " 에 맞는 것이 " + r.Trails.Count + "개라 하나를 고를 수 없습니다 — [순번] · 조건을 더하거나 find-all 로 경로를 봅니다";
             return null;
+        }
+
+        // 끊긴 단계 이름이 (대소문자 없이) 든 것 셋까지 — 실행 중에 만든 Enemy(Clone) · 복사한 Button (1) · 다른 부모 아래로 옮긴 것을 알린다.
+        private static string Near(string name, bool all)
+        {
+            if (name == "*" || name == "..") return "";
+            var found = new List<string>();
+            Near(Tree.Roots(all), new List<Item>(), name, all, found);
+            return found.Count == 0 ? "" : " — 이름이 비슷한 것: " + string.Join(" · ", found);
+        }
+
+        private static void Near(List<Item> level, List<Item> trail, string name, bool all, List<string> found)
+        {
+            foreach (var n in level)
+            {
+                if (found.Count == 3) return;
+                var t = With(trail, n);
+                if (n.Name.IndexOf(name, StringComparison.OrdinalIgnoreCase) >= 0) found.Add(PathOf(t, all));
+                Near(Tree.ChildrenOf(n, all), t, name, all, found);
+            }
         }
 
         // find-all — 여럿이 맞아도 된다. 꼴이 틀리면 null 과 까닭.
@@ -310,7 +352,8 @@ namespace ControlCli
                     for (var t = hit.gameObject != null ? hit.gameObject.transform : null; t != null; t = t.parent)
                         if (Tree.TrailOf(new Item(t.gameObject), false) != null) return new Item(t.gameObject);
             }
-            if (cam == null) cam = Camera.main;
+            // 좌표에는 오브젝트가 없어 Default layer 를 그리는 카메라로 쏜다.
+            if (cam == null) cam = Tree.MainCamera(0);
             if (cam == null) return default;
             var ray = cam.ScreenPointToRay(p);
             GameObject best = null;

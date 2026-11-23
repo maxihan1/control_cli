@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 #if QAHUB_SDK_UITK
@@ -141,7 +142,7 @@ namespace ControlCli
             return true;
         }
 
-        // 누를 수 있는 것의 종류 — uGUI 는 Selectable, UI Toolkit 은 컨트롤 요소. 창 훑기가 이것으로 누를 것을 고른다.
+        // 누를 수 있는 것의 종류 — uGUI 는 Selectable(없으면 누름을 받는 컴포넌트), UI Toolkit 은 컨트롤 요소. 창 훑기가 이것으로 누를 것을 고른다.
         public static string KindOf(Item item)
         {
 #if QAHUB_SDK_UITK
@@ -155,7 +156,17 @@ namespace ControlCli
             }
 #endif
             var selectable = item.Go.GetComponent<Selectable>();
-            return selectable != null ? selectable.GetType().Name : null;
+            if (selectable != null) return selectable.GetType().Name;
+            var clicker = Clicker(item.Go);
+            return clicker != null ? clicker.GetType().Name : null;
+        }
+
+        // Selectable 없이 누름을 받는 컴포넌트 — EventTrigger · OnScreenButton · 게임이 만든 슬롯 · 카드(IPointerClickHandler · IPointerDownHandler).
+        private static Behaviour Clicker(GameObject go)
+        {
+            foreach (var c in go.GetComponents<Behaviour>())
+                if (c is IPointerClickHandler || c is IPointerDownHandler) return c;
+            return null;
         }
 
         public static bool Interactable(Item item)
@@ -164,7 +175,10 @@ namespace ControlCli
             if (item.Ve != null) return item.Ve.enabledInHierarchy;
 #endif
             var selectable = item.Go.GetComponent<Selectable>();
-            return selectable != null && selectable.IsInteractable();
+            if (selectable != null) return selectable.IsInteractable();
+            // ponytail: 켜졌는지만 본다 — CanvasGroup(interactable · blocksRaycasts) · raycastTarget 은 안 본다. 꺼진 칸을 누른다고 잡히면 그때 더한다.
+            var clicker = Clicker(item.Go);
+            return clicker != null && clicker.isActiveAndEnabled;
         }
 
         public static string TextOf(Item item)
@@ -190,6 +204,21 @@ namespace ControlCli
             var tmp = go.GetComponent<TMPro.TMP_Text>();
             if (tmp != null) return (tmp.text ?? "").TrimEnd((char)0x200B);
 #endif
+            return null;
+        }
+
+        // 누를 것에 제 글자가 없으면 켜진 자식 중 첫 글자 — 버튼 글자는 대개 자식 Text 에 있다. 안쪽의 다른 누를 것은 건너뛴다.
+        // find 답(text 명령)에만 쓴다 — 트리 · 선택자(@text)는 제 글자만 봐야 버튼과 자식 Text 가 같이 맞지 않는다.
+        public static string Label(Item item)
+        {
+            foreach (var c in ChildrenOf(item))
+            {
+                if (KindOf(c) != null) continue;
+                var t = TextOf(c);
+                if (!string.IsNullOrEmpty(t)) return t;
+                t = Label(c);
+                if (t != null) return t;
+            }
             return null;
         }
 
@@ -247,13 +276,24 @@ namespace ControlCli
             var go = item.Go;
             var rect = ScreenRect(go);
             if (rect != null) return rect.Value.center;
-            if (cam == null) cam = Camera.main;
+            if (cam == null) cam = MainCamera(go.layer);
             if (cam == null) return null;
             var renderer = go.GetComponentInChildren<Renderer>();
             var world = renderer != null ? renderer.bounds.center : go.transform.position;
             var p = cam.WorldToScreenPoint(world);
             // 카메라 뒤는 화면에 없다.
             return p.z > 0 ? new Vector2(p.x, p.y) : (Vector2?)null;
+        }
+
+        // 주 카메라(MainCamera 태그) — 없으면 화면에 그리는 켜진 카메라 중 그 layer 를 그리는 것, 여럿이면 맨 위(depth 가 큰 것).
+        // ponytail: UI 만 그리는 위 카메라가 같은 layer 를 그리면 그것을 고른다 — 잘못 고르는 게임이 나오면 camera 칸으로 준다.
+        public static Camera MainCamera(int layer)
+        {
+            if (Camera.main != null) return Camera.main;
+            Camera best = null;
+            foreach (var c in Camera.allCameras)
+                if (c.targetTexture == null && (c.cullingMask & (1 << layer)) != 0 && (best == null || c.depth > best.depth)) best = c;
+            return best;
         }
 
         // 화면 사각형(왼쪽 아래가 0,0) — 오브젝트 윤곽을 그릴 때. UI 는 제 사각형, 월드 오브젝트는 켜진 렌더러 bounds 를 합친 상자를 카메라로 비춘다.
@@ -266,7 +306,7 @@ namespace ControlCli
             var go = item.Go;
             var rect = ScreenRect(go);
             if (rect != null) return rect;
-            if (cam == null) cam = Camera.main;
+            if (cam == null) cam = MainCamera(go.layer);
             if (cam == null) return null;
             // ponytail: 켜진 렌더러를 다 합친다 — 큰 파티클 · 그림자 판이 붙은 오브젝트는 사각형이 커진다. 문제면 ParticleSystemRenderer 를 뺀다.
             Bounds? box = null;

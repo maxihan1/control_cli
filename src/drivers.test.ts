@@ -20,7 +20,8 @@ Object.assign(WAIT, { intervalMs: 5 });
 Object.assign(CONFORM, { waitMs: 200, holdS: 0.1, dragS: 0, keyS: 0 });
 
 const ROOT = join(import.meta.dirname, '..');
-const has = (tool: string) => spawnSync('sh', ['-c', `command -v ${tool}`]).status === 0;
+// Windows 에는 sh 가 없다 — where 가 같은 일을 한다.
+const has = (tool: string) => (process.platform === 'win32' ? spawnSync('where', [tool]) : spawnSync('sh', ['-c', `command -v ${tool}`])).status === 0;
 
 test('드라이버 파일의 생성 칸이 protocol/commands.json 과 같다 — 다르면 npm run drivers', () => {
   for (const d of drivers()) assert.equal(d.now, d.want, `${d.file} 가 commands.json 과 다릅니다 — npm run drivers`);
@@ -34,12 +35,12 @@ const BRIDGES = [
 ];
 
 for (const b of BRIDGES) {
-  test(`${b.lang} 다리 — 가짜 표준 화면(TCP)에 conform 52줄 통과 · 일시정지만 미실행`, { skip: !has(b.tool) && `${b.tool} 없음` }, async () => {
+  test(`${b.lang} 다리 — 가짜 표준 화면(TCP)에 conform 58줄 통과 · 일시정지만 미실행`, { skip: !has(b.tool) && `${b.tool} 없음` }, async () => {
     const pc = await fakeTcp(standardScreen());
     const d = driverLink(b.cmd, { ...process.env, CONTROL_CLI_GAME: `tcp://127.0.0.1:${pc.port}` });
     try {
       const r = await conform(new Game(d.link));
-      assert.deepEqual([r.passed, r.failed, r.skipped], [52, 0, 1], report(r));
+      assert.deepEqual([r.passed, r.failed, r.skipped], [58, 0, 1], report(r));
     } finally {
       d.close();
       pc.server.close();
@@ -57,7 +58,7 @@ for (const b of BRIDGES) {
       const games = (await (await fetch(`${url}/games`, { headers: { Authorization: 'Bearer s3cret' } })).json()) as { value: { key: string }[] };
       assert.deepEqual(games.value.map((g) => g.key), ['com.fake.game@fake-dev']);
       const r = await conform(new Game(d.link));
-      assert.deepEqual([r.passed, r.failed, r.skipped], [52, 0, 1], report(r));
+      assert.deepEqual([r.passed, r.failed, r.skipped], [58, 0, 1], report(r));
       await assert.rejects(new Game(wrong.link).ping(), /토큰/);
     } finally {
       d.close();
@@ -82,7 +83,7 @@ test('CLI conform --driver — PC 세션 주소를 다리에 넘기고 머리에
     await cli('-s=drv', 'open', '--pc', '--port', String(pc.port));
     const out = await cli('-s=drv', 'conform', '--port', String(pc.port), '--driver', BRIDGES[0].cmd);
     assert.match(out, /^드라이버 — python3 .*\nconform — com\.fake\.game/);
-    assert.match(out, /통과 52 · 실패 0 · 미실행 1$/);
+    assert.match(out, /통과 58 · 실패 0 · 미실행 1$/);
     await cli('-s=drv', 'close');
   } finally {
     pc.server.close();
@@ -135,12 +136,14 @@ print('ok')
 // Recorder 가 내보낸 테스트 파일을 그 언어 도구로 실제로 돌린다 — 같은 기록(RECORDED)이 가짜 표준 화면에 초록
 type Ran = { code: number | null; text: string };
 const EXPORTS: { lang: Lang; tool: string; run: (dir: string, file: string, env: NodeJS.ProcessEnv) => Promise<Ran> }[] = [
-  { lang: 'py', tool: 'python3', run: (dir, file, env) => exec('python3', [file], { ...env, PYTHONPATH: join(ROOT, 'drivers/python') }, dir) },
+  // 내보낸 테스트는 끝에 한글을 찍는다 — 콘솔 인코딩이 UTF-8 이 아닌 Windows runner(cp1252)에서도 찍히게.
+  { lang: 'py', tool: 'python3', run: (dir, file, env) => exec('python3', [file], { ...env, PYTHONPATH: join(ROOT, 'drivers/python'), PYTHONIOENCODING: 'utf-8' }, dir) },
   {
     lang: 'java',
     tool: 'java',
     run: async (dir, file, env) => {
-      const built = await exec('javac', ['-d', dir, join(ROOT, 'drivers/java/controlcli/ControlCli.java')]);
+      // JDK 17 은 Windows 에서 소스를 시스템 인코딩으로 읽는다 — 드라이버 파일은 UTF-8.
+      const built = await exec('javac', ['-encoding', 'UTF-8', '-d', dir, join(ROOT, 'drivers/java/controlcli/ControlCli.java')]);
       return built.code === 0 ? exec('java', ['-cp', dir, file], env, dir) : built;
     },
   },

@@ -124,17 +124,52 @@ static func text_of(n):
 		return n.get("text")
 	return null
 
-# 누를 수 있는 것의 종류 — 창 훑기 · tree 가 누를 것을 고른다.
+# 누를 것에 제 글자가 없으면(TextureButton · 스크립트 칸) 보이는 자식 중 첫 글자 — 안쪽의 다른 누를 것은 건너뛴다. find 답에만 쓴다(트리 · @text 는 제 글자만).
+static func label(n: Node):
+	for c in children(n, false):
+		if kind_of(c) != "":
+			continue
+		var t = text_of(c)
+		if t != null and t != "":
+			return t
+		t = label(c)
+		if t != null:
+			return t
+	return null
+
+# 누를 수 있는 것의 종류 — 창 훑기 · tree 가 누를 것을 고른다. 버튼 · 입력칸이 아니면 게임 스크립트가 누름을 받는 것(스크립트 이름).
 static func kind_of(n) -> String:
 	if n is BaseButton or n is LineEdit or n is TextEdit or n is Slider or n is SpinBox:
 		return n.get_class()
+	if _clicker(n):
+		return classes(n)[0]
 	return ""
+
+# Control 은 _gui_input · gui_input 연결, 물리 오브젝트는 _input_event · input_event 연결 — 게임 스크립트가 받을 때만(엔진 속 연결은 뺀다).
+# ponytail: 누름 · 바퀴 · 끌기를 가르지 못해 스크롤 칸 · 끄는 칸도 종류가 붙는다.
+static func _clicker(n) -> bool:
+	var sig := "gui_input" if n is Control else "input_event" if (n is CollisionObject2D or n is CollisionObject3D) else ""
+	if sig == "":
+		return false
+	var s: Script = n.get_script()
+	while s != null:
+		for m in s.get_script_method_list():
+			if m["name"] == "_" + sig:
+				return true
+		s = s.get_base_script()
+	for c in n.get_signal_connection_list(sig):
+		var o = c["callable"].get_object()
+		if o != null and o.get_script() != null:
+			return true
+	return false
 
 static func interactable(n) -> bool:
 	if n is BaseButton:
 		return not n.disabled
 	if n is LineEdit or n is TextEdit or n is Slider or n is SpinBox:
 		return n.editable
+	if _clicker(n):
+		return n.mouse_filter != Control.MOUSE_FILTER_IGNORE if n is Control else n.input_pickable
 	return false
 
 static func dump() -> Array:
@@ -162,6 +197,24 @@ static func _bad(target: String, why: String) -> String:
 static func _re(p: String) -> RegEx:
 	return RegEx.create_from_string(p)
 
+# [ 를 닫는 ] — = · , 바로 뒤(빈칸 건너)에서 연 따옴표 안의 ] 는 값의 일부다([contains(@text,"[QA] 갑옷")]). 안 닫힌 따옴표는 보통 글자다.
+static func _close(target: String, i: int) -> int:
+	var j := i + 1
+	while j < target.length():
+		var ch := target[j]
+		if ch == "]":
+			return j
+		if ch == "\"" or ch == "'":
+			var k := j - 1
+			while k > i and target[k] == " ":
+				k -= 1
+			if k > i and (target[k] == "=" or target[k] == ","):
+				var q := target.find(ch, j + 1)
+				if q > 0:
+					j = q
+		j += 1
+	return -1
+
 # / 로 시작하지 않으면 이름 그대로(아래 어디서나 그 이름). 꼴이 틀리면 까닭 글자를 돌려준다.
 static func steps(target: String):
 	if target == "":
@@ -182,7 +235,7 @@ static func steps(target: String):
 			i += 1
 		var step := {"raw": "", "deep": deep, "name": name, "conds": [], "index": null}
 		while i < target.length() and target[i] == "[":
-			var end := target.find("]", i)
+			var end := _close(target, i)
 			if end < 0:
 				return _bad(target, "%s 를 닫는 ] 가 없습니다" % target.substr(i))
 			var inside := target.substr(i + 1, end - i - 1)
@@ -308,10 +361,28 @@ static func find(target: String, all: bool) -> Dictionary:
 	var bare := not target.begins_with("/")
 	if trails.is_empty():
 		var where := "" if bare or not r.has("stop") else " (%s 에서 끊김)" % path[r["stop"]]["raw"]
-		return {"problem": "%s오브젝트 중에 %s 이 없습니다%s" % ["" if all else "켜진 ", target, where], "missing": true}
+		var hint := _near(path[r["stop"]]["name"], all) if r.has("stop") else ""
+		return {"problem": "%s오브젝트 중에 %s 이 없습니다%s%s" % ["" if all else "켜진 ", target, where, hint], "missing": true}
 	if bare:
 		return {"problem": "%s 이 %d개라 하나를 고를 수 없습니다 — 경로로 주소를 씁니다" % [target, trails.size()], "missing": false}
 	return {"problem": "%s 에 맞는 것이 %d개라 하나를 고를 수 없습니다 — [순번] · 조건을 더하거나 find-all 로 경로를 봅니다" % [target, trails.size()], "missing": false}
+
+# 끊긴 단계 이름이 (대소문자 없이) 든 것 셋까지 — 실행 중에 만든 노드 · 복사한 노드 · 다른 부모 아래로 옮긴 것을 알린다.
+static func _near(name: String, all: bool) -> String:
+	if name == "*" or name == "..":
+		return ""
+	var found := []
+	_near_walk(roots(all), [], name, all, found)
+	return "" if found.is_empty() else " — 이름이 비슷한 것: " + " · ".join(found)
+
+static func _near_walk(level: Array, trail: Array, name: String, all: bool, found: Array) -> void:
+	for n in level:
+		if found.size() == 3:
+			return
+		var t: Array = trail + [n]
+		if String(n.name).findn(name) >= 0:
+			found.append(path_of(t, all))
+		_near_walk(children(n, all), t, name, all, found)
 
 static func find_all(target: String, all: bool):
 	var path = steps(target)

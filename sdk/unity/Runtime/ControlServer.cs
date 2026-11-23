@@ -33,13 +33,13 @@ namespace ControlCli
             "call", "set", "static-call", "static-get", "static-set", "pref-get", "pref-set", "pref-delete", "pref-clear",
             "timescale-get", "timescale-set", "scenes", "scene-load", "scene-unload",
             "find-all", "find-at", "components", "members", "text-set",
-            "touch-down", "touch-move", "touch-up", "swipe", "long-press", "mouse-move", "scroll", "key-down", "key-up", "tilt", "pointer", "input-reset",
+            "touch-down", "touch-move", "touch-up", "swipe", "long-press", "mouse-move", "scroll", "key-down", "key-up", "tilt", "pointer", "input-reset", "pad",
             "logs", "events", "sdk-log",
             // 명령 뒤는 기능(commands.json 의 features) — rect 는 find 답의 화면 사각형.
             "rect",
         };
         // sdk/unity/package.json 의 version 과 같다(src/protocol.test.ts 가 본다).
-        public const string SdkVersion = "0.11.0";
+        public const string SdkVersion = "0.13.0";
 
         private sealed class Request
         {
@@ -78,7 +78,7 @@ namespace ControlCli
             public float scale = -1;
             // 꺼진 오브젝트 · 숨은 요소도 찾는다(읽기 · 쓰기 명령만 — 누르기 · 끌기는 켜진 것만).
             public bool inactive;
-            // 월드 오브젝트의 화면 자리를 셀 카메라 오브젝트 주소 — 비면 Camera.main.
+            // 월드 오브젝트의 화면 자리를 셀 카메라 오브젝트 주소 — 비면 주 카메라(Tree.MainCamera).
             public string camera;
             public string component;
             public string format;
@@ -267,7 +267,21 @@ namespace ControlCli
         internal static string PingReply() =>
             "{\"ok\":true,\"app\":" + Json.Str(AppName()) + ",\"version\":" + Json.Str(Application.version)
             + ",\"engine\":\"unity\",\"engineVersion\":" + Json.Str(Application.unityVersion) + ",\"sdkVersion\":\"" + SdkVersion
-            + "\",\"protocol\":2,\"caps\":[\"" + string.Join("\",\"", Caps) + "\"]}";
+            + "\",\"protocol\":2,\"input\":\"" + InputMode + "\",\"pads\":[" + Pads() + "],\"caps\":[\"" + string.Join("\",\"", Caps) + "\"]}";
+
+        // 가짜 입력이 가는 길 — old 옛 Input Manager 감싸기 · new Input System 장치 · both 둘 다. 가상 패드는 Input System 일 때만 있다.
+#if QAHUB_SDK_INPUTSYSTEM && ENABLE_INPUT_SYSTEM
+#if ENABLE_LEGACY_INPUT_MANAGER
+        private const string InputMode = "both";
+#else
+        private const string InputMode = "new";
+#endif
+        // 이 빌드 · 이 플랫폼에서 만들 수 있는 가상 패드 종류 — conform 이 없는 종류의 줄을 건너뛴다.
+        private static string Pads() => "\"" + string.Join("\",\"", FakePad.Makeable()) + "\"";
+#else
+        private const string InputMode = "old";
+        private static string Pads() => "";
+#endif
 
         // WebGL 은 identifier 가 비어 있다 — 제품 이름으로 갈음해 relay key 가 「@…」로 비지 않게.
         private static string AppName() => string.IsNullOrEmpty(Application.identifier) ? Application.productName : Application.identifier;
@@ -412,6 +426,19 @@ namespace ControlCli
                     FakeInput.Run(FakeInput.Settle());
                     return "{\"ok\":true}";
                 }
+                case "pad":
+#if QAHUB_SDK_INPUTSYSTEM && ENABLE_INPUT_SYSTEM
+                    if (!string.IsNullOrEmpty(c.type))
+                    {
+                        var problem = FakePad.Use(c.type);
+                        if (problem != null) return Error(problem);
+                        // 없앤 장치 · 새 장치의 첫 상태를 게임이 받은 뒤에 답한다.
+                        FakeInput.Run(FakeInput.Settle());
+                    }
+                    return FakePad.Reply();
+#else
+                    return Error("이 게임은 Input System 을 쓰지 않아 가상 패드를 만들 수 없습니다");
+#endif
                 case "tilt":
                     if (float.IsNaN(c.x) || float.IsNaN(c.y) || float.IsNaN(c.z)) return Error("tilt 에 x · y · z 가 필요합니다");
                     FakeInput.Run(FakeInput.TiltFor(new Vector3(c.x, c.y, c.z), Mathf.Max(c.duration, 0)));
@@ -511,7 +538,7 @@ namespace ControlCli
         {
             var item = trail[trail.Count - 1];
             var sb = new StringBuilder("\"path\":").Append(Json.Str(Select.PathOf(trail, all)));
-            var text = Tree.TextOf(item);
+            var text = Tree.TextOf(item) ?? (Tree.KindOf(item) != null ? Tree.Label(item) : null);
             if (text != null) sb.Append(",\"text\":").Append(Json.Str(text));
             if (Tree.KindOf(item) != null) sb.Append(",\"interactable\":").Append(Tree.Interactable(item) ? "true" : "false");
             var ids = Select.Attr(item, "id");
@@ -533,7 +560,7 @@ namespace ControlCli
             return sb.ToString();
         }
 
-        // camera 칸 — 비면 null(Camera.main). 꺼진 Camera 컴포넌트도 화면 자리를 셈할 수 있다.
+        // camera 칸 — 비면 null(주 카메라 — Tree.MainCamera). 꺼진 Camera 컴포넌트도 화면 자리를 셈할 수 있다.
         private static bool CameraOf(string address, out Camera cam, out string problem)
         {
             cam = null;
@@ -754,7 +781,7 @@ namespace ControlCli
             return true;
         }
 
-        // A+LeftShift — KeyCode 이름을 + 로 이어 함께 누른다(대소문자 무시).
+        // A+LeftShift — KeyCode 이름을 + 로 이어 함께 누른다(대소문자 무시). Pad.<이름> 은 지금 가상 패드의 글자다(Pad.Cross · Pad.A · Pad.Up · Pad.LX).
         private static bool Keys(string text, out KeyCode[] keys, out string problem)
         {
             var parts = (text ?? "").Split('+');
@@ -764,8 +791,13 @@ namespace ControlCli
             {
                 // Enum.TryParse 는 숫자(8 → Backspace) · 쉼표(A,B → 두 값을 OR)도 받는다 — 이름으로 있는 키만.
                 var name = parts[i].Trim();
+                if (name.StartsWith("Pad.", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (!FakePad.TryKey(name, out keys[i], out problem)) return false;
+                    continue;
+                }
                 if (!int.TryParse(name, out _) && name.IndexOf(',') < 0 && Enum.TryParse(name, true, out keys[i]) && keys[i] != KeyCode.None && Enum.IsDefined(typeof(KeyCode), keys[i])) continue;
-                problem = "모르는 키입니다: " + parts[i] + " (KeyCode 이름 — Escape · Space · Return · A · Alpha1 · F1 · UpArrow · Mouse0 · JoystickButton0 …, 여럿은 A+LeftShift)";
+                problem = "모르는 키입니다: " + parts[i] + " (KeyCode 이름 — Escape · Space · Return · A · Alpha1 · F1 · UpArrow · Mouse0 · JoystickButton0 …, 가상 패드의 글자는 Pad.Cross · Pad.A …, 여럿은 A+LeftShift)";
                 return false;
             }
             return true;

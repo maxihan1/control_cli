@@ -7,7 +7,7 @@ Unity · Godot 게임을 자동화 테스트로 조작하는 SDK 와 CLI.
 - **CLI** — appium-cli 꼴. snapshot(줄인 트리 + 스크린샷) → ref → 액션, 액션마다 케이스에 붙일 코드 한 줄(`Ran:`)을 찍는다. 디바이스 팜 게임 명령 주소 · USB `adb forward` · PC(TCP) · USB iPhone(usbmuxd) 로 잇고, 길이 없는 게임은 게임이 relay 로 WebSocket 을 건다
 - **MCP** — `control-cli mcp`. AI 앱(Claude Desktop · Claude Code)이 띄우는 stdio MCP 서버로, 같은 명령을 도구로 내준다 — 셸 없는 AI 앱도 게임을 조작한다
 - **드라이버(다른 언어)** — Python · C# · Java · Robot Framework. `protocol/commands.json` 에서 명령마다 메서드를 만든 파일 하나씩(`drivers/`) — 아래 「드라이버」
-- **라이브러리** — CLI 와 같은 드라이버(`Game`)와 연결 길(`farmLink` · `relayLink` · `usbLink` · `tcpLink` · `iosLink`). test_platform kit 이 CLI 를 띄우지 않고 쓴다
+- **라이브러리** — CLI 와 같은 드라이버(`Game`)와 연결 길(`farmLink` · `relayLink` · `usbLink` · `tcpLink` · `iosLink`), PC 게임 띄우기 · 끄기(`launch` · `stop`). test_platform kit 이 CLI 를 띄우지 않고 쓴다
 
 0단계 실측 결과는 [docs/step0.md](docs/step0.md). Unity 지원 넓히기의 결정 기록은 [docs/unity/](docs/unity/context-notes.md).
 
@@ -18,13 +18,14 @@ Unity · Godot 게임을 자동화 테스트로 조작하는 SDK 와 CLI.
 | Unity 판 | 2021.3 · 2022.3 · 6000.0 | 6000.0 (Ashveil) · 6000.3 (샘플 macOS — conform 52/0/1) | 2021.3 · 2022.3 |
 | UI | uGUI · TextMeshPro · UI Toolkit(UIDocument) | uGUI | TMP · UI Toolkit (`layout` 은 uGUI 만) |
 | 입력 | 옛 Input · 새 Input System · 둘 다 | 옛 Input | Input System(Touchscreen · Mouse · Keyboard) |
-| 플랫폼 | Android(팜 · USB) · PC(Windows · macOS · Linux) · iOS(USB, 17+) · WebGL(브라우저 → relay) | Android · macOS · Linux(Docker) · WebGL(Chrome) | Windows · iOS (CLI 는 가짜 게임 · 가짜 usbmuxd 로 테스트) |
+| 가상 패드 | PlayStation(PS5 · PS4) · Switch · Xbox · 종류 없는 패드 — Input System 게임 · PC 빌드(SDK 0.12.0) | macOS(Unity 6000.0 · Input System 1.11.2, Unity 6000.3 · Input System 1.18.0) · Windows(GitHub runner · Unity 6000.0 · Input System 1.11.2 — xbox 가 `XInputControllerWindows`) — conform 패드 줄 넷 · Windows 실제 PC(디바이스 팜 pc-pc1 · Boss Room · Unity 6000.3 · Input System 1.18.0) — 패드 넷 · 십자키로 UI 선택 이동 · 확인 버튼이 콘솔 자리대로 · 창 초점 없이도 | 실물 패드를 꽂은 채 · `PlayerInput` 을 쓰는 실제 게임 |
+| 플랫폼 | Android(팜 · USB) · PC(Windows · macOS · Linux) · iOS(USB, 17+) · WebGL(브라우저 → relay) | Android · macOS · Linux(Docker) · WebGL(Chrome) · Windows(GitHub runner — GPU 없는 가상 기계 · 디바이스 팜 PC `pc-pc1` 에서 Boss Room zip 깔기 · 켜기 · 명령 · 스크린샷 · 녹화) | iOS (CLI 는 가짜 게임 · 가짜 usbmuxd 로 테스트) |
 | 드라이버 | Python · C# · Java · Robot Framework (TCP · relay) | Python · Java · C# · Robot (Unity · Godot macOS 앱) | — |
 | Godot | 4.5 이상 · Control UI · 3D 물리 · PC · Android · 웹(relay) | 4.5.2 · 4.7.2 Linux(CI xvfb) · 4.7.2 macOS 앱 · Android(USB) · 웹(Chrome) — conform 47/0/6 | iOS(빌드 안 함) |
 | 인스펙터 · Recorder | `control-cli inspect`(로컬 웹 화면) · 기록 → TS · Python · C# · Java · Robot | Unity 6000.0 · Godot 4.7.2 macOS 앱(기록 → `replay` · 다섯 언어 초록) · Chrome | — |
 
 「컴파일만 확인」은 `tools/unity-compile-check` 9개 구성과 CLI 테스트까지다 — 샘플 Unity 프로젝트(`sample/`)를 CI 가 판 · 입력 · 플랫폼마다 구워(`.github/workflows/sample.yml`, Unity 라이선스 Secret 필요) 실기기에서 돌려 봐야 「실기기로 확인」으로 옮긴다.
-못 가로채는 것 — 게임 코드가 `UnityEngine.Input` 을 전체 이름으로 부르는 곳 · DLL plugin 안의 입력. 디바이스 팜은 Android 만 받는다.
+못 가로채는 것 — 게임 코드가 `UnityEngine.Input` 을 전체 이름으로 부르는 곳 · DLL plugin 안의 입력. 디바이스 팜은 Android 폰과 윈도우 PC 를 받는다.
 
 ## 게임에 넣기 (QA 빌드만)
 
@@ -73,7 +74,7 @@ Unity 와 낱말이 다른 곳 — 주소는 노드 경로(Godot 는 같은 이�
 ## CLI
 
 ```bash
-npm i -D github:maxihan1/control_cli#v0.14.0
+npm i -D github:maxihan1/control_cli#v0.17.0
 npx control-cli help
 ```
 
@@ -104,6 +105,20 @@ npx control-cli release                           # 폰을 놓는다 — 팜이 
 
 `-s=<이름>` 으로 세션을 여럿 둔다(기본 `default`). 세션 파일 · 화면 파일은 `.control-cli/` 에 떨어진다.
 
+### 루프 — 디바이스 팜의 윈도우 PC
+
+디바이스 팜(VISION)에 윈도우 PC 가 `pc-<이름>` 기기로 붙어 있으면 폰처럼 잡고 쓴다(Devicefarm ADR-061). PC 에 CLI · 러너를 깔지 않는다 — Appium 만 빠지고 나머지는 폰 길과 같다.
+
+```bash
+npx control-cli hold --pc --minutes 30            # 빈 PC 하나를 잡는다(--udid pc-pc1 로 고를 수도)
+npx control-cli open --app ./BossRoom.zip         # 빌드 zip(맨 위나 한 폴더 아래에 exe 하나)을 VISION 이 깔고 켠다 — 게임이 답할 때까지 기다린다
+npx control-cli open --app BossRoomQA             # 이미 깔린 게임(VISION 게임 목록의 이름)은 깔지 않고 켠다
+npx control-cli close                             # VISION 이 켠 게임을 끈다
+npx control-cli release                           # PC 를 놓는다 — VISION 이 Unity 저장 데이터를 지우고, 녹화(video-N.mp4 · game.log) 받는 주소를 알려 준다
+```
+
+명령 · 스크린샷은 폰과 같은 게임 명령 주소로 가고 스크린샷은 게임(SDK)이 찍는다. VISION 이 Unity 게임을 창 모드 전체화면으로 켠다. 깐 빌드는 놓아도 PC 에 남고, 같은 게임의 새 zip 은 덮어쓴다. `PLATFORM_APP`(APK 주소)은 PC 에 쓰지 않는다.
+
 ### 루프 — USB
 
 ```bash
@@ -118,11 +133,14 @@ USB 는 `adb forward tcp:13100 tcp:13100` 을 걸고 TCP 로 보낸다. adb 는 
 
 ```bash
 npx control-cli open --pc --app ./Build/Game.app   # 띄우고 붙는다(.app 은 Contents/MacOS 안 실행 파일) — close 가 끈다
+npx control-cli open --pc --app C:\Games\MyGame\MyGame.exe   # Windows — .exe 를 그대로
 npx control-cli open --pc                          # 이미 켜 둔 게임에 붙는다
 npx control-cli key I                              # Ran: await game.key('I')
 ```
 
 PC 게임의 SDK 는 이 컴퓨터의 `127.0.0.1:13100` 에 열려 adb 없이 TCP 로 바로 붙는다. 스크린샷은 게임이 프레임 끝에서 찍고, 창 훑기의 뒤로 키는 `Escape` 다. QA 빌드는 창 초점이 없어도 돈다(SDK 가 `runInBackground` · Input System `IgnoreFocus` 를 켜고 uGUI 에 초점을 다시 알린다). 다만 화면은 켜져 있어야 한다 — macOS 는 디스플레이가 꺼지면 Metal 이 프레임을 못 내보내 게임이 멈추고 명령이 「멈췄거나 일시정지」로 실패한다. `PLATFORM_APP` 은 팜 · USB 의 APK 라 PC 는 `--app` 만 본다.
+
+**Windows** — CLI 가 Windows 에서 그대로 돈다(Node 22 · PowerShell · cmd). 게임은 실행 파일 폴더를 작업 폴더로 띄운다(macOS · Linux 도 같다). `--usb` · `--ios` 는 Windows 에서 열기 전에 거절한다 — `--pc` · `--relay` · 디바이스 팜만 된다. 토큰은 환경값으로 준다(Keychain 은 macOS 만). GPU 없는 가상 기계(GitHub `windows-latest`)에서도 Unity 빌드가 Microsoft Basic Render Driver 로 뜬다 — 다만 화면이 게임 창보다 작으면 창이 화면 크기로 잘려 UI 가 겹친다(runner 기본 1024×768 → `Set-DisplayResolution -Width 1920 -Height 1080 -Force`).
 
 **Linux** — PC 와 같은 길이다(`open --pc --app ./Build/Game.x86_64`). 리눅스 기계가 없으면 Docker 의 `linux/amd64` 컨테이너(Xvfb · Mesa)에서 게임과 CLI 를 함께 돌린다 — SDK 가 컨테이너의 `127.0.0.1` 에만 열어 `docker -p` 로는 못 닿기 때문이다. Apple Silicon 맥의 Docker(Rosetta 흉내)에서는 **IL2CPP 빌드만** 뜬다 — Mono JIT 는 `x86-codegen.h … offset == (gint32)offset` 으로 죽는다.
 
@@ -209,10 +227,10 @@ npx control-cli open --relay                                       # 세션 … 
 
 | 명령 | 하는 일 | Ran 줄 |
 |---|---|---|
-| `click <ref\|주소> [--count <n>] [--interval <초>]` | 가운데를 가짜 터치로 누른다. 월드 오브젝트는 주 카메라로 비춘 자리. `--count 2` 면 `--interval`(기본 0.1초) 간격으로 두 번(SDK 0.6.0) | `game.click('LoginButton')` · `game.click('Slot', { count: 2 })` |
+| `click <ref\|주소> [--count <n>] [--interval <초>] [--at <x,y>]` | 가운데를 가짜 터치로 누른다. `--at 0.05,0.05` 는 화면 사각형 안 그 비율 자리(왼쪽 아래 0,0 · 오른쪽 위 1,1 — 창 본문이 덮은 바탕의 가장자리). 누르기 전에 그 자리의 맨 위(`find-at`)가 대상 · 그 아래 · 그 조상이고 누를 수 있을 때까지 3초까지 기다린다 — 다른 것(페이드 · 막 뜬 팝업)이 덮은 채면 덮은 것의 경로로 실패하고, 아무것도 안 맞거나 못 누르는 채면 예전처럼 누른다. 월드 오브젝트는 주 카메라(MainCamera 태그 — 없으면 그 layer 를 그리는 켜진 카메라 중 맨 위)로 비춘 자리. `--count 2` 면 `--interval`(기본 0.1초) 간격으로 두 번(SDK 0.6.0) | `game.click('LoginButton')` · `game.click('Slot', { count: 2 })` |
 | `drag <ref\|주소> <ref\|주소> [--via <주소>]… [--duration <초>]` | 앞 자리에서 뒤 자리로 끈다 — 마디마다 적어도 10프레임. `--via` 는 지날 자리(여러 번 줄 수 있다), `--duration` 은 처음부터 끝까지 초(SDK 0.6.0) | `game.drag('/Hud/Bag/Slot[0]', '/Hud/Bag/Slot[3]')` · `game.drag('A', 'C', { via: ['B'] })` |
 | `type <ref\|주소> <글자>` | InputField · TMP_InputField · UI Toolkit TextField 에 바로 넣는다(화면 키보드 없이). 글자 수 제한 · 거르기는 그 칸 규칙대로, 키로 칠 때의 차례(글자마다 거르고 거른 결과로 자름)다 — 글자 수 8 · 영숫자 칸에 `qa_user01!` 면 `qauser01`. uGUI · TMP 는 SDK 가 그 칸의 거르개를 글자마다 부른다. 비밀번호 칸이면 Ran 줄에 글자 대신 `'***'` | `game.type('IdInput', 'qa_user01')` |
-| `text <ref\|주소>` | 글자 읽기 | `game.text('StatusText')` |
+| `text <ref\|주소>` | 글자 읽기 — 버튼처럼 누를 것에 제 글자가 없으면 켜진 자식 중 첫 글자 | `game.text('StatusText')` |
 | `get <ref\|주소> <컴포넌트.칸> [--inactive]` | 속성 읽기 — 게임이 폰에서 셈하는 값. `material` · `materials` · `mesh` 는 읽기만 해도 사본을 만들어 거절한다(`shared…` 를 읽는다). UI Toolkit 요소는 요소 칸을 바로(`value` · `text` · `layout.height`) | `game.get('Player', 'PlayerController.moveSpeed')` |
 | `find <ref\|주소> [--inactive] [--camera 주소]` | 있으면 `{path, text?, interactable?, id?, x?, y?, rect?, screen?, active?}`(`x` · `y` 는 누를 자리, `rect` 는 화면 사각형 `[x, y, w, h]`, `screen` 은 화면 크기 `[w, h]` — 모두 픽셀 · 왼쪽 아래 0,0), 없으면 `null` | `game.find('//*[@tag=Boss]')` |
 | `find-all <주소> [--inactive] [--camera 주소]` | 맞는 것 전부 — 없으면 빈 목록 | `game.findAll('//Inventory/Slot')` |
@@ -234,7 +252,7 @@ npx control-cli open --relay                                       # 세션 … 
 | `logs [번호]` | 게임 로그 전부(Log · Warning · Error · Assert · Exception, 최근 500개) — `errors` 와 같이 번호 뒤만. 영숫자 · `_` · `-` 가 40자 넘게 이어진 토막(토큰)은 SDK 가 `***` 로 가린다(SDK 0.7.0) | 없음 |
 | `events [번호]` | 게임 알림(최근 200개) — `scene.loaded`(장면 · `single`/`add`) · `scene.unloaded` · `game.paused` · `game.resumed`. 멈춘 동안은 게임이 답하지 않으니 돌아온 뒤 읽는다. PC 는 SDK 가 `runInBackground` 를 켜 일시정지가 안 난다. 켤 때 Unity 가 이름 없는 빈 장면을 닫아 `scene.unloaded`(`scene: ""`)가 첫 장면보다 먼저 하나 온다(SDK 0.7.0) | 없음 |
 | `sdk-log on\|off` | 켜면 SDK 가 받은 명령마다 `[ControlCli] click LoginButton — 성공` 한 줄을 게임 로그(logcat · Player.log · `logs`)에 적는다. 입력 글자 · 값은 `text=***` 처럼 가리고 실패 글 속 값도 가린다. 기본 꺼짐 · 게임을 다시 켜면 꺼짐(SDK 0.7.0) | `game.sdkLog(true)` |
-| `key <키[+키…]> [--duration <초>] [--power <-1~1>]` | 키 한 번(기본은 한 프레임 누르고 다음 프레임 뗀다). KeyCode 이름 — `Escape` · `Space` · `Return` · `I` · `Alpha1` · `F1` · `Mouse0` · `JoystickButton0`. `A+LeftShift` 처럼 `+` 로 여럿을 함께. 옛 Input `GetKey*(KeyCode)` · `GetAxis` · `GetButton*` · Input System 키보드 · 게임패드가 본다. `Escape` 는 Unity 에서 폰 뒤로 키와 같다(`duration`·`power` 는 SDK 0.6.0) | `game.key('Escape')` · `game.key('A+LeftShift', { duration: 0.5 })` |
+| `key <키[+키…]> [--duration <초>] [--power <-1~1>]` | 키 한 번(기본은 한 프레임 누르고 다음 프레임 뗀다). KeyCode 이름 — `Escape` · `Space` · `Return` · `I` · `Alpha1` · `F1` · `Mouse0` · `JoystickButton0`. `A+LeftShift` 처럼 `+` 로 여럿을 함께. `Pad.Cross` · `Pad.A` 처럼 `Pad.` 을 붙이면 지금 가상 패드의 글자다(아래 「가상 패드」). 옛 Input `GetKey*(KeyCode)` · `GetAxis` · `GetButton*` · Input System 키보드 · 게임패드가 본다. `Escape` 는 Unity 에서 폰 뒤로 키와 같다(`duration`·`power` 는 SDK 0.6.0) | `game.key('Escape')` · `game.key('A+LeftShift', { duration: 0.5 })` |
 | `tap <x> <y> [--count <n>] [--interval <초>]` | 좌표 누르기(왼쪽 아래가 0,0) — 살펴볼 때만. 케이스는 좌표를 쓰지 않는다 | 없음 |
 | `touch-down <ref\|주소>` · `touch-down <x> <y>` | 손가락 하나를 눌러 둔다 — 답의 번호(10~19)를 `touch-move` · `touch-up` 에 쓴다. 눌러 둔 손가락은 명령 사이에도 그대로다 | `game.touchDown('Slot')` |
 | `touch-move <번호> <ref\|주소>` · `touch-move <번호> <x> <y>` | 눌러 둔 손가락을 한 프레임에 옮긴다 | `game.touchMove(10, 'Slot[3]')` |
@@ -246,7 +264,8 @@ npx control-cli open --relay                                       # 세션 … 
 | `key-down <키[+키…]> [--power <-1~1>]` · `key-up <키[+키…]>` | 키를 눌러 두기 · 떼기. `power` 는 세기(`GetAxis` 값) — `JoystickButton16`~`19` 는 스틱 값 | `game.keyDown('W', { power: 0.5 })` · `game.keyUp('W')` |
 | `tilt <x> <y> <z> [--duration <초>]` | 기울이기 — `duration`(기본 한 프레임) 동안 가속도(`Input.acceleration` · Accelerometer)를 대신하고 끝나면 놓는다 | `game.tilt([0, -1, 0], { duration: 1 })` |
 | `pointer <ref\|주소> <down\|up\|enter\|exit>` | GameObject 하나에 Pointer 이벤트를 바로 보낸다(EventSystem 처리기 — 부모로 안 올리고 `OnMouse*` 도 안 보낸다). UI Toolkit 요소는 거절 | `game.pointer('HoldBox', 'down')` |
-| `input-reset` | 가짜 입력을 다 거둔다 — 눌러 둔 손가락(취소) · 키 · 가짜 마우스 · 기울기 | `game.resetInput()` |
+| `input-reset` | 가짜 입력을 다 거둔다 — 눌러 둔 손가락(취소) · 키 · 가짜 마우스 · 기울기. 가상 패드 종류는 그대로 둔다 | `game.resetInput()` |
+| `pad [xbox\|ps5\|ps4\|switch\|generic\|off]` | 가상 패드 종류 — 그 콘솔 패드로 바꾼다. 종류 없이 부르면 지금 패드와 붙은 패드 장치만 답한다(SDK 0.12.0 · Input System 게임) | `game.pad('ps5')` |
 | `ping` · `tree` | 게임 답 · 켜진 오브젝트 트리 JSON | 없음 |
 | `snapshot [--png]` | 줄인 목록 + 스크린샷 파일 — `--png` 은 Appium 이 없는 길(PC · iOS · USB)에서 게임이 PNG 로 찍는다(SDK 0.5.0) | 없음 |
 | `conform` | 표준 화면(샘플)에 명령을 차례로 보내 기대값과 견준다 — `open` 바로 뒤에. 게임 SDK 의 `caps` 에 없는 명령 줄과 앱을 뒤로 보낼 길이 없는 일시정지 줄(PC · iPhone)은 미실행, 실패가 있으면 종료 코드 1. 결과 줄은 「통과 N · 실패 N · 미실행 N」 | 없음 |
@@ -258,12 +277,16 @@ npx control-cli open --relay                                       # 세션 … 
 | `/` · `//` | 바로 아래 · 아래 어디서나 | `//Bag/Slot` |
 | `*` | 아무 이름 | `/Canvas/*` |
 | `..` | 부모 | `//*[@text=확인]/..` — 글자의 버튼 |
-| `[@칸=값]` | 칸이 값과 같다 — `name` · `tag` · `layer`(이름 · 번호) · `component`(붙은 컴포넌트 · UI Toolkit 요소 타입) · `text` · `id` | `//*[@tag=Player]` · `//*[@component=Button]` |
+| `[@칸=값]` | 칸이 값과 같다 — `name` · `tag` · `layer`(이름 · 번호) · `component`(붙은 컴포넌트와 그 물려받은 타입 · UI Toolkit 요소 타입) · `text` · `id` | `//*[@tag=Player]` · `//*[@component=Button]` |
 | `[contains(@칸,값)]` | 값이 들어 있다 | `//*[contains(@name,Slot)]` |
 | `[…][…]` | 조건을 모두 | `//*[@tag=Enemy][@layer=Water]` |
 | `[n]` · `[-1]` | 그 단계에 맞은 형제 중 n번째(0부터) · 마지막 | `//Bag/Slot[-1]` |
 
-값 양끝 공백은 떼고 `'…'` · `"…"` 는 벗긴다. `id` 는 QA 빌드가 장면 오브젝트에 붙인 **영구 id**(장면 파일 속 번호 — 빌드마다 같다) 또는 instance id(실행 중 만든 오브젝트 — 켤 때마다 바뀐다)다. 읽기 · 쓰기 명령(`find` · `get` · `set` · `call` · `components` · `members` · `text-set`)은 `--inactive` 로 꺼진 오브젝트도 찾는다 — 그때 경로 순번은 꺼진 형제까지 센다. 월드 오브젝트의 화면 자리는 `--camera <카메라 오브젝트 주소>` 로 고른 카메라로 셈한다(기본 주 카메라).
+**컴포넌트**(`get` · `set` · `call` · `members` 의 앞 낱말)는 타입 이름 · 전체 이름이 같은 것을 먼저 찾고, 없으면 물려받은 타입 이름으로 찾는다 — `Button` 을 물려받은 `UIHUDButton` 은 `Button.interactable` 로도 읽힌다. 트리 줄 머리는 종류라(TMP 글자도 `Text`) 컴포넌트 이름과 다를 수 있다. 못 찾으면 실패 글 끝에 붙은 컴포넌트 이름이 달린다 — `… Text 컴포넌트가 없습니다 — 붙은 것: RectTransform · CanvasRenderer · TextMeshProUGUI`(`components` 로도 본다). 선택자 `[@component=…]` 도 물려받은 타입 이름으로 맞는다.
+
+없는 주소의 실패 글 끝에는 이름이 비슷한 것(끊긴 단계 이름이 대소문자 없이 든 것, 셋까지)의 경로가 달린다 — 실행 중에 만든 `Enemy(Clone)` · 복사한 `Button (1)` · 다른 부모 아래로 옮긴 것: `켜진 오브젝트 중에 Enemy 이 없습니다 — 이름이 비슷한 것: /Spawn/Enemy(Clone)`.
+
+값 양끝 공백은 떼고 `'…'` · `"…"` 는 벗긴다. 따옴표로 감싼 값 안의 `]` 는 값의 일부다 — `//Text[contains(@text,"[QA] 용비늘 갑옷")]`. `id` 는 QA 빌드가 장면 오브젝트에 붙인 **영구 id**(장면 파일 속 번호 — 빌드마다 같다) 또는 instance id(실행 중 만든 오브젝트 — 켤 때마다 바뀐다)다. 읽기 · 쓰기 명령(`find` · `get` · `set` · `call` · `components` · `members` · `text-set`)은 `--inactive` 로 꺼진 오브젝트도 찾는다 — 그때 경로 순번은 꺼진 형제까지 센다. 월드 오브젝트의 화면 자리는 `--camera <카메라 오브젝트 주소>` 로 고른 카메라로 셈한다(기본 주 카메라).
 액션 뒤에는 트리가 두 번 같을 때까지(3초 상한) 기다렸다 화면을 찍는다. **기다리기**는 0.3초마다 짧은 `find` 를 되풀이한다 — 명령 하나가 팜 15초 · SDK 10초 한도에 안 걸린다.
 
 ### 가짜 입력
@@ -273,15 +296,43 @@ npx control-cli open --relay                                       # 세션 … 
 | 길 | 닿는 곳 |
 |---|---|
 | 옛 Input 감싸기 | `Input.touches` · `GetKey*` · `GetMouseButton*` · `mousePosition` · `mouseScrollDelta` · `acceleration` · uGUI 입력. 마우스는 `simulateMouseWithTouches` 가 켜져 있으면 가장 작은 번호 손가락을 따르고, 아니면 가짜 마우스다. `GetAxis` · `GetButton*` 은 QA 빌드 훅이 `ProjectSettings/InputManager.asset` 의 축을 장면에 구워 넣은 표로 가짜 키를 따른다 — 마우스 축은 가짜 마우스 이동량이고, 조이스틱 축(type 2)은 흉내 내지 않는다 |
-| Input System 장치 | Touchscreen(손가락마다) · Mouse · Keyboard(누른 키 전부) · Gamepad · Accelerometer 에 상태 이벤트. PC 는 마우스 손가락(처음 누른 손가락 — 뗄 때까지 그대로)을 Mouse 왼 단추로, 나머지 손가락은 Touchscreen 으로 넣는다 |
+| Input System 장치 | Touchscreen(손가락마다) · Mouse · Keyboard(누른 키 전부) · 가상 패드 · Accelerometer 에 상태 이벤트. PC 는 마우스 손가락(처음 누른 손가락 — 뗄 때까지 그대로)을 Mouse 왼 단추로, 나머지 손가락은 Touchscreen 으로 넣는다 |
 | UI Toolkit 직접 | EventSystem 이 없는 옛 Input 게임의 panel 에 손가락마다 터치 이벤트, 가짜 마우스는 PointerMove · Down · Up · Wheel |
 
 - 손가락 번호는 10~19(진짜 0~9 와 안 겹친다) — 비어 있는 가장 작은 번호를 주고, 10개가 다 눌려 있으면 `touch-up` · `input-reset` 으로 거절한다
 - 명령 하나는 8초 안 — `duration` · `count` × `interval` 이 넘으면 거절한다(더 길게는 `touch-down` · `key-down` 뒤 `touch-up` · `key-up`). 시간은 `timeScale` 0 에서도 흐른다
 - 진짜 입력은 끄지 않고 섞는다 — 팜 폰은 아무도 안 만지고, PC 에서 시험할 때는 마우스를 건드리지 않는다
-- 키 `Mouse0`~`Mouse4` 는 가짜 마우스 단추다. `JoystickButton0`~`15` 는 게임패드 A · B · X · Y · LB · RB · LT · RT · Select · Start · LS · RS · 십자 위 · 아래 · 왼 · 오른, `16`~`19` 는 왼 스틱 x · y · 오른 스틱 x · y 이고 값은 `power` 다
+- 키 `Mouse0`~`Mouse4` 는 가짜 마우스 단추다. `JoystickButton0`~`15` 는 게임패드의 자리다 — 아래 · 오른쪽 · 왼쪽 · 위 · 왼 어깨 · 오른 어깨 · 왼 방아쇠 · 오른 방아쇠 · select · start · 왼 스틱 누름 · 오른 스틱 누름 · 십자 위 · 아래 · 왼 · 오른. `16`~`19` 는 왼 스틱 x · y · 오른 스틱 x · y 이고 값은 `power` 다
 - `key` · `key-down` · `key-up` 의 `power` 는 -1~1(기본 1) — 옛 Input `GetAxis` 값이다
 - 옛 SDK(caps 에 `touch-down` 이 없는)에 새 칸(`count` · `interval` · `via` · `duration` · `power` · `key` 의 `+`)을 보내면 Game 이 보내기 전에 「SDK 0.6.0 이상」으로 거절한다
+
+### 가상 패드
+
+콘솔로 나갈 게임은 패드로 조작하고, 패드마다 버튼 글자와 확인 · 취소 자리가 다르다(Switch 는 오른쪽 A 가 확인, Xbox 는 아래 A 가 확인). `pad` 로 가상 패드의 종류를 고르면 게임에는 그 콘솔 패드가 꽂힌 것으로 보인다 — Input System 의 layout 이 그 패드의 것이 되고, 게임이 버튼 그림 · 글자를 고르는 근거(layout · 표시 이름)도 그 패드의 것이다. SDK 0.12.0 부터, Input System 을 쓰는 게임의 PC 빌드에서 된다.
+
+```bash
+npx control-cli pad ps5              # - 패드: ps5 · DualSenseGamepadHID · south Cross · east Circle · …
+npx control-cli key Pad.Cross        # 그 패드의 글자로 누른다 — Ran: await game.key('Pad.Cross')
+npx control-cli key-down Pad.LX --power -1   # 왼 스틱을 왼쪽으로
+npx control-cli pad                  # 지금 패드와 붙은 패드 장치(실물 · 가상)
+npx control-cli pad off              # 가상 패드를 없앤다
+```
+
+| 종류 | 만들어지는 layout | `Pad.` 이름(자리 0~11 차례) |
+|---|---|---|
+| `xbox` | Windows `XInputControllerWindows` · macOS `XboxGamepadMacOSWireless`(Input System 1.11 은 `XboxOneGampadMacOSWireless`) | `A B X Y LB RB LT RT View Menu LS RS` |
+| `ps5` | `DualSenseGamepadHID` | `Cross Circle Square Triangle L1 R1 L2 R2 Create Options L3 R3` |
+| `ps4` | `DualShock4GamepadHID` | `Cross Circle Square Triangle L1 R1 L2 R2 Share Options L3 R3` |
+| `switch` | `SwitchProControllerHID` | `B A Y X L R ZL ZR Minus Plus LS RS` |
+| `generic` | `Gamepad` | (글자 이름 없음) |
+
+- 어느 패드든 같은 이름 — `Pad.Up` · `Pad.Down` · `Pad.Left` · `Pad.Right`(십자키), `Pad.LX` · `Pad.LY` · `Pad.RX` · `Pad.RY`(스틱 — `power` 가 값, 위 · 오른쪽이 +). 대소문자는 가리지 않는다
+- **그 패드에 없는 이름은 거절한다** — `pad ps5` 뒤의 `key Pad.A` 는 실패하고 쓸 수 있는 이름을 알려 준다. `Pad.A` 는 `switch` 에서 오른쪽, `xbox` 에서 아래 자리로 간다. 플랫폼을 섞어 쓴 케이스가 다른 자리를 누른 채 통과하지 않게 하는 장치다. 자리로 쓰려면 `JoystickButton0`~`19` 를 쓴다
+- 패드 입력은 늘 SDK 가 만든 가상 패드에 넣는다 — 실물 패드가 꽂혀 있어도 그 장치에는 넣지 않는다. 패드를 고르지 않은 채 패드 키를 보내면 `generic` 을 만든다. `PlayerInput` 을 쓰는 한 명짜리 게임은 가상 패드의 버튼이 눌리면 조작 묶음이 패드로 바뀐다
+- `pad` 답의 `buttons` 는 그 layout 이 주는 표시 이름이고(`ps5` 의 select 는 Input System 이 「Share」로 준다), `devices` 는 Input System 에 붙은 패드 · 조이스틱 전부다(`native` 가 `false` 인 것이 가상 패드). Steam Input 이나 변환 도구가 끼면 실물 패드가 모두 XInput 으로 보인다 — 시험 실패와 환경 문제를 `devices` 로 가른다
+- `ping` 의 `pads` 가 이 빌드에서 만들 수 있는 종류다. 옛 Input Manager 만 쓰는 게임은 빈 목록이고 `pad` 가 실패한다. Android · iOS · WebGL 은 `generic` 뿐이고, Linux 는 `xbox` 가 없다
+- Switch 의 `ZL` · `ZR` 는 디지털이라 `power` 0.5 도 끝까지 누른 것으로 읽힌다. Rewired · Steam Input 으로 패드를 읽는 게임은 Input System 의 가상 장치를 보지 못한다
+- Godot SDK 에는 `pad` 가 없다(`commands.json` 의 `engines`)
 
 ### 창 훑기
 
@@ -296,7 +347,7 @@ npx control-cli crawl --max 30 --minutes 5 --exclude '/설정|settings/i' --excl
 
 | 파일 | 내용 |
 |---|---|
-| `NNN.yml` | `# <주소>` · `# 연 곳: <창> 의 <버튼> 「글자」` · 줄인 목록 |
+| `NNN.yml` | `# <주소>` · `# 연 곳: <창> 의 <버튼> 「글자」` · 줄인 목록 — 줄 끝 `[주소=…]` 는 `game` 명령이 그대로 받는 주소(이름이 하나뿐이면 이름, 아니면 `/` 로 시작하는 전체 경로 · 같은 이름 형제는 `[순번]`). 목록에서 빠진 중간 오브젝트도 경로에 든다 |
 | `list.json` | `[{주소, 이름, 틀, 파일, 지문, 글자지문, 연곳: {창, 버튼, 글자} \| null}]` — 첫 줄은 시작 화면 `scene:<장면>`. 지문은 순번을 뗀 구조, 글자지문은 글자 |
 | `summary.json` | `{멈춘까닭, 창, 누름, 초}` |
 
@@ -305,7 +356,7 @@ npx control-cli crawl --max 30 --minutes 5 --exclude '/설정|settings/i' --excl
 `control-cli mcp` 는 stdio MCP 서버다 — 따로 띄워 두는 프로그램이 아니라 AI 앱이 이 명령을 실행해 붙는다.
 
 ```bash
-npm i -g github:maxihan1/control_cli#v0.14.0     # control-cli 를 PATH 에
+npm i -g github:maxihan1/control_cli#v0.17.0     # control-cli 를 PATH 에
 claude mcp add control-cli -- control-cli mcp     # Claude Code
 ```
 
@@ -385,6 +436,7 @@ CONTROL_CLI_GAME=tcp://127.0.0.1:13100 PYTHONPATH=drivers/python python3 test_re
 
 - 주소 — `tcp://<호스트>:<포트>`(PC 게임 · `adb forward tcp:13100 tcp:13100` 뒤 USB 폰) 또는 relay 의 `http(s)://<relay>/games/<key>`(key 는 `relay status` 에, `@` 는 `%40`). relay 토큰은 `CONTROL_CLI_RELAY_TOKEN`
 - 명령 이름은 그 언어 꼴 — `find-all` → `find_all` · `FindAll` · `findAll`. 기다리기는 그 언어 되풀이로 쓴다(`find` 를 0.3초마다 — 드라이버에 기다리기 도우미는 아직 없다)
+- Windows — 콘솔 인코딩이 UTF-8 이 아니면 Java 는 `javac -encoding UTF-8`, 내보낸 Python 테스트는 `PYTHONIOENCODING=utf-8` 을 준다(Python 다리는 스스로 UTF-8 로 주고받는다)
 - 드라이버마다 같은 conform 을 돌린다 — 다리(stdin 명령 한 줄 → 그 언어 드라이버 메서드 → stdout 답 한 줄)를 띄워 차례 · 기대값은 TS 한 벌, 명령은 그 언어가 보낸다. PC · relay 세션에서
 
 ```bash
@@ -404,9 +456,9 @@ robot --pythonpath drivers/python --variable GAME:tcp://127.0.0.1:13100 drivers/
 
 | `cmd` | 칸 | 답 |
 |---|---|---|
-| `ping` | | `{ok, app, version, engine, engineVersion, sdkVersion, protocol, caps}` — `engine` 부터는 protocol 2(SDK 0.3.0)부터. `caps` 는 명령 이름 뒤에 기능 이름(`commands.json` 의 `features` — `rect` 는 SDK 0.8.0)을 싣는다. CLI 는 `open` 때 받은 `caps` 밖 명령을 보내지 않고 거절한다. 명령 정의는 `protocol/commands.json` |
-| `tree` | | `{ok, scene, screen:[w,h], tree:[{name, text?, kind?, interactable?, children?}]}` — 켜진 오브젝트만. `kind` 는 Selectable 종류(Button · Toggle · InputField · TMP_InputField …) 또는 UI Toolkit 컨트롤(Button · Toggle · RadioButton · TextField · DropdownField · Slider). `text` 는 Text · InputField · TextMeshPro(TMP_Text · TMP_InputField) · UI Toolkit(TextElement · TextField). UI Toolkit 은 숨은 요소(display none · 안 보임)를 빼고 컨트롤 속은 내보내지 않는다. 비밀번호 칸 글자는 `***` |
-| `find` | `target` · `inactive`? · `camera`? | `{ok, found:false}` 또는 `{ok, found:true, path, text?, interactable?, id?, x?, y?, rect?, screen?, active?}` — 여럿이 맞거나 꼴이 틀리면 실패. `id` 는 게임 오브젝트만, `x` · `y` 는 켜지고 화면에 비친 것만, `active:false` 는 `inactive` 로 찾은 꺼진 것. 선택자 · `inactive` · `camera` 는 SDK 0.5.0 부터. `rect` · `screen` 은 아래 「화면 사각형」 |
+| `ping` | | `{ok, app, version, engine, engineVersion, sdkVersion, protocol, input, pads, caps}` — `engine` 부터는 protocol 2(SDK 0.3.0)부터. `input`(`old` · `new` · `both` — 게임이 읽는 입력)과 `pads`(만들 수 있는 가상 패드 종류)는 Unity SDK 0.12.0 부터. `caps` 는 명령 이름 뒤에 기능 이름(`commands.json` 의 `features` — `rect` 는 SDK 0.8.0)을 싣는다. CLI 는 `open` 때 받은 `caps` 밖 명령을 보내지 않고 거절한다. 명령 정의는 `protocol/commands.json` |
+| `tree` | | `{ok, scene, screen:[w,h], tree:[{name, text?, kind?, interactable?, children?}]}` — 켜진 오브젝트만. `kind` 는 Selectable 종류(Button · Toggle · InputField · TMP_InputField …), Selectable 없이 누름을 받는 컴포넌트(`IPointerClickHandler` · `IPointerDownHandler` — EventTrigger · OnScreenButton · 게임 스크립트) 또는 UI Toolkit 컨트롤(Button · Toggle · RadioButton · TextField · DropdownField · Slider). `text` 는 Text · InputField · TextMeshPro(TMP_Text · TMP_InputField) · UI Toolkit(TextElement · TextField). UI Toolkit 은 숨은 요소(display none · 안 보임)를 빼고 컨트롤 속은 내보내지 않는다. 비밀번호 칸 글자는 `***` |
+| `find` | `target` · `inactive`? · `camera`? | `{ok, found:false}` 또는 `{ok, found:true, path, text?, interactable?, id?, x?, y?, rect?, screen?, active?}` — 여럿이 맞거나 꼴이 틀리면 실패. `text` 는 누를 것에 제 글자가 없으면 켜진 자식 중 첫 글자(트리 · `@text` 는 제 글자만). `id` 는 게임 오브젝트만, `x` · `y` 는 켜지고 화면에 비친 것만, `active:false` 는 `inactive` 로 찾은 꺼진 것. 선택자 · `inactive` · `camera` 는 SDK 0.5.0 부터. `rect` · `screen` 은 아래 「화면 사각형」 |
 | `find-all` | `target` · `inactive`? · `camera`? | `{ok, found:[…]}` — `find` 의 칸 목록, 없으면 빈 목록 |
 | `find-at` | `x` · `y` · `camera`? | `find` 와 같은 답 — UI Toolkit(맨 앞 panel) → uGUI(EventSystem raycast) → 3D · 2D 물리 차례, 트리에 없는 속 칸은 트리에 있는 조상으로 |
 | `click` | `target` · `camera`? · `count`? · `interval`? | `{ok, x, y}` — 가짜 터치가 다 나가고 게임이 처리한 뒤 답한다. 켜진 것만. `count`(기본 1) · `interval`(초, 기본 0.1)은 SDK 0.6.0 부터 |
@@ -414,7 +466,7 @@ robot --pythonpath drivers/python --variable GAME:tcp://127.0.0.1:13100 drivers/
 | `type` | `target` · `text` | `{ok, text}` — 넣은 뒤 칸 글자. 잠긴 칸은 실패 |
 | `get` | `target` · `prop`(`컴포넌트.칸[.칸…]`, UI Toolkit 요소는 `칸[.칸…]`) · `inactive`? | `{ok, value}` — 숫자 · 글자 · 참거짓 · 열거(이름) · 벡터 · 색은 배열, 그 밖은 글자 |
 | `tap` | `x` · `y` · `count`? · `interval`? | `{ok, x, y}` |
-| `key` | `key`(KeyCode 이름, 대소문자 무시 — `A+LeftShift` 처럼 `+` 로 여럿) · `duration`? · `power`? | `{ok, key}` — 누르고 뗀 것을 게임이 처리한 뒤 답한다. 모르는 이름은 실패. `duration` 0~8초(기본 0 — 한 프레임) · `power` -1~1(기본 1)은 SDK 0.6.0 부터 |
+| `key` | `key`(KeyCode 이름, 대소문자 무시 — `A+LeftShift` 처럼 `+` 로 여럿. `Pad.<이름>` 은 지금 가상 패드의 글자) · `duration`? · `power`? | `{ok, key}` — 누르고 뗀 것을 게임이 처리한 뒤 답한다. `key` 는 푼 KeyCode 이름이다(`Pad.Cross` → `JoystickButton0`). 모르는 이름 · 그 패드에 없는 `Pad.` 이름은 실패. `duration` 0~8초(기본 0 — 한 프레임) · `power` -1~1(기본 1)은 SDK 0.6.0 부터 |
 | `touch-down` | `target`? 또는 `x` · `y`, `camera`? | `{ok, finger, x, y}` — 손가락 번호 10~19. 둘 다 없으면 실패 · 10개가 다 눌려 있으면 실패. SDK 0.6.0 부터(아래 입력 명령 모두) |
 | `touch-move` | `finger` · `target`? 또는 `x` · `y`, `camera`? | `{ok, x, y}` — 눌러 둔 손가락을 한 프레임에 옮긴다 |
 | `touch-up` | `finger` | `{ok}` |
@@ -426,6 +478,7 @@ robot --pythonpath drivers/python --variable GAME:tcp://127.0.0.1:13100 drivers/
 | `tilt` | `x` · `y` · `z` · `duration`? | `{ok}` — `duration`(기본 한 프레임) 동안 가속도를 대신하고 끝에 0 을 한 번 보낸다 |
 | `pointer` | `target` · `event`(`down` · `up` · `enter` · `exit`) | `{ok}` — GameObject 하나의 EventSystem 처리기. UI Toolkit 요소는 실패 |
 | `input-reset` | | `{ok}` — 일을 멈추고 손가락 취소 · 키 뗌 · 가짜 마우스 끔 · 기울기 끔 |
+| `pad` | `type`?(`xbox` · `ps5` · `ps4` · `switch` · `generic` · `off`) | `{ok, pad: {type, layout, buttons}, devices: [{layout, product?, vendorId?, productId?, native}]}` — `type` 을 주면 앞 가상 패드를 없애고 새로 만든 뒤 답한다. `off` 면 `pad` 는 `{type:"off"}`. 이 플랫폼에서 못 만드는 종류 · Input System 이 없는 게임은 실패(비슷한 layout 으로 바꾸지 않는다). Unity SDK 0.12.0 · Godot 에는 없다 |
 | `screenshot` | `format`?(`jpg` · `png`) | `{ok, jpg}` 또는 `{ok, png}` — 프레임 끝에서 찍은 화면(base64). 수 MB 라 팜은 Appium 스크린샷을 쓴다. ImageConversion 모듈을 뺀 게임은 실패. `png` 는 SDK 0.5.0 부터 |
 | `errors` | `since` | `{ok, last, errors:[{seq, time, occurredAt, type, message, stack}], dropped?, restarted?}` — `occurredAt`(UTC ms 3자리) · 토큰 가리기는 SDK 0.7.0 부터, `time` 은 옛 꼴 그대로 |
 | `logs` | `since` | `{ok, last, logs:[{seq, occurredAt, type, message, stack}], dropped?, restarted?}` — 로그 전부, 최근 500개. 40자 넘는 영숫자 토막은 `***`. SDK 0.7.0 부터(아래 둘도) |
@@ -462,6 +515,7 @@ python3 tools/unity-compile-check/check.py fetch    # Unity 판마다 관리 DLL
 python3 tools/unity-compile-check/check.py 6000.0   # SDK · 샘플을 입력 설정 셋(옛 Input · 둘 다 · Input System)으로 컴파일 — Docker 필요
 ```
 
+`npm test` 는 PR 마다 `ubuntu-latest` · `windows-latest` 에서 돈다(`.github/workflows/cli.yml`). `sample.yml` 의 `conform-windows` 잡은 구운 Windows 빌드를 Windows runner 에서 띄워 conform 까지 돈다.
 컴파일 검사는 Unity 라이선스 없이 PR 마다 돈다(`.github/workflows/sdk-compile.yml`). 로그의 `== <판> · <입력>` 줄에 SDK 에 켜진 정의(`QAHUB_SDK_TMP` · `QAHUB_SDK_INPUTSYSTEM` …)가 찍힌다.
 `sdk/unity/` 에 파일을 더하면 `.meta` 도 같이 넣는다 — git 으로 받은 UPM 패키지는 Unity 가 `.meta` 를 못 만든다(`src/sdk-meta.test.ts` 가 잡는다).
 명령을 더하거나 바꾸면 `protocol/commands.json` 과 Unity SDK 의 `Caps`(`sdk/unity/Runtime/ControlServer.cs`) · Godot SDK 의 `CAPS`(`sdk/godot/addons/control_cli/control_cli.gd`)를 같이 고친다 — `src/protocol.test.ts` 가 잡는다.

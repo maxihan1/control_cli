@@ -1,0 +1,2 @@
+# Windows 에서 받아도 줄 끝은 LF — 글자를 그대로 견주는 테스트(drivers 생성 칸 · SDK .meta)와 SDK 파일이 CRLF 로 바뀌지 않게
+* text=auto eol=lf

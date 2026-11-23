@@ -1,6 +1,6 @@
 {
   "name": "com.maxihan1.control-cli",
-  "version": "0.11.0",
+  "version": "0.13.0",
   "displayName": "QA Hub SDK",
   "description": "QA 빌드에서 게임을 바깥 명령으로 조작하게 하는 SDK",
   "unity": "2021.3",

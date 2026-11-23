@@ -27,6 +27,8 @@ export interface FakeNode extends Node {
   layer?: string;
   /** 붙은 컴포넌트 전체 이름 — UnityEngine.UI.Button · Sample.TouchProbe */
   components?: string[];
+  /** 컴포넌트 전체 이름 → 물려받은 타입 전체 이름 — UIHUDButton 은 UnityEngine.UI.Button 을 물려받는다 */
+  bases?: Record<string, string[]>;
   /** instance id 흉내 — node() 가 늘어나는 번호를 준다(다시 만든 장면은 새 번호). 영구 id 흉내는 직접 준다 */
   id?: string;
   /** 꺼진 오브젝트 — inactive 로만 보인다 */
@@ -46,6 +48,26 @@ let ids = 0;
 export const node = (name: string, extra: Partial<FakeNode> = {}, children?: FakeNode[]): FakeNode => ({ name, id: String(++ids), ...extra, ...(children ? { children } : {}) });
 const INPUTS = ['InputField', 'TMP_InputField', 'TextField'];
 const short = (full: string) => full.slice(full.lastIndexOf('.') + 1);
+// SDK Props.ComponentOf 와 같은 규칙 — 주소 앞(dot 까지)이 타입 이름 · 전체 이름인 컴포넌트가 먼저, 없으면 물려받은 타입 이름인 것.
+// 찾은 컴포넌트 이름으로 바꾼 주소를 준다. components 를 안 적은 가짜 · UI Toolkit 요소(칸을 바로 읽는다)는 주소 그대로.
+const componentPath = (n: FakeNode | undefined, path: string, dot: number): string | { error: string } => {
+  const list = n?.components;
+  if (!list || dot <= 0 || list.some((t) => t.startsWith('UnityEngine.UIElements.'))) return path;
+  const name = path.slice(0, dot);
+  const same = (t: string) => short(t) === name || t === name;
+  const hit = list.find(same) ?? list.find((t) => n.bases?.[t]?.some(same));
+  return hit ? short(hit) + path.slice(dot) : { error: `${n.name} 에 ${name} 컴포넌트가 없습니다 — 붙은 것: ${list.map(short).join(' · ')}` };
+};
+// SDK Tree.Label 과 같은 규칙 — 누를 것에 제 글자가 없으면 켜진 자식 중 첫 글자(안쪽의 다른 누를 것은 건너뛴다)
+const label = (n: FakeNode): string | undefined => {
+  for (const c of (n.children ?? []).filter((x) => x.active !== false)) {
+    if (c.kind) continue;
+    if (c.text) return c.text;
+    const t = label(c);
+    if (t !== undefined) return t;
+  }
+  return undefined;
+};
 export const button = (name: string, label: string, onClick?: () => void): FakeNode => node(name, { kind: 'Button', interactable: true, onClick }, [node('Text', { text: label })]);
 // SDK 처럼 입력 명령 하나는 8초 안 — SDK 답 한도 10초 · 팜 15초
 // SDK 처럼 프레임 바닥도 센다(느린 폰 30fps) — 누를 때마다 2프레임, drag · swipe 는 마디마다 10프레임
@@ -61,6 +83,21 @@ const limits = (c: Command) =>
   : tooLong(c) ? `${c.cmd} 은 8초 안이어야 합니다 — 더 길게는 touch-down · key-down 뒤 touch-up · key-up` : undefined;
 const FINGERS = Array.from({ length: 10 }, (_, i) => 10 + i);
 const keysOf = (c: Command) => String(c.key).split('+').map((k) => k.trim());
+
+/** SDK FakePad 와 같은 표 — 자리(JoystickButton0~11) 차례의 그 패드 글자. 12~19 는 어느 패드든 같은 이름 */
+const PAD_LABELS: Record<string, string[]> = {
+  xbox: ['A', 'B', 'X', 'Y', 'LB', 'RB', 'LT', 'RT', 'View', 'Menu', 'LS', 'RS'],
+  ps5: ['Cross', 'Circle', 'Square', 'Triangle', 'L1', 'R1', 'L2', 'R2', 'Create', 'Options', 'L3', 'R3'],
+  ps4: ['Cross', 'Circle', 'Square', 'Triangle', 'L1', 'R1', 'L2', 'R2', 'Share', 'Options', 'L3', 'R3'],
+  switch: ['B', 'A', 'Y', 'X', 'L', 'R', 'ZL', 'ZR', 'Minus', 'Plus', 'LS', 'RS'],
+};
+const PAD_COMMON = ['Up', 'Down', 'Left', 'Right', 'LX', 'LY', 'RX', 'RY'];
+const PAD_TYPES = ['xbox', 'ps5', 'ps4', 'switch', 'generic', 'off'];
+// 가짜는 Windows 게임처럼 답한다 — xbox 가 XInputControllerWindows.
+const PAD_LAYOUT: Record<string, string> = { xbox: 'XInputControllerWindows', ps5: 'DualSenseGamepadHID', ps4: 'DualShock4GamepadHID', switch: 'SwitchProControllerHID', generic: 'Gamepad' };
+const PAD_SPOTS = ['south', 'east', 'west', 'north', 'leftShoulder', 'rightShoulder', 'leftTrigger', 'rightTrigger', 'select', 'start', 'leftStick', 'rightStick'];
+const GENERIC = ['Button South', 'Button East', 'Button West', 'Button North', 'Left Shoulder', 'Right Shoulder', 'Left Trigger', 'Right Trigger', 'Select', 'Start', 'Left Stick Press', 'Right Stick Press'];
+const padShown = (type: string) => PAD_LABELS[type] ?? GENERIC;
 
 // SDK Feed.Mask 와 같다 — 영숫자 · _ · - 가 40자 넘게 이어진 토막(토큰)을 가린다(Issue Bunker nginx 규칙)
 const mask = (s: string) => s.replace(/[A-Za-z0-9_-]{40,}/g, '***');
@@ -104,6 +141,11 @@ export class FakeGame {
   fingers = new Map<number, { node?: FakeNode; over?: FakeNode }>();
   /** 눌러 둔 키 → 세기 */
   held = new Map<string, number>();
+  /** 가상 패드 종류 — off 는 없음. 패드 키가 오면 generic 이 된다 */
+  pad = 'off';
+  /** ping 의 input · pads — 테스트가 옛 Input 빌드(old) · 콘솔 패드를 못 만드는 플랫폼(폰)을 흉내 낸다 */
+  input: 'old' | 'new' | 'both' = 'new';
+  pads = ['generic', 'ps5', 'ps4', 'switch', 'xbox'];
   /** 가짜 마우스가 올라간 것 */
   hovered?: FakeNode;
   /** tilt 의 y — 표준 화면 탐침처럼 절댓값 10 넘는 값만 남긴다 */
@@ -155,20 +197,20 @@ export class FakeGame {
       children: (n) => shown(n.children ?? []),
       attr: (n, k) => {
         const v = k === 'name' ? n.name : k === 'text' ? (n.password && n.text ? '***' : n.text) : k === 'tag' ? n.tag : k === 'layer' ? n.layer : k === 'id' ? n.id : undefined;
-        if (k === 'component') return (n.components ?? []).flatMap((c) => [short(c), c]);
+        if (k === 'component') return (n.components ?? []).flatMap((c) => [c, ...(n.bases?.[c] ?? [])]).flatMap((c) => [short(c), c]);
         return v === undefined ? [] : [v];
       },
     };
   }
 
   // SDK 의 Tree.Find 와 같은 규칙 — select.ts. 없음은 {}, 여럿 · 틀린 꼴은 error
-  private find(target: string, all = false): { node?: FakeNode; path?: string; trail?: FakeNode[]; error?: string } {
+  private find(target: string, all = false): { node?: FakeNode; path?: string; trail?: FakeNode[]; error?: string; missing?: string } {
     const v = this.view(all);
     try {
       const path = steps(target);
-      const r = one(target, select(path, v), !all, path);
+      const r = one(target, select(path, v), !all, path, v);
       if (r.trail) return { node: r.trail[r.trail.length - 1], trail: r.trail, path: pathOf(r.trail, v) };
-      return r.missing ? {} : { error: r.problem };
+      return r.missing ? { missing: r.problem } : { error: r.problem };
     } catch (e) {
       return { error: e instanceof Error ? e.message : String(e) };
     }
@@ -181,7 +223,7 @@ export class FakeGame {
     const at = camera ? n.atBy?.[camera] : n.at;
     return {
       path: pathOf(trail, this.view(all)),
-      ...(n.text !== undefined ? { text: n.text } : {}),
+      ...(n.text !== undefined ? { text: n.text } : n.kind && label(n) !== undefined ? { text: label(n) } : {}),
       ...(n.kind ? { interactable: n.interactable } : {}),
       ...(n.id ? { id: n.id } : {}),
       ...(active && at ? { x: at[0], y: at[1] } : {}),
@@ -237,6 +279,26 @@ export class FakeGame {
     this.hovered = node;
   }
 
+  /** key 칸을 푼다 — Pad.<이름> 은 지금 패드의 글자를 자리(JoystickButton*)로. 그 패드에 없는 이름은 SDK 처럼 거절한다 */
+  private padKeys(c: Command): string[] | { error: string } {
+    const names = [...(PAD_LABELS[this.pad] ?? Array.from({ length: 12 }, () => undefined)), ...PAD_COMMON];
+    const keys: string[] = [];
+    for (const k of keysOf(c)) {
+      if (!/^pad\./i.test(k)) {
+        keys.push(k);
+        continue;
+      }
+      const n = names.findIndex((x) => x?.toLowerCase() === k.slice(4).toLowerCase());
+      const usable = names.filter((x) => x !== undefined).map((x) => `Pad.${x}`).join(' · ');
+      if (n < 0)
+        return { error: PAD_LABELS[this.pad] ? `${this.pad} 패드에 없는 이름입니다: ${k} (쓸 수 있는 이름 — ${usable})` : `${k} 는 콘솔 패드를 골라야 씁니다(pad xbox · ps5 · ps4 · switch) — 지금 쓸 수 있는 이름: ${usable}` };
+      keys.push(`JoystickButton${n}`);
+    }
+    // 패드를 안 골랐으면 종류 없는 패드로 — 옛 Input 빌드는 가상 패드가 없다.
+    if (this.pad === 'off' && this.input !== 'old' && keys.some((k) => /^JoystickButton\d+$/.test(k))) this.pad = 'generic';
+    return keys;
+  }
+
   handle(c: Command): Reply {
     const r = this.reply(c);
     if (this.sdkLog && !QUIET.includes(c.cmd)) this.log('Log', sdkLine(c, r));
@@ -258,7 +320,7 @@ export class FakeGame {
     if (limit) return { ok: false, error: limit };
     switch (c.cmd) {
       case 'ping':
-        return { ok: true, app: 'com.fake.game', version: '1.0', engine: 'fake', engineVersion: '0', sdkVersion: '0.3.0', protocol: 2, caps: this.caps };
+        return { ok: true, app: 'com.fake.game', version: '1.0', engine: 'fake', engineVersion: '0', sdkVersion: '0.3.0', protocol: 2, input: this.input, pads: this.input === 'old' ? [] : this.pads, caps: this.caps };
       case 'tree':
         return { ok: true, scene: this.scene, screen: SCREEN, tree: on(this.roots).map(strip) };
       case 'find':
@@ -275,20 +337,22 @@ export class FakeGame {
         return hit ? { ok: true, found: true, ...this.found(hit, false, c.camera as string | undefined) } : { ok: true, found: false };
       }
       case 'components':
-        if (!f.node) return { ok: false, error: `켜진 오브젝트 중에 ${c.target as string} 이 없습니다` };
+        if (!f.node) return { ok: false, error: f.missing };
         return { ok: true, components: (f.node.components ?? []).map((t) => ({ name: short(t), type: t })) };
       case 'members': {
-        const m = f.node?.members?.[c.component as string];
+        const k = componentPath(f.node, c.component as string, (c.component as string).length);
+        if (typeof k !== 'string') return { ok: false, error: k.error };
+        const m = f.node?.members?.[k];
         return m ? { ok: true, ...(m as object) } : { ok: false, error: `${c.target as string} 에 ${c.component as string} 컴포넌트가 없습니다` };
       }
       case 'text-set':
-        if (!f.node) return { ok: false, error: `켜진 오브젝트 중에 ${c.target as string} 이 없습니다` };
+        if (!f.node) return { ok: false, error: f.missing };
         if (INPUTS.includes(f.node.kind ?? '')) return { ok: false, error: `${c.target as string} 은 입력칸이라 type 으로 넣습니다` };
         if (f.node.text === undefined) return { ok: false, error: `${c.target as string} 에 글자 컴포넌트(Text · TMP_Text · UI Toolkit Label/Button)가 없습니다` };
         f.node.text = c.text as string;
         return { ok: true, text: f.node.text };
       case 'click':
-        if (!f.node) return { ok: false, error: `켜진 오브젝트 중에 ${c.target as string} 이 없습니다` };
+        if (!f.node) return { ok: false, error: f.missing };
         this.clicks.push(f.path!);
         for (let i = 0; i < Number(c.count ?? 1); i++) f.node.onClick?.();
         return { ok: true, x: 1, y: 1 };
@@ -302,9 +366,12 @@ export class FakeGame {
         if (!f.node) return { ok: false, error: '없음' };
         f.node.text = f.node.accept ? f.node.accept(c.text as string) : (c.text as string);
         return { ok: true, text: f.node.password ? '***' : f.node.text };
-      case 'get':
+      case 'get': {
         this.onGet?.();
-        return f.node?.props && (c.prop as string) in f.node.props ? { ok: true, value: f.node.props[c.prop as string] } : { ok: false, error: `${c.prop as string} 칸이 없습니다` };
+        const k = componentPath(f.node, c.prop as string, (c.prop as string).indexOf('.'));
+        if (typeof k !== 'string') return { ok: false, error: k.error };
+        return f.node?.props && k in f.node.props ? { ok: true, value: f.node.props[k] } : { ok: false, error: `${c.prop as string} 칸이 없습니다` };
+      }
       case 'errors':
         return { ok: true, last: 0, errors: [] };
       case 'logs':
@@ -320,14 +387,17 @@ export class FakeGame {
         return { ok: true, checked: 2, problems: [{ kind: 'overlap', name: 'A', path: '/C/A', other: 'B', otherPath: '/C/B' }] };
       case 'tap':
         return { ok: true, x: c.x, y: c.y };
-      case 'key':
-        for (const k of keysOf(c)) {
+      case 'key': {
+        const keys = this.padKeys(c);
+        if (!Array.isArray(keys)) return { ok: false, error: keys.error };
+        for (const k of keys) {
           this.keys.push(k);
           this.onKey?.(k);
           // SDK 처럼 Escape 는 뒤로 키와 같다.
           if (k === 'Escape') this.onBack?.();
         }
-        return { ok: true, key: c.key };
+        return { ok: true, key: keys.join('+') };
+      }
       case 'touch-down': {
         const p = this.point(c, f);
         if ('error' in p) return { ok: false, error: p.error };
@@ -390,19 +460,34 @@ export class FakeGame {
         return { ok: true };
       }
       case 'key-down':
-        for (const k of keysOf(c)) this.held.set(k, Number(c.power ?? 1));
+      case 'key-up': {
+        const keys = this.padKeys(c);
+        if (!Array.isArray(keys)) return { ok: false, error: keys.error };
+        for (const k of keys)
+          if (c.cmd === 'key-down') this.held.set(k, Number(c.power ?? 1));
+          else this.held.delete(k);
         this.onInput?.();
         return { ok: true };
-      case 'key-up':
-        for (const k of keysOf(c)) this.held.delete(k);
-        this.onInput?.();
-        return { ok: true };
+      }
+      case 'pad': {
+        if (this.input === 'old') return { ok: false, error: '이 게임은 Input System 을 쓰지 않아 가상 패드를 만들 수 없습니다' };
+        const type = c.type as string | undefined;
+        if (type !== undefined) {
+          if (!PAD_TYPES.includes(type)) return { ok: false, error: `type 은 ${PAD_TYPES.join(' · ')} 중 하나입니다` };
+          if (type !== 'off' && !this.pads.includes(type)) return { ok: false, error: `이 플랫폼에서는 ${type} 패드를 만들 수 없습니다 — 만들 수 있는 종류: ${this.pads.join(' · ')}` };
+          this.pad = type;
+          this.onInput?.();
+        }
+        if (this.pad === 'off') return { ok: true, pad: { type: 'off' }, devices: [] };
+        const layout = PAD_LAYOUT[this.pad];
+        return { ok: true, pad: { type: this.pad, layout, buttons: Object.fromEntries(PAD_SPOTS.map((spot, i) => [spot, padShown(this.pad)[i]])) }, devices: [{ layout, native: false }] };
+      }
       case 'tilt':
         if (Math.abs(c.y as number) > 10) this.tilted = Math.round(c.y as number);
         this.onInput?.();
         return { ok: true };
       case 'pointer':
-        if (!f.node) return { ok: false, error: `켜진 오브젝트 중에 ${c.target as string} 이 없습니다` };
+        if (!f.node) return { ok: false, error: f.missing };
         if (f.node.components?.some((t) => t.startsWith('UnityEngine.UIElements.'))) return { ok: false, error: `${c.target as string} 은 UI Toolkit 요소라 pointer 를 못 보냅니다 — mouse-move · touch-down 으로` };
         if (!['down', 'up', 'enter', 'exit'].includes(c.event as string)) return { ok: false, error: 'event 는 down · up · enter · exit 중 하나입니다' };
         f.node.onPointer?.(c.event as PointerAction, c.event === 'up' ? 0 : undefined);
@@ -418,12 +503,16 @@ export class FakeGame {
         if (c.format === 'png') return { ok: true, png: Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).toString('base64') };
         return { ok: true, jpg: Buffer.from('jpg').toString('base64') };
       case 'call': {
-        if (!f.node) return { ok: false, error: `켜진 오브젝트 중에 ${c.target as string} 이 없습니다` };
-        const m = f.node.methods?.[c.method as string];
+        if (!f.node) return { ok: false, error: f.missing };
+        const k = componentPath(f.node, c.method as string, (c.method as string).lastIndexOf('.'));
+        if (typeof k !== 'string') return { ok: false, error: k.error };
+        const m = f.node.methods?.[k];
         return m ? { ok: true, value: m(...((c.args as string[] | undefined) ?? [])) ?? null } : { ok: false, error: `${c.method as string} 메서드가 없습니다` };
       }
       case 'set': {
-        const v = f.node?.set?.(c.prop as string, c.value as string);
+        const k = componentPath(f.node, c.prop as string, (c.prop as string).indexOf('.'));
+        if (typeof k !== 'string') return { ok: false, error: k.error };
+        const v = f.node?.set?.(k, c.value as string);
         return v === undefined ? { ok: false, error: `${c.prop as string} 칸이 없습니다` } : { ok: true, value: v };
       }
       case 'static-call': {
@@ -514,6 +603,17 @@ function inputLine(g: FakeGame): string {
   return `fingers ${g.fingers.size} · keys ${keys} · axis ${axis} · fire ${has('LeftControl', 'JoystickButton0') ? 1 : 0} · tilt ${g.tilted ?? '-'}`;
 }
 
+/** 표준 화면 PadText 흉내 — sample InputProbe 의 패드 줄과 같은 꼴. 확인 · 취소는 Switch 만 오른쪽이 확인이다 */
+function padLine(g: FakeGame): string {
+  if (g.pad === 'off') return 'pad -';
+  const v = (n: number) => Math.round(g.held.get(`JoystickButton${n}`) ?? 0);
+  const on = (n: number) => (g.held.has(`JoystickButton${n}`) ? 1 : 0);
+  const shown = padShown(g.pad);
+  const [ok, no] = g.pad === 'switch' ? [1, 0] : [0, 1];
+  const held = [0, 1, 2, 3, 4, 5, 8, 9, 10, 11].filter((n) => on(n)).map((n) => `${PAD_SPOTS[n]}=${shown[n]}`).join(' ') || '-';
+  return `pad ${PAD_LAYOUT[g.pad]} · ok ${shown[ok]} · no ${shown[no]} · held ${held} · dpad ${on(15) - on(14)},${on(12) - on(13)} · L ${v(16)},${v(17)} · R ${v(18)},${v(19)} · LT ${Math.abs(v(6))} · RT ${Math.abs(v(7))}`;
+}
+
 /** 표준 화면 흉내 — sample/Assets/Sample 과 같은 이름 · 같은 반응(conform 의 기대값). Sample 장면이 열릴 때마다 화면을 새로 만든다 */
 export function standardScreen(idAccept = keyFilter(8)): FakeGame {
   const game = new FakeGame([], 'Sample');
@@ -537,17 +637,28 @@ export function standardScreen(idAccept = keyFilter(8)): FakeGame {
       let presses = 0;
       return node(name, { kind: 'Button', interactable: true, onClick: () => (out.text = `${label} ${from.text} ${++presses}`), ...extra });
     };
-    const uguiButton = (at: [number, number]): Partial<FakeNode> => ({ components: ['UnityEngine.RectTransform', 'UnityEngine.UI.Image', 'UnityEngine.UI.Button'], at });
+    const uguiButton = (at: [number, number]): Partial<FakeNode> => ({
+      components: ['UnityEngine.RectTransform', 'UnityEngine.UI.Image', 'UnityEngine.UI.Button'],
+      bases: { 'UnityEngine.UI.Button': ['UnityEngine.UI.Selectable', 'UnityEngine.EventSystems.UIBehaviour', 'UnityEngine.MonoBehaviour'] },
+      at,
+    });
     let cubes = 0;
     const position = [0, 0, 5];
     game.onKey = (key) => (touch.text = `key ${key}`);
     // C — 입력 탐침 · Pointer 칸 · 세로 목록(sample InputProbe · PointerBox · ScrollList)
     const input = node('InputText', { text: inputLine(game) });
-    game.onInput = () => (input.text = inputLine(game));
+    const padText = node('PadText', { text: padLine(game) });
+    game.onInput = () => {
+      input.text = inputLine(game);
+      padText.text = padLine(game);
+    };
     const pointerText = node('PointerText', { text: 'last - · held -' });
     let last = '-';
     let held = '-';
+    // PointerBox 는 Selectable 없이 IPointerDownHandler 로 누름을 받는다 — SDK 는 그 컴포넌트 이름을 종류로 찍는다.
     const holdBox = node('HoldBox', {
+      kind: 'PointerBox',
+      interactable: true,
       at: [810, 900],
       components: ['UnityEngine.RectTransform', 'UnityEngine.UI.Image', 'Sample.PointerBox'],
       onPointer: (e, seconds) => {
@@ -612,10 +723,11 @@ export function standardScreen(idAccept = keyFilter(8)): FakeGame {
           touch,
           tmpStatus,
           tmpId,
-          login('TmpLoginButton', 'tmp login', tmpStatus, tmpId, uguiButton([810, 1500])),
+          login('TmpLoginButton', 'tmp login', tmpStatus, tmpId, { ...uguiButton([810, 1500]), children: [node('Text (TMP)', { text: 'TMP Login' })] }),
           node('Bag', {}, [node('Slot', {}, [node('Item', { movable: true })]), node('Slot'), node('Slot'), node('Slot')]),
           node('HiddenText', { active: false, text: 'hidden', props: { 'Text.text': 'hidden' } }),
           input,
+          padText,
           pointerText,
           holdBox,
           scrollList,
@@ -762,15 +874,20 @@ export interface FakeDevice {
 
 export async function fakeFarm(
   game: FakeGame,
-): Promise<{ url: string; server: Server; held: Set<string>; seen: string[]; state: { sessionGone: boolean; devices: () => FakeDevice[] } }> {
+): Promise<{ url: string; server: Server; held: Set<string>; seen: string[]; state: { sessionGone: boolean; devices: () => FakeDevice[]; zip?: { type?: string; bytes: Buffer }; launched?: string } }> {
   const held = new Set<string>();
   // Appium 이 세션을 이미 끝냈을 때(쉼 300초 · 잡기 시간 끝) · 기기 목록(부를 때마다 읽는다 — 정리 중 → 빈 폰을 흉내 낸다)
-  const state = { sessionGone: false, devices: (): FakeDevice[] => [{ serial: 'R1', state: 'IDLE', detail: 'ready' }] };
+  const state: { sessionGone: boolean; devices: () => FakeDevice[]; zip?: { type?: string; bytes: Buffer }; launched?: string } = {
+    sessionGone: false,
+    devices: (): FakeDevice[] => [{ serial: 'R1', state: 'IDLE', detail: 'ready' }],
+  };
   const seen: string[] = [];
   const server = createServer((req, res) => {
-    let raw = '';
-    req.on('data', (c) => (raw += c));
+    const chunks: Buffer[] = [];
+    req.on('data', (c: Buffer) => chunks.push(c));
     req.on('end', () => {
+      const body = Buffer.concat(chunks);
+      const raw = body.toString();
       const path = req.url ?? '';
       seen.push(`${req.method} ${path}`);
       const send = (status: number, body: unknown) => {
@@ -781,6 +898,20 @@ export async function fakeFarm(
       const hold = /^\/api\/devices\/([^/]+)\/hold$/.exec(path);
       if (hold && req.method === 'POST') return held.add(hold[1]), send(200, { held: { until: Date.now() + 1800_000 } });
       if (hold && req.method === 'DELETE') return held.delete(hold[1]), send(200, { released: true });
+      // VISION 윈도우 PC(ADR-061) — platform=windows 조건 잡기 · zip 깔기 · 켜기 · 끄기. 잡기 답에 녹화 id 가 온다
+      if (path === '/api/devices/acquire' && req.method === 'POST') {
+        const want = JSON.parse(raw) as { filter?: string };
+        if (want.filter !== 'platform=windows') return send(409, { refused: '빈 기기가 없습니다' });
+        return held.add('pc-pc1'), send(200, { held: { serial: 'pc-pc1', until: Date.now() + 1800_000, sessionId: 'hold-1' } });
+      }
+      const pc = /^\/api\/devices\/([^/]+)\/(install|launch|stop)$/.exec(path);
+      if (pc && req.method === 'POST') {
+        if (!held.has(pc[1])) return send(409, { value: { error: 'invalid argument', message: '잡은 기기가 아닙니다' } });
+        // 진짜 VISION 은 답을 { value } 로 싼다(2026-11-19 pc-pc1 실측)
+        if (pc[2] === 'install') return (state.zip = { type: req.headers['content-type'], bytes: body }), send(200, { value: { installed: true, game: 'BossRoom' } });
+        if (pc[2] === 'launch') return (state.launched = (JSON.parse(raw) as { game: string }).game), send(200, { value: { pid: 4321 } });
+        return (state.launched = undefined), send(200, { value: { stopped: true } });
+      }
       const g = /^\/api\/devices\/([^/]+)\/game$/.exec(path);
       if (g) {
         if (req.headers['content-type'] !== 'application/json') return send(415, { value: { error: 'unknown error', message: '본문 형식은 application/json' } });

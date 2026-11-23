@@ -15,11 +15,11 @@ const direct = (g: FakeGame) => new Game(async (c) => g.handle(c));
 const hooks = (g: FakeGame) => ({ background: async () => g.background() });
 const byName = (g: FakeGame, name: string) => flatten(g.roots).find((e) => e.node.name === name)!.node as FakeNode;
 
-test('표준 화면이면 53줄이 모두 통과한다', async () => {
+test('표준 화면이면 59줄이 모두 통과한다', async () => {
   const g = standardScreen();
   const r = await conform(direct(g), hooks(g));
-  assert.deepEqual([r.passed, r.failed, r.skipped], [53, 0, 0], report(r));
-  assert.match(report(r), /\n통과 53 · 실패 0 · 미실행 0$/);
+  assert.deepEqual([r.passed, r.failed, r.skipped], [59, 0, 0], report(r));
+  assert.match(report(r), /\n통과 59 · 실패 0 · 미실행 0$/);
   assert.deepEqual([g.fingers.size, g.held.size, g.scene], [0, 0, 'Sample']);
   assert.match(report(r), /^conform — com\.fake\.game 1\.0 · fake 0 · SDK 0\.3\.0 · protocol 2/);
 });
@@ -28,7 +28,7 @@ test('옛 uGUI setter 차례(qauser0)면 그 줄과 로그인 줄이 실패하�
   const g = standardScreen((t) => keyFilter(8)(t.slice(0, 8)));
   g.caps = g.caps.filter((c) => c !== 'layout');
   const r = await conform(direct(g), hooks(g));
-  assert.deepEqual([r.passed, r.failed, r.skipped], [50, 2, 1], report(r));
+  assert.deepEqual([r.passed, r.failed, r.skipped], [56, 2, 1], report(r));
   assert.match(report(r), /✗ type IdInput 'qa_user01!' → qauser01 — IdInput: "qauser0"/);
   assert.match(report(r), /- layout 이 답한다 \(미실행 — 이 SDK 의 caps 에 layout 없음\)/);
 });
@@ -39,7 +39,7 @@ test('옛 SDK(caps 에 rect 없음)면 find 답에 rect · screen 이 없고 rec
   const f = await direct(g).find('LoginButton');
   assert.deepEqual([f?.rect, f?.screen, typeof f?.x], [undefined, undefined, 'number']);
   const r = await conform(direct(g), hooks(g));
-  assert.deepEqual([r.passed, r.failed, r.skipped], [52, 0, 1], report(r));
+  assert.deepEqual([r.passed, r.failed, r.skipped], [58, 0, 1], report(r));
   assert.match(report(r), /- find 의 rect 가 x,y 를 품는다 .* \(미실행 — 이 SDK 의 caps 에 rect 없음\)/);
 });
 
@@ -50,7 +50,7 @@ test('같은 게임에 다시 돌려도 통과하고, 둘째 판은 Item 을 다
   const g = keepScreen(standardScreen());
   await conform(direct(g), hooks(g));
   const r = await conform(direct(g), hooks(g));
-  assert.deepEqual([r.passed, r.failed, r.skipped], [48, 0, 5], report(r));
+  assert.deepEqual([r.passed, r.failed, r.skipped], [54, 0, 5], report(r));
   assert.ok(flatten(g.roots).some((e) => e.path === '/SampleCanvas/Bag/Slot[2]/Item'), report(r));
 });
 
@@ -60,7 +60,7 @@ test('다시 돌릴 때 누르기 · 끌기가 안 먹으면 앞 판 글자 · �
   byName(g, 'LoginButton').onClick = undefined;
   byName(g, 'Item').movable = false;
   const r = await conform(direct(g), hooks(g));
-  assert.deepEqual([r.passed, r.failed, r.skipped], [43, 5, 5], report(r));
+  assert.deepEqual([r.passed, r.failed, r.skipped], [49, 5, 5], report(r));
   assert.match(report(r), /✗ click LoginButton → StatusText 에 「login qauser01」 — StatusText: "login qauser01 \d+"/);
   assert.match(report(r), /✗ drag Item → 다른 칸 — \/SampleCanvas\/Bag\/Slot\[3\]\/Item 있음: false/);
   assert.match(report(r), /✗ C click LoginButton count 2 → 끝 번호가 2 늚/);
@@ -70,7 +70,7 @@ test('caps 에 find 가 없으면 find 로 확인하는 줄(누르기 · 끌기)
   const g = standardScreen();
   g.caps = g.caps.filter((c) => c !== 'find');
   const r = await conform(direct(g), hooks(g));
-  assert.deepEqual([r.passed, r.failed, r.skipped], [20, 0, 33], report(r));
+  assert.deepEqual([r.passed, r.failed, r.skipped], [20, 0, 39], report(r));
   assert.match(report(r), /- click LoginButton → StatusText 에 「login qauser01」 \(미실행 — 이 SDK 의 caps 에 find 없음\)/);
 });
 
@@ -78,7 +78,7 @@ test('A 줄 — 장면을 바꿨다 돌아오면 표준 화면이 새로 서고,
   const g = standardScreen();
   await conform(direct(g), hooks(g));
   const r = await conform(direct(g), hooks(g));
-  assert.deepEqual([r.passed, r.failed, r.skipped], [53, 0, 0], report(r));
+  assert.deepEqual([r.passed, r.failed, r.skipped], [59, 0, 0], report(r));
   assert.deepEqual([g.scene, g.loaded.map((l) => l.name), g.prefs.size, g.timeScale], ['Sample', ['Sample'], 0, 1]);
   assert.match(report(r), /✓ A scene-load Second → Sample 로 돌아오면 표준 화면을 다시 만든다/);
 });
@@ -110,6 +110,7 @@ test('B 줄 — waitForProp 은 값이 될 때까지 get 을 되풀이하고, �
   const game = direct(g);
   const cube = byName(g, 'WorldCube');
   let later = 3;
+  cube.components = [...cube.components!, 'Sample.Probe'];
   cube.props!['Probe.count'] = 0;
   g.onGet = () => {
     if (later-- === 0) cube.props!['Probe.count'] = 10;
@@ -147,6 +148,58 @@ test('C 줄 — 가짜 SDK 도 SDK 처럼 count 1 미만 · power -1~1 밖을 �
   assert.equal(g.held.size, 0);
 });
 
+test('C 패드 — Pad.A 는 switch 에서 오른쪽 · xbox 에서 아래 자리로 가고, 그 패드에 없는 이름은 쓸 수 있는 이름과 함께 거절한다', async () => {
+  const g = standardScreen();
+  const game = direct(g);
+  assert.deepEqual(await game.pad(), { pad: { type: 'off' }, devices: [], ok: true });
+  // 패드를 안 골랐으면 글자 이름은 못 쓰고, 어느 패드든 같은 이름(십자키 · 스틱)은 종류 없는 패드로 간다
+  await assert.rejects(game.key('Pad.A'), /Pad\.A 는 콘솔 패드를 골라야 씁니다\(pad xbox · ps5 · ps4 · switch\) — 지금 쓸 수 있는 이름: Pad\.Up · /);
+  await game.keyDown('pad.up');
+  assert.deepEqual([[...g.held.keys()], (await game.pad()).pad.layout], [['JoystickButton12'], 'Gamepad']);
+  await game.resetInput();
+
+  const made = await game.pad('switch');
+  assert.deepEqual([made.pad.layout, made.pad.buttons?.east, made.pad.buttons?.south, made.devices], ['SwitchProControllerHID', 'A', 'B', [{ layout: 'SwitchProControllerHID', native: false }]]);
+  await game.keyDown('Pad.A');
+  assert.deepEqual([...g.held.keys()], ['JoystickButton1']);
+  assert.match(byName(g, 'PadText').text!, /^pad SwitchProControllerHID · ok A · no B · held east=A · dpad 0,0 · L 0,0 · R 0,0 · LT 0 · RT 0$/);
+  // input-reset 은 버튼만 뗀다 — 패드 종류는 남는다
+  await game.resetInput();
+  assert.equal((await game.pad()).pad.type, 'switch');
+
+  await game.pad('xbox');
+  await game.keyDown('Pad.A+Pad.LX', { power: -1 });
+  assert.deepEqual([...g.held.keys()], ['JoystickButton0', 'JoystickButton16']);
+  assert.match(byName(g, 'PadText').text!, /^pad XInputControllerWindows · ok A · no B · held south=A · dpad 0,0 · L -1,0 /);
+  await assert.rejects(game.key('Pad.Cross'), /xbox 패드에 없는 이름입니다: Pad\.Cross \(쓸 수 있는 이름 — Pad\.A · Pad\.B · .* · Pad\.RY\)/);
+  await assert.rejects(game.pad('wii' as never), /type 은 xbox · ps5 · ps4 · switch · generic · off 중 하나입니다/);
+  await game.resetInput();
+  assert.equal((await game.pad('off')).pad.type, 'off');
+  assert.equal(byName(g, 'PadText').text, 'pad -');
+});
+
+test('C 패드 — 옛 Input 빌드 · 콘솔 패드를 못 만드는 플랫폼 · pad 가 없는 SDK 는 패드 줄 넷이 미실행이다', async () => {
+  const old = standardScreen();
+  old.input = 'old';
+  await assert.rejects(direct(old).pad('ps5'), /이 게임은 Input System 을 쓰지 않아 가상 패드를 만들 수 없습니다/);
+  let r = await conform(direct(old), hooks(old));
+  assert.deepEqual([r.passed, r.failed, r.skipped], [55, 0, 4], report(r));
+  assert.match(report(r), /- C pad ps5 → DualSenseGamepadHID .* \(미실행 — 옛 Input 빌드 — 가상 패드는 Input System 게임만\)/);
+
+  const phone = standardScreen();
+  phone.pads = ['generic'];
+  await assert.rejects(direct(phone).pad('xbox'), /이 플랫폼에서는 xbox 패드를 만들 수 없습니다 — 만들 수 있는 종류: generic/);
+  r = await conform(direct(phone), hooks(phone));
+  assert.deepEqual([r.passed, r.failed, r.skipped], [55, 0, 4], report(r));
+  assert.match(report(r), /- C pad xbox → XInputControllerWindows \| XboxGamepadMacOSWireless .* \(미실행 — 이 플랫폼에서는 xbox 패드를 만들 수 없음\)/);
+
+  const godot = standardScreen();
+  godot.caps = godot.caps.filter((c) => c !== 'pad');
+  r = await conform(direct(godot), hooks(godot));
+  assert.deepEqual([r.passed, r.failed, r.skipped], [55, 0, 4], report(r));
+  assert.match(report(r), /- C pad switch → SwitchProControllerHID .* \(미실행 — 이 SDK 의 caps 에 pad 없음\)/);
+});
+
 test('C 줄 — 손가락은 비어 있는 가장 작은 번호(10~19)를 받고, 10개면 거절하고, input-reset 이 다 뗀다', async () => {
   const g = standardScreen();
   const game = direct(g);
@@ -175,18 +228,18 @@ test('C 줄 — 8초 넘는 입력 · 자리 없는 한 점 명령 · 틀린 점
 
 const P2C = ['touch-down', 'touch-move', 'touch-up', 'swipe', 'long-press', 'mouse-move', 'scroll', 'key-down', 'key-up', 'tilt', 'pointer', 'input-reset'];
 
-test('C 줄 — 옛 SDK(caps 에 P2-C 명령 없음)면 C 줄 15개는 미실행', async () => {
+test('C 줄 — 옛 SDK(caps 에 P2-C 명령 없음)면 C 줄 19개는 미실행', async () => {
   const g = standardScreen();
   g.caps = g.caps.filter((c) => !P2C.includes(c));
   const r = await conform(direct(g), hooks(g));
-  assert.deepEqual([r.passed, r.failed, r.skipped], [38, 0, 15], report(r));
+  assert.deepEqual([r.passed, r.failed, r.skipped], [40, 0, 19], report(r));
   assert.match(report(r), /- C 손가락 둘 — touch-down 둘 → fingers 2 · touch-up → fingers 0 \(미실행 — 이 SDK 의 caps 에 touch-down · touch-up · input-reset 없음\)/);
 });
 
 test('D 줄 — 앱을 뒤로 보낼 길이 없으면(PC · iPhone) 일시정지 줄만 미실행이다', async () => {
   const g = standardScreen();
   const r = await conform(direct(g));
-  assert.deepEqual([r.passed, r.failed, r.skipped], [52, 0, 1], report(r));
+  assert.deepEqual([r.passed, r.failed, r.skipped], [58, 0, 1], report(r));
   assert.match(report(r), /- D 일시정지 알림 — 앱을 2초 뒤로 → game\.paused · game\.resumed \(미실행 — 앱을 뒤로 보낼 길 없음: PC · iPhone · Appium 없는 USB\)/);
 });
 

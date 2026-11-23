@@ -86,7 +86,15 @@ namespace Sample
             // C — 입력 탐침(손가락 · 키 · 축 · 단추 · 기울기)과 Pointer 칸 · 세로 목록.
             var input = Label(root, "InputText", Left, 6);
             input.fontSize = 28;
-            canvas.AddComponent<InputProbe>().Output = input;
+            // 지금 패드 — layout · 확인/취소 글자 · 누른 버튼 · 십자키 · 스틱 · 방아쇠(conform C pad 줄). 긴 줄이라 글자를 줄인다.
+            var pad = Label(root, "PadText", Left, 7);
+            pad.fontSize = 22;
+            pad.raycastTarget = false;
+            // 일곱째 줄 자리는 아래 붙인 UI Toolkit 패널이 덮는다 — InputText 바로 밑으로 올린다.
+            ((RectTransform)pad.transform).anchoredPosition += new Vector2(0, 110);
+            var probe = canvas.AddComponent<InputProbe>();
+            probe.Output = input;
+            probe.Pad = pad;
             var pointerText = Label(root, "PointerText", Right, 4);
             pointerText.fontSize = 28;
             var holdBox = Place(DefaultControls.CreateImage(Look), root, "HoldBox", Right, 4);
