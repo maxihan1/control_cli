@@ -5,7 +5,7 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
-#if CONTROL_CLI_UITK
+#if QAHUB_SDK_UITK
 using UnityEngine.UIElements;
 #endif
 
@@ -15,7 +15,7 @@ namespace ControlCli
     internal readonly struct Item
     {
         public readonly GameObject Go;
-#if CONTROL_CLI_UITK
+#if QAHUB_SDK_UITK
         public readonly VisualElement Ve;
 
         public Item(VisualElement ve)
@@ -28,33 +28,33 @@ namespace ControlCli
         public Item(GameObject go)
         {
             Go = go;
-#if CONTROL_CLI_UITK
+#if QAHUB_SDK_UITK
             Ve = null;
 #endif
         }
 
         public bool Exists =>
-#if CONTROL_CLI_UITK
+#if QAHUB_SDK_UITK
             Ve != null ||
 #endif
             Go != null;
 
         // 이름 없는 요소는 타입 이름으로 부른다 — 대개 겹쳐 경로 주소가 된다.
         public string Name =>
-#if CONTROL_CLI_UITK
+#if QAHUB_SDK_UITK
             Ve != null ? (string.IsNullOrEmpty(Ve.name) ? Ve.GetType().Name : Ve.name) :
 #endif
             Go.name;
 
         public bool Is(Item other) =>
-#if CONTROL_CLI_UITK
+#if QAHUB_SDK_UITK
             Ve != null ? Ve == other.Ve :
 #endif
             Go == other.Go;
 
         // 같은 것 가르기(선택자가 두 길로 닿을 때) — 게임 오브젝트 또는 요소 그 자체.
         public object Key =>
-#if CONTROL_CLI_UITK
+#if QAHUB_SDK_UITK
             Ve != null ? (object)Ve :
 #endif
             Go;
@@ -100,7 +100,7 @@ namespace ControlCli
         public static List<Item> ChildrenOf(Item item, bool all = false)
         {
             var list = new List<Item>();
-#if CONTROL_CLI_UITK
+#if QAHUB_SDK_UITK
             if (item.Ve != null)
             {
                 // 컨트롤(버튼 · 입력칸 …) 속은 내보내지 않는다 — 안쪽 요소는 컨트롤의 일부이고 비밀번호 칸 속 글자를 드러낼 수 있다.
@@ -112,7 +112,7 @@ namespace ControlCli
 #endif
             foreach (Transform child in item.Go.transform)
                 if (all || child.gameObject.activeInHierarchy) list.Add(new Item(child.gameObject));
-#if CONTROL_CLI_UITK
+#if QAHUB_SDK_UITK
             var doc = item.Go.GetComponent<UIDocument>();
             if (doc != null && (all || doc.isActiveAndEnabled) && doc.rootVisualElement != null)
                 foreach (var child in doc.rootVisualElement.Children())
@@ -121,7 +121,7 @@ namespace ControlCli
             return list;
         }
 
-#if CONTROL_CLI_UITK
+#if QAHUB_SDK_UITK
         private static bool Shown(VisualElement ve) => ve.visible && ve.resolvedStyle.display != DisplayStyle.None;
 #endif
 
@@ -130,7 +130,7 @@ namespace ControlCli
         {
             foreach (var x in trail)
             {
-#if CONTROL_CLI_UITK
+#if QAHUB_SDK_UITK
                 if (x.Ve != null)
                 {
                     if (!Shown(x.Ve)) return false;
@@ -145,7 +145,7 @@ namespace ControlCli
         // 누를 수 있는 것의 종류 — uGUI 는 Selectable(없으면 누름을 받는 컴포넌트), UI Toolkit 은 컨트롤 요소. 창 훑기가 이것으로 누를 것을 고른다.
         public static string KindOf(Item item)
         {
-#if CONTROL_CLI_UITK
+#if QAHUB_SDK_UITK
             if (item.Ve != null)
             {
                 // uGUI 에도 같은 이름(Button · Toggle · Slider)이 있어 UI Toolkit 쪽은 전체 이름으로 쓴다.
@@ -171,7 +171,7 @@ namespace ControlCli
 
         public static bool Interactable(Item item)
         {
-#if CONTROL_CLI_UITK
+#if QAHUB_SDK_UITK
             if (item.Ve != null) return item.Ve.enabledInHierarchy;
 #endif
             var selectable = item.Go.GetComponent<Selectable>();
@@ -183,7 +183,7 @@ namespace ControlCli
 
         public static string TextOf(Item item)
         {
-#if CONTROL_CLI_UITK
+#if QAHUB_SDK_UITK
             if (item.Ve != null)
             {
                 if (item.Ve is TextField field) return Masked(field.value ?? "", field.isPasswordField);
@@ -193,13 +193,13 @@ namespace ControlCli
             var go = item.Go;
             var input = go.GetComponent<InputField>();
             if (input != null) return Masked(input.text, input.inputType == InputField.InputType.Password);
-#if CONTROL_CLI_TMP
+#if QAHUB_SDK_TMP
             var tmpInput = go.GetComponent<TMPro.TMP_InputField>();
             if (tmpInput != null) return Masked(tmpInput.text, tmpInput.inputType == TMPro.TMP_InputField.InputType.Password);
 #endif
             var text = go.GetComponent<Text>();
             if (text != null) return text.text;
-#if CONTROL_CLI_TMP
+#if QAHUB_SDK_TMP
             // TMP 입력칸은 글자 칸 끝에 caret 자리용 U+200B 를 붙인다 — 화면에 보이는 글자만 돌려준다.
             var tmp = go.GetComponent<TMPro.TMP_Text>();
             if (tmp != null) return (tmp.text ?? "").TrimEnd((char)0x200B);
@@ -270,7 +270,7 @@ namespace ControlCli
         // cam 은 월드 오브젝트를 비출 카메라(camera 칸) — 없으면 주 카메라. UI 는 Canvas · panel 이 제 카메라를 안다.
         public static Vector2? ScreenPoint(Item item, Camera cam = null)
         {
-#if CONTROL_CLI_UITK
+#if QAHUB_SDK_UITK
             if (item.Ve != null) return UiToolkit.ScreenRect(item.Ve)?.center;
 #endif
             var go = item.Go;
@@ -300,7 +300,7 @@ namespace ControlCli
         // 화면 밖으로 나간 만큼은 자르지 않는다. 렌더러가 없거나 다 카메라 뒤면 null.
         public static Rect? ScreenBox(Item item, Camera cam = null)
         {
-#if CONTROL_CLI_UITK
+#if QAHUB_SDK_UITK
             if (item.Ve != null) return UiToolkit.ScreenRect(item.Ve);
 #endif
             var go = item.Go;

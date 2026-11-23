@@ -25,3 +25,5 @@ __pycache__/
 drivers/csharp/bin/
 # Recorder 테스트가 저장소 안에 잠깐 두는 내보낸 TS(package 자기 참조로 control-cli 를 부른다)
 .recorder-*/
+# 개발사에 넘길 zip(npm run handoff)
+QAhub*.zip

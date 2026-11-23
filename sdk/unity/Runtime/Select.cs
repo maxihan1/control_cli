@@ -211,7 +211,7 @@ namespace ControlCli
                     break;
                 }
                 case "component":
-#if CONTROL_CLI_UITK
+#if QAHUB_SDK_UITK
                     if (item.Ve != null)
                     {
                         Types(list, item.Ve.GetType());
@@ -339,7 +339,7 @@ namespace ControlCli
         // ponytail: UI Toolkit 과 uGUI 가 겹치면 UI Toolkit 이 이긴다 — 두 정렬 순서를 견주는 건 겹친 게임이 생기면.
         public static Item At(Vector2 p, Camera cam)
         {
-#if CONTROL_CLI_UITK
+#if QAHUB_SDK_UITK
             for (var ve = UiToolkit.Pick(p); ve != null; ve = ve.hierarchy.parent)
                 if (Tree.TrailOf(new Item(ve), false) != null) return new Item(ve);
 #endif
@@ -359,14 +359,14 @@ namespace ControlCli
             GameObject best = null;
             // 카메라가 그리는 끝(far clip) 너머는 화면에 없다.
             var near = cam.farClipPlane;
-#if CONTROL_CLI_PHYSICS
+#if QAHUB_SDK_PHYSICS
             if (Physics.Raycast(ray, out var h3, near))
             {
                 best = h3.collider.gameObject;
                 near = h3.distance;
             }
 #endif
-#if CONTROL_CLI_PHYSICS2D
+#if QAHUB_SDK_PHYSICS2D
             var h2 = Physics2D.GetRayIntersection(ray);
             if (h2.collider != null && h2.distance < near) best = h2.collider.gameObject;
 #endif

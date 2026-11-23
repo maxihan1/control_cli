@@ -1,5 +1,5 @@
 // 새 Input System 을 쓰는 게임에 같은 가짜 입력을 장치 이벤트로 넣는다 — 폰은 손가락마다 Touchscreen, PC 는 마우스 손가락을 Mouse 로, 키는 Keyboard, 패드 키는 FakePad 의 가상 패드, 기울기는 Accelerometer
-#if CONTROL_CLI_INPUTSYSTEM && ENABLE_INPUT_SYSTEM
+#if QAHUB_SDK_INPUTSYSTEM && ENABLE_INPUT_SYSTEM
 using System;
 using System.Collections.Generic;
 using UnityEngine;

@@ -13,7 +13,7 @@ import { crawl, CRAWL } from './crawl.js';
 import { installAndLaunch, terminate } from './devicectl.js';
 import { Game, settled, WAIT, type At, type FindOptions, type PadType, type PingReply, type PrefType, type WaitOptions } from './game.js';
 import { inspect, INSPECT_PORT } from './inspect.js';
-import { instrument, instrumentGodot } from './instrument.js';
+import { instrumentGodot, instrumentUnity } from './instrument.js';
 import { launch, stop } from './launch.js';
 import { driverLink, farmLink, GAME_PORT, iosLink, relayLink, tcpLink, usbLink, type Command, type Reply } from './link.js';
 import { serve, VERSION } from './mcp.js';
@@ -113,7 +113,7 @@ export const HELP = `control-cli [-s=<세션>] <명령>
   crawl [--max ${CRAWL.maxWindows}] [--minutes ${CRAWL.minutes}] [--exclude <정규식>]… [--out <폴더>]   창 훑기
   close                                            Appium 세션을 닫는다
   release [--udid <serial>]                        폰 · PC 를 놓는다 — 팜이 깐 게임 · 데이터를 지운다(PC 는 녹화 받는 주소도)
-  instrument <Unity · Godot 프로젝트 폴더> [--ref <커밋>] [--relay <주소>]  QA 빌드에 SDK 를 넣는다 — relay 주소를 주면 게임이 그리로 건다(Godot 는 이 CLI 에 실린 SDK · --ref 없음)
+  instrument <Unity · Godot 프로젝트 폴더> [--ref <커밋>] [--relay <주소>]  QA 빌드에 SDK 를 넣는다 — --ref 가 없으면 이 CLI 에 실린 SDK(Godot 는 늘), relay 주소를 주면 게임이 그리로 건다
 
 주소는 오브젝트 이름(하나뿐일 때) · /Canvas/Panel/Slot[2] 경로 · //*[@tag=Player] · //*[contains(@name,Slot)] · //*[@text=OK]/.. 선택자(AltTester PATH 꼴).
 읽기 · 쓰기 명령(get · set · call · text-set …)은 --inactive 로 꺼진 것도, 누르기 · 끌기는 --camera 로 카메라를 고른다. ref(e3)는 마지막 화면에서만 쓴다.
@@ -205,8 +205,6 @@ export async function run(argv: string[], o: Options): Promise<string> {
 
   // 폰이 아니라 Unity 프로젝트 파일을 고치는 명령이다.
   if (name === 'instrument') {
-    // 기본은 이 CLI 판 tag — CLI 가 아는 SDK 경로(?path=/sdk/unity)와 SDK 판이 늘 맞는다(그 tag 를 먼저 찍는다).
-    const ref = values.ref ?? `v${VERSION}`;
     const address = values.relay ? args.find((a) => /^(ws|http)s?:\/\//.test(a)) : undefined;
     if (values.relay && !address) throw new Error('--relay 뒤에 게임이 걸 주소(ws:// · wss://)를 줍니다');
     const folders = args.filter((a) => a !== address);
@@ -221,14 +219,7 @@ export async function run(argv: string[], o: Options): Promise<string> {
         ...(gameAddress ? [`relay 주소를 구웠습니다 — 게임이 ${gameAddress} 로 겁니다`] : []),
       ].join('\n');
     }
-    const { asmdefs, warnings } = instrument(folders[0], ref, gameAddress);
-    return [
-      `SDK(${ref}) 를 Packages/manifest.json 에 더했습니다`,
-      ...(gameAddress ? [`relay 주소를 구웠습니다 — 게임이 ${gameAddress} 로 겁니다`] : []),
-      ...asmdefs.map((a) => `asmdef 참조 더함: ${a}`),
-      ...warnings.map((w) => `경고: ${w}`),
-      'QA 빌드 정의 심볼에 CONTROL_CLI 가 있어야 SDK 가 빌드에 들어갑니다',
-    ].join('\n');
+    return instrumentUnity(folders[0], values.ref, gameAddress);
   }
 
   // 기록 파일만 읽는다 — 세션이 없어도 된다.
@@ -938,7 +929,7 @@ async function untilAnswers(game: Game): Promise<PingReply> {
       return await game.ping();
     } catch (e) {
       if (Date.now() >= end)
-        throw new Error(`게임이 ${TIMING.openWaitMs / 1000}초 안에 답하지 않았습니다 — QA 빌드(정의 심볼 CONTROL_CLI)인가요? (${e instanceof Error ? e.message : String(e)})`);
+        throw new Error(`게임이 ${TIMING.openWaitMs / 1000}초 안에 답하지 않았습니다 — QA 빌드(정의 심볼 QAHUB_SDK)인가요? (${e instanceof Error ? e.message : String(e)})`);
       await sleep(TIMING.openStepMs);
     }
   }

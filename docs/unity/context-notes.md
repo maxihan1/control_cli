@@ -124,3 +124,61 @@
 - 346a64c run 의 iOS 잡도 같은 LocationService 로 빨강 — location 을 뺀 3e98be8 전 커밋이라 예상대로
 - 세 고침 확인(run 41618229974 · d645827) — 7개 초록(iOS 포함). APK 권한은 `INTERNET` 만(6000.0 · 2021.3). 팜에서 6000.0 · 2021.3 APK 모두 uGUI `qauser01` · `login qauser01 1` 까지 전 단계 통과. 폰을 놓았다 다시 잡아도 전체 화면 안내 창은 다시 안 떴다(팜 정리가 그 기억을 안 지운다)
 - **macOS 게임이 디스플레이가 꺼지면 멈춘다** — 새 PC 빌드(run 41619067888)를 `open --pc --app` 하니 세로 창(「화면 540×1200」)으로 떠 첫 화면은 읽었으나 그 뒤 모든 명령이 「멈췄거나 일시정지」. `sample <pid>` 로 main thread 를 뜨니 `ExecutePlayerLoop` → `TimeUpdateWaitForLastPresentation…` → `GfxDeviceMetal::WaitForLastPresentationAndGetTimestamp` 의 세마포어에서 서 있다 — Metal 이 직전 프레임을 화면에 못 내보냈다. `pmset -g log` 에 19:43(로컬) 「Display is turned off」, 세로 창이 됐던 시험은 19:23. 아까 됐던 옛 빌드(전체 화면)도 지금은 같은 자리에서 멈춰 창 모양 탓이 아니다. App Nap 을 끄는 `-NSAppSleepDisabled YES` 로는 안 풀린다(가설 버림). README PC 절에 「화면은 켜져 있어야 한다」를 적었다. ponytail: CLI 가 PC 세션 동안 `caffeinate -d` 로 디스플레이를 켜 둘 수도 있다 — 화면 없는 맥에서 돌릴 일이 생기면 더한다
+
+## 2026-11-17 — 다른 개발사 게임에 SDK 붙이기 (사용자 결정)
+
+- 흐름 — 개발사는 SDK 를 붙인 QA 빌드만 넘기고, 테스트 작성 · 실행은 사용자가 한다(사용자). 그래서 개발사용 안내(`docs/sdk-integration.md`)는 `instrument` · `CONTROL_CLI` · 시작 로그 확인 · 넘길 것까지만 적고 팜 · relay · 케이스 작성은 뺐다
+- 배포는 GitHub tag 그대로 — 저장소가 public · MIT 라 막는 것이 없다. npm 의 `control-cli` 이름은 다른 사람 패키지라 올리려면 scope 이름이 필요하다. 한 줄 설치를 바라는 개발사가 생기면 그때 한다
+- 안내의 세 줄(`git clone --depth 1 --branch v0.13.0` → `npm ci` → `instrument <폴더>`)은 빈 폴더에서 `sample/` 복사본에 돌려 확인했다 — `--ref` 없이 `v0.13.0` 으로 고정된다
+- SDK `package.json` 판(0.10.0)이 CLI 판(0.13.0)과 다른 것은 그대로 둔다 — SDK 는 SDK 가 바뀔 때만 올린다(사용자 「걱정 안 해도 돼」 — 「비전」을 판 번호로 읽은 것은 내 해석)
+- README 의 설치 예시 tag 가 `v0.8.0` · `v0.9.0` 으로 두 번 낡아 있었다 — `src/docs-tag.test.ts` 가 README · 안내의 예시 tag 를 `package.json` 판과 견준다
+
+## 2026-11-17 — 한 줄 설치 · instrument 가 CONTROL_CLI 를 켠다 (사용자 「설치 명령어 한 번으로」)
+
+- 개발사가 하던 일은 받기 세 줄(clone · `npm ci` · instrument)과 `CONTROL_CLI` 더하기 둘이었다. 둘 다 없앴다 — `npx -y <Release tarball 주소> instrument <폴더>` 한 줄 뒤 평소대로 빌드
+- 받기 — `npx github:…` 는 npm 10 에서 멈추고(README) npm 의 `control-cli` 이름은 남의 것이라, tag 마다 `npm pack` 한 tarball 을 GitHub Release 에 올린다(`.github/workflows/release.yml`). `npx -y <tarball 주소>` 는 이 맥 npm 10.9.2 에서 돌았다(로컬 http 로 내준 주소). 파일 이름은 `control-cli.tgz` 로 고정 — 주소에 판이 한 번만 든다
+- 정의 심볼 — instrument 가 `ProjectSettings/ProjectSettings.asset` 의 `scriptingDefineSymbols` 를 글자로 고친다. Unity 가 켜지기 전에 파일에 있으니 빌드 순서 · 에디터 다시 컴파일 문제가 없고 SDK 를 안 고친다. SDK Editor 훅에서 `PlayerSettings` API 로 켜는 길은 batchmode 에서 훅과 빌드 메서드의 차례를 믿어야 해 안 골랐다
+- 꼴 확인 — 2021.3.15f1(공개 Boss Room v2.0.4) · 6000.3.10f1(이 맥 프로젝트) 둘 다 `    Android: A;B` 처럼 플랫폼 이름 줄. 없으면 `{}`. 못 알아보는 꼴(이진 직렬화 · git LFS 포인터 · 2021.1 까지의 숫자 키)은 건드리지 않고 「직접 더하라」고 알린다. Boss Room 처럼 `ProjectSettings.asset` 을 LFS 에 두는 저장소가 실제로 있다
+- 실제 빌드 — `sample/` 복사본을 Unity 6000.3.10f1 로 열어 설정 파일을 만들고, `SampleBuild.cs` 에서 `extraScriptingDefines` 줄을 뺀 채 instrument → macOS 빌드. `Managed/` 에 `ControlCli.Runtime.dll` · `ControlCli.Input.dll` 이 들었고 `open --pc --app` 뒤 conform 「통과 52 · 실패 0 · 미실행 1」. 6000.3 은 이번이 첫 실측이다
+- 잃는 것 — 전에는 instrument 가 바꾼 파일을 실수로 커밋해도 빌드 스크립트가 `CONTROL_CLI` 를 안 주면 Release 에 SDK 가 안 들었다. 이제는 `ProjectSettings.asset` 까지 커밋하면 Release 에도 든다. 안내 · README · instrument 마지막 줄에 「커밋하지 않는다」를 적었다
+- 빌드 스크립트가 `PlayerSettings.SetScriptingDefineSymbols` 로 통째로 바꿔 쓰는 게임은 instrument 가 넣은 값이 지워진다 — 그 게임은 전처럼 빌드 스크립트에 더한다(안내 2번)
+- `sample/` 은 `ProjectSettings.asset` 을 저장소에 안 둬(Unity 가 빌드 때 만든다) CI 샘플 빌드는 전처럼 `extraScriptingDefines` 로 켠다 — CI 는 이 길을 안 지난다
+- 판 0.14.0 — tarball 이 새 instrument 를 실어야 해서. 병합 뒤 그 main 커밋에 `v0.14.0` tag 를 올려야 안내의 주소가 산다
+
+## 2026-11-17 — 저장소를 드러내지 않고 넘긴다 · SDK 를 CLI 에 실어 넣는다 (사용자 「저장소는 노출 안 되게 · 리드미도 안 보이게」)
+
+- 앞 절의 Release tarball 주소는 버렸다(`release.yml` 삭제) — 명령에 저장소 주소가 들고, Unity 도 SDK 를 저장소 git 주소로 받아 개발사가 저장소와 README 를 바로 본다
+- 넘기는 것은 파일 둘 — 안내(PDF)와 `npm run handoff` 가 만든 `control-cli.zip`. 받은 쪽은 풀어서 `node control-cli/dist/main.js instrument <폴더>`. CLI 는 실행 dependency 가 없어 깔 것이 없다
+- npm tarball 로 넘기지 않는 까닭 — `npx -y --package=./control-cli.tgz …` 는 npm 10.9.2 가 상대 경로를 현재 폴더가 아닌 홈 폴더 기준으로 풀어 ENOENT 로 실패했다. 그리고 `npm pack` 은 README 를 늘 싣는다(`files` · `.npmignore` 로 못 뺀다)
+- zip 에 없는 것 — README · 테스트 · TS 주석(`tsc --removeComments`) · `package.json` 의 `repository`. `tools/handoff.mjs` 가 `github.com` · `control_cli.git` 글자가 남으면 만들지 않는다. 저장소 주소는 코드에서 빼 `package.json` 의 `repository` 에서 읽는다 — zip 의 CLI 는 그 칸이 없어 `--ref` 를 거절한다
+- instrument 기본이 바뀌었다 — `--ref` 가 없으면 「이 CLI 판 tag 의 git 주소」가 아니라 CLI 에 실린 `sdk/unity` 를 `Packages/com.maxihan1.control-cli` 에 넣는다(Godot 와 같은 길). `--ref` 를 주는 쪽(Ashveil QA 빌드 잡 · `sample.yml`)은 그대로. 넣어 둔 SDK 폴더는 asmdef 훑기에서 건너뛴다 — 안 그러면 다시 돌릴 때 SDK 가 자기를 참조한다
+- 실측 — zip 의 CLI 로 instrument → Unity 6000.3.10f1 macOS 빌드. `packages-lock.json` 에 `"source": "embedded"`, `Managed/` 에 SDK DLL 셋, zip 의 CLI 로 `open --pc --app` → conform 「통과 52 · 실패 0 · 미실행 1」
+- 남는 것 — 패키지 id `com.maxihan1.control-cli` · LICENSE · Godot `plugin.cfg` 의 `maxihan1`, SDK C# · GDScript 주석의 내부 낱말(`test_platform kit` · `Issue Bunker`). 저장소가 public 인 한 이 이름으로 찾을 수 있다 — 숨기려면 저장소를 private 으로(사용자 결정 · 하면 `npm i github:…` 과 Unity `--ref` 길이 인증을 요구한다)
+
+## 2026-11-17 — 개발사 가이드 문체 · Unity 만 (사용자 「워딩이 개판 · NHN Cloud 가이드 보고 다시 · 유니티만 지원」)
+
+- 개발사 가이드(`docs/sdk-integration.md` · 같은 내용의 artifact · PDF)는 이 저장소의 말투(조사 띄어 쓰기 · 「넘길 것」 · 「걸릴 수 있는 곳」 · 「가짜」)를 쓰지 않는다 — NHN Cloud 빠른 시작 가이드(docs.nhncloud.com/ko/quickstarts)를 따른다. 합니다체, 조사를 붙여 쓴다(`SDK를`), 「시작하기 전에」 → 「단계 N. ~하기」 → 「알아두기」 · 「주의」 상자, Unity 낱말은 Unity 것 그대로(Scripting Define Symbols · Input Manager · TextMesh Pro)
+- 개발사가 화면에서 보는 instrument 의 Unity 출력 · 경고 문구도 같은 문체로 고쳤다(`…에 추가했습니다` · `수정하지 못했습니다` · `터치 입력이 전달되지 않습니다`). 다른 명령의 출력은 그대로다
+- 개발사에는 Unity 만 받는다 — 가이드에서 Godot 절을 빼고 `control-cli.zip` 에 `sdk/godot` 을 싣지 않는다. 이 저장소의 Godot SDK · CI 는 그대로 둔다(뺄지는 사용자가 정한다)
+- 가이드 끝의 판 · 문의 문구는 뺀다(사용자)
+
+## 2026-11-17 — 개발사 가이드 3판: QA Hub 이름 · 필요한 내용만 · 번역체 없이 (사용자)
+
+- 사용자 지적 — NHN 문체로 쓴 2판도 「영어 번역체」였다(「본 가이드」 · 「~되어 있어야 합니다」 · 「~할 필요가 없습니다」 · 「이로 인해」 · 피동 「추가됩니다」 줄). 3판은 합니다체는 지키되 평소 말로 쓴다 — 「SDK를 넣습니다」 · 「압축을 풉니다」 · 「아래처럼 나오면 끝난 것입니다」 · 「건드리지 않아도 됩니다」
+- 개발사에 보이는 이름은 QA Hub 하나다. 가이드 · 도구 출력 · zip 에 `control_cli` 를 쓰지 않는다 — zip 은 `QAhub.zip`, 풀면 `QAhub/`, 넣는 폴더는 `Packages/QAHubSDK`(폴더 이름만 다르고 패키지 이름은 그대로 — Unity 6000.3.10f1 빌드 · conform 52/0/1 로 확인), Unity Package Manager 에 뜨는 이름(`displayName`)은 QA Hub SDK
+- 남는 것 — 개발사 프로젝트 안에는 `CONTROL_CLI`(정의 심볼) · `ControlCli.Input`(asmdef 참조) · `[ControlCli]`(로그) · `com.maxihan1.control-cli`(packages-lock.json)가 보인다. 없애려면 SDK 이름을 통째로 바꿔야 하고 Ashveil QA 빌드 잡 · test_platform 이 같이 바뀐다 — 사용자 결정 전에는 안 한다. zip 의 `dist` 에도 `control-cli` 글자(도움말 · 세션 폴더 이름)가 12개 파일에 남는다
+- 가이드에서 뺀 것(사용자 「SDK 연동에 필요한 내용만」) — 알아두기 상자(게임 코드 안 고침 · QA 빌드에만 · 기기 안에서만), 시작 로그로 확인하는 단계(사용자 「이건 왜 넣어야 하는 거야」), 명령 전송 확인, 구성 요소별 검증 표, 판 · 작성일. 그래서 SDK 가 빠진 빌드는 받는 쪽이 붙어 보고서야 안다
+- `CONTROL_CLI` 를 직접 넣어야 하는 두 경우는 가이드에서 방법을 적지 않고 「빌드하기 전에 알려 주세요」로 줄였다 — 못 고쳤을 때 넣을 값은 instrument 의 실패 문구가 알려 준다
+- 문구는 초안을 쓴 뒤 humanize-korean skill(진단 → 윤문)에 넣었다 — 진단이 번역투 표지 0, 고칠 곳 세 군데로 판정했다. 이 맥의 skill 설치본에는 `scripts/` 가 없어 정량 점수와 변경률 게이트는 못 돌렸다
+
+## 2026-11-17 — 정의 심볼 이름을 QAHUB_SDK 로 · 가이드는 Android 만 (사용자 「CONTROL_CLI 워딩 빼라」 · 「PC와 WebGL은 QA hub에서 지원 안하잖아」)
+
+- **깨지는 변경** — SDK 가 빌드에 드는 정의 심볼이 `CONTROL_CLI` → `QAHUB_SDK`, SDK 안쪽 조건 이름 여섯도 `CONTROL_CLI_UITK` … → `QAHUB_SDK_UITK` …. SDK 0.11.0. 옛 이름은 받지 않는다(`"QAHUB_SDK || CONTROL_CLI"` 로 둘 다 받게 하면 개발사 프로젝트의 SDK 파일에 옛 낱말이 남는다)
+- 옛 SDK(0.10.0 까지)를 `--ref` 로 고정한 곳(Ashveil · Boss Room QA 빌드 잡)은 그대로 돈다. SDK 를 0.11.0 으로 올릴 때 빌드 스크립트의 `CONTROL_CLI` 를 `QAHUB_SDK` 로 바꾸거나, 새 instrument 가 설정 파일에 넣게 둔다. test_platform 명세(`docs/spec/도메인/게임.md` 「QA 빌드 스크립트가 정의 심볼 CONTROL_CLI」)도 그때 고친다 — 이 저장소 밖이라 안 고쳤다
+- 그대로 둔 것 — CLI 의 환경 변수 `CONTROL_CLI_GAME` · `CONTROL_CLI_RELAY_TOKEN` · `CONTROL_CLI_KEYCHAIN`(이 맥의 relay launchd 설정이 읽는다 · 개발사는 안 쓴다), 그리고 `ControlCli` 로 시작하는 이름(asmdef · namespace · `[ControlCli]` 로그 · 패키지 id). 뒤쪽은 conform 기대값과 CLI ↔ SDK 약속 글자가 같이 바뀌는 큰 일이라 사용자 결정 뒤에 한다
+- 실측 — 설정에 `QAHUB_SDK` 만 있는 프로젝트를 Unity 6000.3.10f1 로 빌드: SDK DLL 셋 · SDK 0.11.0 · conform 「통과 52 · 실패 0 · 미실행 1」. 2021.3 · 2022.3 은 PR 의 컴파일 검사가 본다
+- 가이드는 Android 만 — QA Hub 게임 테스트가 Android 하나다(test_platform `게임.md` · kit 의 길이 farm · usb 둘). PC · WebGL · iOS 문구를 뺐다
+- 개발사에 받을 것 목록은 사용자 확인을 기다린다 — test_platform `게임.md` 「게임 쪽이 준비할 것」(꼭: SDK 넣은 QA 빌드 · 상태 만드는 길 · 테스트 계정 · QA 서버 주소를 빌드에)과 Boss Room 의 `/gm` 18개 · `/test/*` 10개 · 기획서를 근거로 만들었다. QA Hub 케이스는 SDK 의 `call` · `static-call` 을 못 쓴다(kit 이 안 내준다) — 치트는 GM 채팅 명령이나 어드민 API 여야 한다
+- (같은 날 사용자 확정) 가이드에는 꼭 받을 것만 싣는다 — QA 빌드 · 시험 서버 주소 · 테스트 계정 · 기획서 · 게임 정보. 상태 만드는 길(GM 명령 · 어드민 API) · 서버 값 조회 · 데이터 되돌리기 · 상대 플레이어 · 실패 상황 · 확률 기록은 가이드에 넣지 않는다 — 사용자가 개발사에 따로 요청한다(「내가 별도 요청하면 되니깐」)
+- (같은 날 사용자) 가이드에서 「알려진 제약」 표와 「QA 빌드 만들기」 절도 뺐다 — 연동 절차에 필요 없다. 그래서 가이드는 준비물 → 1. SDK 넣기 → 2. 빌드와 자료 보내기 → 지원하는 Unity 버전. 가짜 Input 이 못 가로채는 경우(전체 이름 호출 · DLL · 펜 · location)와 정의 심볼을 덮어쓰는 빌드 스크립트는 개발사가 물어 오면 그때 답한다 — 내용은 README 「게임에 넣기」에 그대로 있다
+

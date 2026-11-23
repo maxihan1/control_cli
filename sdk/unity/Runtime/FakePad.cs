@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using UnityEngine;
-#if CONTROL_CLI_INPUTSYSTEM && ENABLE_INPUT_SYSTEM
+#if QAHUB_SDK_INPUTSYSTEM && ENABLE_INPUT_SYSTEM
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Controls;
 using UnityEngine.InputSystem.Layouts;
@@ -59,7 +59,7 @@ namespace ControlCli
             return false;
         }
 
-#if CONTROL_CLI_INPUTSYSTEM && ENABLE_INPUT_SYSTEM
+#if QAHUB_SDK_INPUTSYSTEM && ENABLE_INPUT_SYSTEM
         private static Gamepad _device;
         // 한 번이라도 누른 상태를 보냈으면 다 뗄 때도 보낸다.
         private static bool _sent;
