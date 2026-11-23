@@ -6,11 +6,11 @@ Unity 게임의 QA 빌드에 QA Hub SDK를 넣는 방법입니다. Android 게�
 
 - Unity 2021.3 LTS 이상으로 만든 Android 또는 Windows 게임 프로젝트
 - Node.js 22 이상
-- QAhub.zip (이 가이드와 함께 받은 파일)
+- QAhub-0.13.0.zip (이 가이드와 함께 받은 파일)
 
 ## 1. SDK 넣기
 
-1. QAhub.zip의 압축을 풉니다. QAhub 폴더가 생깁니다.
+1. QAhub-0.13.0.zip의 압축을 풉니다. QAhub 폴더가 생깁니다.
 2. Unity 에디터를 닫습니다.
 3. 터미널에서 QAhub 폴더가 있는 위치로 이동해 아래 명령을 실행합니다.
 

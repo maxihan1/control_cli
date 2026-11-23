@@ -17,7 +17,7 @@
 | worktree | `.claude/worktrees/external-install-docs` — branch `one-command-install` 이 여기 체크아웃돼 있다. 새 세션은 EnterWorktree 의 `path` 로 이 worktree 에 들어간다 |
 | 판 | CLI 0.14.0 · Unity SDK 0.11.0 (tag 는 아직 없다 — 병합 뒤 main 커밋에 `v0.14.0`) |
 | 개발사 가이드 | artifact https://claude.ai/artifact/DZsZbytpyxTEvYLUKhTA8z (10판 · 열린 댓글 0) · 저장소 원본 `docs/sdk-integration.md` — 둘은 같은 내용이어야 한다 |
-| 넘길 파일 | `~/Downloads/QAhub.zip` (SDK 0.11.0) — `npm run handoff` 로 다시 만든다 |
+| 넘길 파일 | `~/Downloads/QAhub-0.13.0.zip` (SDK 0.13.0 · CLI 0.17.0) — `npm run handoff` 로 다시 만든다 |
 | 조사 보고서 | `~/Downloads/콘솔 게임 QA 방식과 적용 방안.md` |
 | 오래 둘 사본 | `~/Downloads/qahub-handoff/` — 가이드 원본 `sdk-guide.html` · 조사 노트 여섯 · 보고서 · zip · `pdf2png.swift` · 이 문서 |
 

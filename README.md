@@ -31,7 +31,7 @@ Unity · Godot 게임을 자동화 테스트로 조작하는 SDK 와 CLI.
 
 Unity 2021.3 LTS 이상 — 2021.3 · 2022.3 · 6000.0 에서 컴파일을 검사한다(`tools/unity-compile-check`).
 
-게임 저장소에는 SDK 를 넣지 않는다. QA 빌드 잡에서 Unity 를 켜기 전에 한 번 돌린다. 다른 개발사에는 저장소 대신 파일 둘을 넘긴다 — 안내 한 장([docs/sdk-integration.md](docs/sdk-integration.md))과 `npm run handoff` 가 만든 `QAhub.zip`. 개발사에는 QA Hub 라는 이름만 쓰고 Unity 만 받는다 — zip 에는 README · 테스트 · 주석 · 저장소 주소 · Godot SDK 가 없고(`tools/handoff.mjs` 가 남은 주소를 잡는다), 받은 쪽은 풀어서 `node QAhub/dist/main.js instrument <폴더>` 로 돌린다.
+게임 저장소에는 SDK 를 넣지 않는다. QA 빌드 잡에서 Unity 를 켜기 전에 한 번 돌린다. 다른 개발사에는 저장소 대신 파일 둘을 넘긴다 — 안내 한 장([docs/sdk-integration.md](docs/sdk-integration.md))과 `npm run handoff` 가 만든 `QAhub-<SDK 판>.zip`. 개발사에는 QA Hub 라는 이름만 쓰고 Unity 만 받는다 — zip 에는 README · 테스트 · 주석 · 저장소 주소 · Godot SDK 가 없고(`tools/handoff.mjs` 가 남은 주소를 잡는다), 받은 쪽은 풀어서 `node QAhub/dist/main.js instrument <폴더>` 로 돌린다.
 
 ```bash
 git clone -q https://github.com/maxihan1/control_cli.git /tmp/control_cli
