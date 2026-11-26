@@ -117,40 +117,79 @@ static func names(o: Object, path: String) -> PackedStringArray:
 		parts.remove_at(0)
 	return parts
 
-# 칸 줄이 있는지 — 없으면 까닭, 있으면 "".
-static func _missing(o: Object, parts: PackedStringArray) -> String:
-	if parts.is_empty() or parts[0] == "" or not (parts[0] in o):
-		return "%s 에 %s 칸이 없습니다" % [_label(o), ".".join(parts)]
-	var v = o.get(parts[0])
-	for i in range(1, parts.size()):
-		var k := parts[i]
-		var has := false
-		if v is Object:
-			has = is_instance_valid(v) and k in v
-		elif v is Dictionary:
-			has = v.has(k)
+# 「칸[i][j]」 → [이름, [i, j]]. 대괄호 안이 정수가 아니면 [null, []].
+static func _indexed(part: String) -> Array:
+	var open := part.find("[")
+	if open < 0:
+		return [part, []]
+	var at := []
+	var rest := part.substr(open)
+	while rest != "":
+		var close := rest.find("]")
+		var inner := rest.substr(1, close - 1) if close > 0 else ""
+		if not rest.begins_with("[") or not inner.is_valid_int():
+			return [null, []]
+		at.append(inner.to_int())
+		rest = rest.substr(close + 1)
+	return [part.left(open), at]
+
+# 칸 줄을 따라 읽는다 — [true, 값] 또는 [false, 까닭]. 배열은 [i]([-1] 은 마지막) · Count, 객체는 칸, 사전은 키, 벡터 · 색은 x · r 같은 칸.
+static func _walk(o: Object, parts: PackedStringArray) -> Array:
+	var v = o
+	var shown := ""
+	for part in parts:
+		var r := _indexed(part)
+		var k = r[0]
+		if k == null:
+			return [false, "%s — 원소 번호는 [0] · [-1] 처럼 정수로 씁니다" % part]
+		if typeof(v) >= TYPE_ARRAY and k == "Count" and r[1].is_empty():
+			v = v.size()
+		elif v is Object and is_instance_valid(v) and k != "" and k in v:
+			v = v.get(k)
+		elif v is Dictionary and v.has(k):
+			v = v[k]
+		elif typeof(v) > TYPE_STRING and typeof(v) < TYPE_OBJECT and k in ["x", "y", "z", "w", "r", "g", "b", "a", "h", "s", "v", "position", "size", "end", "origin", "basis"]:
+			v = v[k]
+		elif shown == "":
+			return [false, "%s 에 %s 칸이 없습니다%s" % [_label(o), ".".join(parts), _known(v)]]
 		else:
-			has = typeof(v) > TYPE_STRING and typeof(v) < TYPE_OBJECT and k in ["x", "y", "z", "w", "r", "g", "b", "a", "h", "s", "v", "position", "size", "end", "origin", "basis"]
-		if not has:
-			return "%s 의 %s 에 %s 칸이 없습니다" % [_label(o), ".".join(parts.slice(0, i)), k]
-		v = v.get(k) if v is Object else v[k]
-	return ""
+			return [false, "%s 의 %s 에 %s 칸이 없습니다%s" % [_label(o), shown, k, _known(v)]]
+		shown += ("." if shown != "" else "") + k
+		for i in r[1]:
+			if typeof(v) < TYPE_ARRAY:
+				return [false, "%s 의 %s 은 배열이 아니라 [%d] 을 읽을 수 없습니다" % [_label(o), shown, i]]
+			var j: int = i + v.size() if i < 0 else i
+			if j < 0 or j >= v.size():
+				return [false, "%s 의 %s 은 %d개라 [%d] 이 없습니다" % [_label(o), shown, v.size(), i]]
+			v = v[j]
+			shown += "[%d]" % i
+	return [true, v]
+
+# 칸 이름을 몰라 짐작하지 않게 있는 칸을 붙인다 — 스크립트 변수 · 사전 키.
+static func _known(v) -> String:
+	var names := []
+	if v is Object and is_instance_valid(v) and v.get_script() != null:
+		for p in v.get_script().get_script_property_list():
+			if not (p["usage"] & (PROPERTY_USAGE_CATEGORY | PROPERTY_USAGE_GROUP | PROPERTY_USAGE_SUBGROUP)):
+				names.append(p["name"])
+	elif v is Dictionary:
+		names = v.keys().map(func(k): return str(k))
+	return "" if names.is_empty() else " — 있는 칸: " + " · ".join(names)
 
 static func _label(o: Object) -> String:
 	return str(o.get("name")) if o is Node else o.get_class()
 
 static func get_prop(o: Object, path: String) -> Dictionary:
-	var parts := names(o, path)
-	var why := _missing(o, parts)
-	if why != "":
-		return fail(why)
-	return ok({"value": plain(o.get_indexed(NodePath(":".join(parts))))})
+	var r := _walk(o, names(o, path))
+	return ok({"value": plain(r[1])}) if r[0] else fail(r[1])
 
 static func set_prop(o: Object, path: String, text: String) -> Dictionary:
+	if "[" in path:
+		return fail("%s — 목록 원소([i])는 읽기만 합니다" % path)
 	var parts := names(o, path)
-	var why := _missing(o, parts)
-	if why != "":
-		return fail(why)
+	var r := _walk(o, parts)
+	if not r[0]:
+		return fail(r[1])
 	var np := NodePath(":".join(parts))
 	var r := parse(text, o.get_indexed(np))
 	if not r[0]:
@@ -246,8 +285,15 @@ static func _fields(list: Array, read: Callable) -> Array:
 	for p in list:
 		if p["usage"] & (PROPERTY_USAGE_CATEGORY | PROPERTY_USAGE_GROUP | PROPERTY_USAGE_SUBGROUP):
 			continue
-		out.append({"name": p["name"], "type": _type(p), "value": plain(read.call(p["name"]))})
+		out.append(_entry(p["name"], _type(p), read.call(p["name"])))
 	return out
+
+# 배열 칸에는 길이(count)를 붙인다 — 펼칠지 정할 때 본다.
+static func _entry(name, type: String, v) -> Dictionary:
+	var d := {"name": name, "type": type, "value": plain(v)}
+	if typeof(v) >= TYPE_ARRAY:
+		d["count"] = v.size()
+	return d
 
 static func _methods(list: Array) -> Array:
 	var out := []
@@ -269,4 +315,28 @@ static func members(n: Node, component: String) -> Dictionary:
 		s = s.get_base_script()
 	if n.is_class(component) and ClassDB.class_exists(component):
 		return ok({"fields": [], "properties": _fields(ClassDB.class_get_property_list(component, true), func(k): return n.get(k)), "methods": _methods(ClassDB.class_get_method_list(component, true))})
+	# 「컴포넌트.칸[i]…」 — 그 칸이 가리키는 것을 펼친다(Unity 와 같은 주소). 칸은 노드에서 바로 읽는다.
+	var parts := component.split(".")
+	if parts.size() > 1 and Nodes.classes(n).has(parts[0]):
+		var r := _walk(n, parts.slice(1))
+		return _describe(r[1], component) if r[0] else fail(r[1])
 	return fail("%s 에 컴포넌트 %s 이 없습니다(%s)" % [n.name, component, " · ".join(Nodes.classes(n))])
+
+# 칸이 가리키는 것을 members 형태로 — 객체는 스크립트 변수(fields) 또는 그 엔진 클래스 칸(properties), 사전은 키, 배열은 count · items.
+static func _describe(v, what: String) -> Dictionary:
+	if typeof(v) >= TYPE_ARRAY:
+		return ok({"fields": [], "properties": [], "methods": [], "count": v.size(), "items": plain(v)})
+	if v is Dictionary:
+		var list := []
+		for k in v:
+			list.append(_entry(str(k), type_string(typeof(v[k])), v[k]))
+		return ok({"fields": list, "properties": [], "methods": []})
+	if v is Object and is_instance_valid(v):
+		var s: Script = v.get_script()
+		if s != null:
+			return ok({"fields": _fields(s.get_script_property_list(), func(k): return v.get(k)), "properties": [], "methods": _methods(s.get_script_method_list())})
+		var c: String = v.get_class()
+		return ok({"fields": [], "properties": _fields(ClassDB.class_get_property_list(c, true), func(k): return v.get(k)), "methods": _methods(ClassDB.class_get_method_list(c, true))})
+	if typeof(v) == TYPE_NIL:
+		return fail("%s 이 null 입니다" % what)
+	return fail("%s 은 값(%s)이라 펼칠 칸이 없습니다 — get 으로 읽습니다" % [what, JSON.stringify(plain(v))])

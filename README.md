@@ -230,12 +230,12 @@ npx control-cli open --relay                                       # 세션 … 
 | `drag <ref\|주소> <ref\|주소> [--via <주소>]… [--duration <초>]` | 앞 자리에서 뒤 자리로 끈다 — 마디마다 적어도 10프레임. `--via` 는 지날 자리(여러 번 줄 수 있다), `--duration` 은 처음부터 끝까지 초(SDK 0.6.0) | `game.drag('/Hud/Bag/Slot[0]', '/Hud/Bag/Slot[3]')` · `game.drag('A', 'C', { via: ['B'] })` |
 | `type <ref\|주소> <글자>` | InputField · TMP_InputField · UI Toolkit TextField 에 바로 넣는다(화면 키보드 없이). 글자 수 제한 · 거르기는 그 칸 규칙대로, 키로 칠 때의 차례(글자마다 거르고 거른 결과로 자름)다 — 글자 수 8 · 영숫자 칸에 `qa_user01!` 면 `qauser01`. uGUI · TMP 는 SDK 가 그 칸의 거르개를 글자마다 부른다. 비밀번호 칸이면 Ran 줄에 글자 대신 `'***'` | `game.type('IdInput', 'qa_user01')` |
 | `text <ref\|주소>` | 글자 읽기 — 버튼처럼 누를 것에 제 글자가 없으면 켜진 자식 중 첫 글자 | `game.text('StatusText')` |
-| `get <ref\|주소> <컴포넌트.칸> [--inactive]` | 속성 읽기 — 게임이 폰에서 셈하는 값. `material` · `materials` · `mesh` 는 읽기만 해도 사본을 만들어 거절한다(`shared…` 를 읽는다). UI Toolkit 요소는 요소 칸을 바로(`value` · `text` · `layout.height`) | `game.get('Player', 'PlayerController.moveSpeed')` |
+| `get <ref\|주소> <컴포넌트.칸> [--inactive]` | 속성 읽기 — 게임이 폰에서 셈하는 값. `material` · `materials` · `mesh` 는 읽기만 해도 사본을 만들어 거절한다(`shared…` 를 읽는다). UI Toolkit 요소는 요소 칸을 바로(`value` · `text` · `layout.height`). 배열 · List 는 `칸[i]`(`[-1]` 은 마지막) · `칸.Count` 로 원소 · 길이를 읽는다 — `MonsterSpawner.WaveDatas[5].Monsters[0].MaxHP`(Unity SDK 0.14.0 · Godot SDK 0.2.0, 읽기만) | `game.get('Player', 'PlayerController.moveSpeed')` |
 | `find <ref\|주소> [--inactive] [--camera 주소]` | 있으면 `{path, text?, interactable?, id?, x?, y?, rect?, screen?, active?}`(`x` · `y` 는 누를 자리, `rect` 는 화면 사각형 `[x, y, w, h]`, `screen` 은 화면 크기 `[w, h]` — 모두 픽셀 · 왼쪽 아래 0,0), 없으면 `null` | `game.find('//*[@tag=Boss]')` |
 | `find-all <주소> [--inactive] [--camera 주소]` | 맞는 것 전부 — 없으면 빈 목록 | `game.findAll('//Inventory/Slot')` |
 | `find-at <x> <y> [--camera 주소]` | 좌표의 맨 위(UI Toolkit → uGUI → 3D · 2D 물리) — 살펴볼 때만. 버튼 속 글자가 맞을 수 있다 | 없음 |
 | `parent <ref\|주소>` | 부모(`<경로>/..`) — 뿌리면 `null` | `game.parent('Item')` |
-| `components <ref\|주소>` · `members <ref\|주소> <컴포넌트>` | 붙은 컴포넌트 `{name, type}` · 그 스크립트가 선언한 필드 · 속성(타입 · 값) · 메서드(인자 타입). Unity 부모(MonoBehaviour …) 칸은 뺀다 | `game.components('Player')` · `game.members('Player', 'PlayerController')` |
+| `components <ref\|주소>` · `members <ref\|주소> <컴포넌트>` | 붙은 컴포넌트 `{name, type}` · 그 스크립트가 선언한 필드 · 속성(타입 · 값) · 메서드(인자 타입). Unity 부모(MonoBehaviour …) 칸은 뺀다. 목록 칸에는 `count` 가 붙는다. `members <주소> <컴포넌트.칸[i]…>` 는 그 칸이 가리키는 객체(ScriptableObject · 클래스 · 구조체)를 같은 형태로 펼치고, 목록이면 `count` · `items` 를 준다(Unity SDK 0.14.0 · Godot SDK 0.2.0) | `game.components('Player')` · `game.members('Player', 'PlayerController')` · `game.members('Ghost', 'MonsterAI.TypeData')` |
 | `text-set <ref\|주소> <글자>` | 글자 컴포넌트(Text · TMP_Text · UI Toolkit Label/Button)의 글자를 바꾼다. 입력칸은 거절(`type`) | `game.setText('Title', '테스트')` |
 | `wait <ref\|주소> [--text 글자] [--gone] [--timeout 초]` | 뜰 때까지 · 글자가 들 때까지 · 사라질 때까지(기본 10초 — `config --wait`) | `game.waitFor('ShopPanel', { gone: true })` |
 | `wait-prop <ref\|주소> <칸> <값> [--timeout 초] [--inactive]` | 칸 값이 될 때까지 `get` 을 되풀이(UI Toolkit 요소도). `'10'` · `10` · `'[0, 1, 0]'` 을 같게 본다 | `game.waitForProp('Score', 'Text.text', '10')` |
@@ -455,7 +455,7 @@ robot --pythonpath drivers/python --variable GAME:tcp://127.0.0.1:13100 drivers/
 
 | `cmd` | 칸 | 답 |
 |---|---|---|
-| `ping` | | `{ok, app, version, engine, engineVersion, sdkVersion, protocol, input, pads, caps}` — `engine` 부터는 protocol 2(SDK 0.3.0)부터. `input`(`old` · `new` · `both` — 게임이 읽는 입력)과 `pads`(만들 수 있는 가상 패드 종류)는 Unity SDK 0.12.0 부터. `caps` 는 명령 이름 뒤에 기능 이름(`commands.json` 의 `features` — `rect` 는 SDK 0.8.0)을 싣는다. CLI 는 `open` 때 받은 `caps` 밖 명령을 보내지 않고 거절한다. 명령 정의는 `protocol/commands.json` |
+| `ping` | | `{ok, app, version, engine, engineVersion, sdkVersion, protocol, input, pads, caps}` — `engine` 부터는 protocol 2(SDK 0.3.0)부터. `input`(`old` · `new` · `both` — 게임이 읽는 입력)과 `pads`(만들 수 있는 가상 패드 종류)는 Unity SDK 0.12.0 부터. `caps` 는 명령 이름 뒤에 기능 이름(`commands.json` 의 `features` — `rect` 는 SDK 0.8.0, `nested` 는 Unity SDK 0.14.0 · Godot SDK 0.2.0)을 싣는다. CLI 는 `open` 때 받은 `caps` 밖 명령을 보내지 않고 거절한다. 명령 정의는 `protocol/commands.json` |
 | `tree` | | `{ok, scene, screen:[w,h], tree:[{name, text?, kind?, interactable?, children?}]}` — 켜진 오브젝트만. `kind` 는 Selectable 종류(Button · Toggle · InputField · TMP_InputField …), Selectable 없이 누름을 받는 컴포넌트(`IPointerClickHandler` · `IPointerDownHandler` — EventTrigger · OnScreenButton · 게임 스크립트) 또는 UI Toolkit 컨트롤(Button · Toggle · RadioButton · TextField · DropdownField · Slider). `text` 는 Text · InputField · TextMeshPro(TMP_Text · TMP_InputField) · UI Toolkit(TextElement · TextField). UI Toolkit 은 숨은 요소(display none · 안 보임)를 빼고 컨트롤 속은 내보내지 않는다. 비밀번호 칸 글자는 `***` |
 | `find` | `target` · `inactive`? · `camera`? | `{ok, found:false}` 또는 `{ok, found:true, path, text?, interactable?, id?, x?, y?, rect?, screen?, active?}` — 여럿이 맞거나 꼴이 틀리면 실패. `text` 는 누를 것에 제 글자가 없으면 켜진 자식 중 첫 글자(트리 · `@text` 는 제 글자만). `id` 는 게임 오브젝트만, `x` · `y` 는 켜지고 화면에 비친 것만, `active:false` 는 `inactive` 로 찾은 꺼진 것. 선택자 · `inactive` · `camera` 는 SDK 0.5.0 부터. `rect` · `screen` 은 아래 「화면 사각형」 |
 | `find-all` | `target` · `inactive`? · `camera`? | `{ok, found:[…]}` — `find` 의 칸 목록, 없으면 빈 목록 |
@@ -463,7 +463,7 @@ robot --pythonpath drivers/python --variable GAME:tcp://127.0.0.1:13100 drivers/
 | `click` | `target` · `camera`? · `count`? · `interval`? | `{ok, x, y}` — 가짜 터치가 다 나가고 게임이 처리한 뒤 답한다. 켜진 것만. `count`(기본 1) · `interval`(초, 기본 0.1)은 SDK 0.6.0 부터 |
 | `drag` | `target` · `to` · `camera`? · `via`? · `duration`? | `{ok, x, y}` — 위와 같다. `via` 는 지날 자리 주소 배열, `duration` 은 0~8초(기본 0 — 마디마다 10프레임). SDK 0.6.0 부터 |
 | `type` | `target` · `text` | `{ok, text}` — 넣은 뒤 칸 글자. 잠긴 칸은 실패 |
-| `get` | `target` · `prop`(`컴포넌트.칸[.칸…]`, UI Toolkit 요소는 `칸[.칸…]`) · `inactive`? | `{ok, value}` — 숫자 · 글자 · 참거짓 · 열거(이름) · 벡터 · 색은 배열, 그 밖은 글자 |
+| `get` | `target` · `prop`(`컴포넌트.칸[.칸…]`, UI Toolkit 요소는 `칸[.칸…]`. 칸마다 `[i]` 원소 · 목록 뒤 `Count` 길이는 caps 의 `nested`) · `inactive`? | `{ok, value}` — 숫자 · 글자 · 참거짓 · 열거(이름) · 벡터 · 색은 배열, 그 밖은 글자. 칸이 없으면 그 타입의 칸 이름을 붙여 실패한다(IL2CPP 빌드에서만 「코드 줄이기에서 빠졌을 수도」). `set` · `static-set` 경로에 `[` 가 있으면 실패 |
 | `tap` | `x` · `y` · `count`? · `interval`? | `{ok, x, y}` |
 | `key` | `key`(KeyCode 이름, 대소문자 무시 — `A+LeftShift` 처럼 `+` 로 여럿. `Pad.<이름>` 은 지금 가상 패드의 글자) · `duration`? · `power`? | `{ok, key}` — 누르고 뗀 것을 게임이 처리한 뒤 답한다. `key` 는 푼 KeyCode 이름이다(`Pad.Cross` → `JoystickButton0`). 모르는 이름 · 그 패드에 없는 `Pad.` 이름은 실패. `duration` 0~8초(기본 0 — 한 프레임) · `power` -1~1(기본 1)은 SDK 0.6.0 부터 |
 | `touch-down` | `target`? 또는 `x` · `y`, `camera`? | `{ok, finger, x, y}` — 손가락 번호 10~19. 둘 다 없으면 실패 · 10개가 다 눌려 있으면 실패. SDK 0.6.0 부터(아래 입력 명령 모두) |
@@ -495,7 +495,7 @@ robot --pythonpath drivers/python --variable GAME:tcp://127.0.0.1:13100 drivers/
 | `scene-load` | `name`(이름 · 경로) · `mode`?(`single` · `add`) | `{ok, loads}` — 열기 전 수를 주고 바로 답한다. `scenes` 의 `loads` 가 이보다 커지면 다 열렸다. 빌드에 없는 장면은 실패 |
 | `scene-unload` | `name` | `{ok, unloads}` — 위와 같다. 마지막 장면은 실패 |
 | `components` | `target` · `inactive`? | `{ok, components:[{name, type}]}` — SDK 0.5.0 부터(아래도) |
-| `members` | `target` · `component` · `inactive`? | `{ok, fields:[{name, type, value?, readOnly?, static?}], properties:[…], methods:[{name, args, returns, static?}]}` — 그 타입에서 Unity 부모 앞까지 선언한 것. 값은 읽다 던지거나 사본 속성이면 없다 |
+| `members` | `target` · `component`(컴포넌트 이름, 또는 `컴포넌트.칸[i]…` — caps 의 `nested`) · `inactive`? | `{ok, fields:[{name, type, value?, count?, readOnly?, static?}], properties:[…], methods:[{name, args, returns, static?}], count?, items?}` — 그 타입에서 Unity 부모(ScriptableObject · ValueType 포함) 앞까지 선언한 것. 값은 읽다 던지거나 사본 속성이면 없다. 이름이 그대로 맞는 컴포넌트가 먼저고, 없으면 가장 긴 앞부분이 컴포넌트, 뒤가 칸 경로다. 펼친 것이 목록이면 칸 대신 `count` · `items`(원소 값, 객체는 글자) |
 | `text-set` | `target` · `text` · `inactive`? | `{ok, text}` — 다시 읽은 글자. 입력칸 · 글자 컴포넌트가 없는 것은 실패 |
 
 **화면 사각형**(SDK 0.8.0 — `ping` 의 `caps` 에 `rect`) — `find` · `find-all` · `find-at` 답의 한 칸마다 `rect: [x, y, w, h]` 와 `screen: [w, h]` 를 싣는다. 픽셀이고 `x` · `y` 와 같이 왼쪽 아래가 0,0 이다. 스크린샷처럼 왼쪽 위가 0,0 인 그림에 그릴 때는 `top = screen[1] - (y + h)`, 기기 화면 크기와 다르면 `screen` 으로 나눠 비율로 바꾼다.

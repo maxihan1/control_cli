@@ -218,12 +218,35 @@ test('게임 SDK 의 caps 에 없는 명령은 보내지 않고 미리 거절한
   }
 });
 
+test('칸 경로 [i] · members 펼치기 — caps 에 nested 가 없는 옛 SDK 는 [i] 를 보내지 않고 거절하고, 펼치기 실패에는 판을 알린다', async () => {
+  const g = standardScreen();
+  const pc = await fakeTcp(g);
+  const port = String(pc.port);
+  try {
+    await cli('-s=nest', 'open', '--pc', '--port', port);
+    assert.match(await cli('-s=nest', 'get', 'SampleCanvas', 'TouchProbe.Waves[1].Name', '--port', port), /- 값: "boss"/);
+    assert.match(await cli('-s=nest', 'members', 'SampleCanvas', 'TouchProbe.Waves', '--port', port), /"count":2,"items":\[/);
+    await cli('-s=nest', 'close');
+    g.caps = g.caps.filter((c) => c !== 'nested');
+    await cli('-s=nest', 'open', '--pc', '--port', port);
+    const sent = g.commands.length;
+    await assert.rejects(cli('-s=nest', 'get', 'SampleCanvas', 'TouchProbe.Waves[1].Name', '--port', port), /칸 경로의 \[i\] 원소를 못 읽습니다 — Unity SDK 0\.14\.0/);
+    assert.equal(g.commands.length, sent, '옛 SDK 에 [i] 를 보냈습니다');
+    await assert.rejects(cli('-s=nest', 'members', 'SampleCanvas', 'TouchProbe.Data', '--port', port), /컴포넌트가 없습니다.* — 이 게임의 SDK 는 칸 펼치기\(members 컴포넌트\.칸\)를 못 합니다/);
+    // 점 든 전체 이름 컴포넌트는 옛 SDK 에서도 그대로 된다
+    assert.match(await cli('-s=nest', 'members', 'SampleCanvas', 'Sample.TouchProbe', '--port', port), /"name":"Output"/);
+    await cli('-s=nest', 'close');
+  } finally {
+    pc.server.close();
+  }
+});
+
 test('conform — 표준 화면이면 PC 는 일시정지 줄만 미실행, 다르면 종료 코드로 알린다', async () => {
   const ok = await fakeTcp(standardScreen());
   const bad = await fakeTcp(new FakeGame([node('Boot')]));
   try {
     await cli('-s=cf', 'open', '--pc', '--port', String(ok.port));
-    assert.match(await cli('-s=cf', 'conform', '--port', String(ok.port)), /통과 58 · 실패 0 · 미실행 1$/);
+    assert.match(await cli('-s=cf', 'conform', '--port', String(ok.port)), /통과 59 · 실패 0 · 미실행 1$/);
     await cli('-s=cf', 'close');
     await cli('-s=cf2', 'open', '--pc', '--port', String(bad.port));
     await assert.rejects(cli('-s=cf2', 'conform', '--port', String(bad.port)), /통과 \d+ · 실패 [1-9]/);
@@ -268,14 +291,14 @@ test('VISION 윈도우 PC — 조건 잡기 → zip 깔기 · 켜기 → 명령 
   }
 });
 
-test('conform — 팜은 Appium 으로 앱을 뒤로 보내 일시정지 줄까지 59줄 통과', async () => {
+test('conform — 팜은 Appium 으로 앱을 뒤로 보내 일시정지 줄까지 60줄 통과', async () => {
   const f = await fakeFarm(standardScreen());
   const own = await mkdtemp(join(tmpdir(), 'control-cli-'));
   const fc = (...argv: string[]) => run(argv, { env: { PLATFORM_APPIUM_URL: f.url, PLATFORM_APP: 'http://builds/qa.apk' }, dir: own });
   try {
     await fc('hold');
     await fc('-s=fc', 'open');
-    assert.match(await fc('-s=fc', 'conform'), /통과 59 · 실패 0 · 미실행 0$/);
+    assert.match(await fc('-s=fc', 'conform'), /통과 60 · 실패 0 · 미실행 0$/);
     assert.ok(f.seen.includes('POST /wd/hub/session/S1/execute/sync'));
     await fc('-s=fc', 'close');
     await fc('release');
@@ -531,7 +554,7 @@ test('relay 로 연 게임은 conform 이 일시정지 줄(Appium 없음) 말고
   let ws = await fakeRelayGame(game, url);
   try {
     assert.match(await cli('-s=relay', 'open', '--relay', url), /^세션 relay 열림 — com\.fake\.game 1\.0 \(relay · macOS · FakeBook\) · fake 0 · SDK 0\.3\.0/m);
-    assert.match(await cli('-s=relay', 'conform'), /\n통과 58 · 실패 0 · 미실행 1$/);
+    assert.match(await cli('-s=relay', 'conform'), /\n통과 59 · 실패 0 · 미실행 1$/);
     ws.close();
     // relay 가 끊김을 알기 전이면 502(끊겼습니다), 안 뒤면 404(붙어 있지 않습니다)
     await assert.rejects(cli('-s=relay', 'snapshot'), /relay 에 붙어 있지 않습니다|relay 와 끊겼습니다/);

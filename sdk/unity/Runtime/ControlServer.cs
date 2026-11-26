@@ -35,11 +35,11 @@ namespace ControlCli
             "find-all", "find-at", "components", "members", "text-set",
             "touch-down", "touch-move", "touch-up", "swipe", "long-press", "mouse-move", "scroll", "key-down", "key-up", "tilt", "pointer", "input-reset", "pad",
             "logs", "events", "sdk-log",
-            // 명령 뒤는 기능(commands.json 의 features) — rect 는 find 답의 화면 사각형.
-            "rect",
+            // 명령 뒤는 기능(commands.json 의 features) — rect 는 find 답의 화면 사각형, nested 는 칸 경로의 [i] · Count · members 펼치기.
+            "rect", "nested",
         };
         // sdk/unity/package.json 의 version 과 같다(src/protocol.test.ts 가 본다).
-        public const string SdkVersion = "0.12.0";
+        public const string SdkVersion = "0.14.0";
 
         private sealed class Request
         {

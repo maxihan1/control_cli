@@ -45,6 +45,8 @@ export interface Member {
   value?: unknown;
   readOnly?: boolean;
   static?: boolean;
+  /** 배열 · List 칸의 길이 — caps 의 nested(Unity SDK 0.14.0 · Godot SDK 0.2.0)부터 */
+  count?: number;
 }
 
 /** 컴포넌트가 선언한 칸 · 메서드 — Unity 부모(MonoBehaviour …) 칸은 뺀다 */
@@ -52,6 +54,9 @@ export interface Members {
   fields: Member[];
   properties: Member[];
   methods: { name: string; args: string[]; returns: string; static?: boolean }[];
+  /** 펼친 칸이 배열 · List 면 길이와 원소 값(객체 원소는 글자) — 원소를 펼치려면 칸[i] 로 다시 부른다 */
+  count?: number;
+  items?: unknown[];
 }
 
 export interface PingReply {
@@ -176,6 +181,9 @@ const extra = (o: FindOptions) => ({ ...(o.inactive ? { inactive: true } : {}), 
 // 횟수 · 시간 · 세기 · via · 여러 키(A+LeftShift)는 SDK 0.6.0(touch-down 과 같은 판)부터. 옛 SDK 는 모르는 칸을 버리고 한 번만 눌러 통과한 척한다.
 const INPUT = ['count', 'interval', 'via', 'duration', 'power'];
 // + 는 key 명령만 본다 — pref-* 의 key 는 PlayerPrefs 키 이름이다.
+// 칸 경로의 [i] · members 칸 펼치기는 caps 의 nested 부터. 옛 SDK 는 [i] 를 칸 이름으로 읽어 「칸이 없습니다」라 답한다.
+const NESTED = 'Unity SDK 0.14.0 · Godot SDK 0.2.0 이상으로 올립니다';
+const indexed = (c: Command) => [c.prop, c.component].some((p) => typeof p === 'string' && p.includes('['));
 const timed = (c: Command) => INPUT.some((k) => c[k] !== undefined) || (c.cmd === 'key' && typeof c.key === 'string' && c.key.includes('+'));
 const at = (a: At) => (typeof a === 'string' ? { target: a } : { x: a.x, y: a.y });
 // 준 칸만 싣는다 — 옛 명령 꼴이 그대로 남는다.
@@ -220,11 +228,15 @@ export class Game {
       throw new Error(`이 게임의 SDK 는 ${command.cmd} 를 못 합니다(할 수 있는 것: ${this.caps.join(' · ')}) — SDK 를 올립니다`);
     if (this.caps && !this.caps.includes('find-all') && newer(command)) throw new Error('이 게임의 SDK 는 선택자 · inactive · camera 를 못 읽습니다 — SDK 0.5.0 이상으로 올립니다');
     if (this.caps && !this.caps.includes('touch-down') && timed(command)) throw new Error('이 게임의 SDK 는 횟수 · 시간 · 세기 · 여러 키 · via 를 못 읽습니다 — SDK 0.6.0 이상으로 올립니다');
+    if (this.caps && !this.caps.includes('nested') && indexed(command)) throw new Error(`이 게임의 SDK 는 칸 경로의 [i] 원소를 못 읽습니다 — ${NESTED}`);
     // SDK 의 count 는 int 칸이라 1.5 를 어떻게 읽을지 정해져 있지 않다.
     if (command.count !== undefined && !Number.isInteger(command.count)) throw new Error('count 는 정수입니다');
     const reply = await this.link(command);
-    if (reply.ok !== true) throw new Error(reply.error ?? `게임이 실패로 답했습니다: ${JSON.stringify(reply)}`);
-    return reply;
+    if (reply.ok === true) return reply;
+    const error = reply.error ?? `게임이 실패로 답했습니다: ${JSON.stringify(reply)}`;
+    // 옛 SDK 는 「컴포넌트.칸」을 통째로 컴포넌트 이름으로 읽어 「없습니다」라 답한다 — 점 든 전체 이름 컴포넌트는 그대로 되니 보내 보고 실패할 때만 덧붙인다.
+    const old = this.caps && !this.caps.includes('nested') && command.cmd === 'members' && String(command.component).includes('.');
+    throw new Error(old ? `${error} — 이 게임의 SDK 는 칸 펼치기(members 컴포넌트.칸)를 못 합니다. ${NESTED}` : error);
   }
 
   async ping(): Promise<PingReply> {
@@ -333,9 +345,10 @@ export class Game {
     return (await this.call({ cmd: 'components', target, ...extra(o) })).components as { name: string; type: string }[];
   }
 
+  /** component 는 컴포넌트 이름, 또는 「컴포넌트.칸[i]…」 — 그 칸이 가리키는 객체(ScriptableObject · 클래스 · 구조체)를 같은 형태로, 목록이면 count · items */
   async members(target: string, component: string, o: { inactive?: boolean } = {}): Promise<Members> {
     const r = await this.call({ cmd: 'members', target, component, ...extra(o) });
-    return { fields: r.fields as Member[], properties: r.properties as Member[], methods: r.methods as Members['methods'] };
+    return { fields: r.fields as Member[], properties: r.properties as Member[], methods: r.methods as Members['methods'], ...given({ count: r.count, items: r.items }) };
   }
 
   /** 글자 컴포넌트(Text · TMP · UI Toolkit Label/Button)의 글자를 바꾸고 다시 읽은 글자를 돌려준다 — 입력칸은 type */
