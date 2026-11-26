@@ -167,14 +167,14 @@ static func _walk(o: Object, parts: PackedStringArray) -> Array:
 
 # 칸 이름을 몰라 짐작하지 않게 있는 칸을 붙인다 — 스크립트 변수 · 사전 키.
 static func _known(v) -> String:
-	var names := []
+	var known := []
 	if v is Object and is_instance_valid(v) and v.get_script() != null:
 		for p in v.get_script().get_script_property_list():
 			if not (p["usage"] & (PROPERTY_USAGE_CATEGORY | PROPERTY_USAGE_GROUP | PROPERTY_USAGE_SUBGROUP)):
-				names.append(p["name"])
+				known.append(p["name"])
 	elif v is Dictionary:
-		names = v.keys().map(func(k): return str(k))
-	return "" if names.is_empty() else " — 있는 칸: " + " · ".join(names)
+		known = v.keys().map(func(k): return str(k))
+	return "" if known.is_empty() else " — 있는 칸: " + " · ".join(known)
 
 static func _label(o: Object) -> String:
 	return str(o.get("name")) if o is Node else o.get_class()
@@ -187,9 +187,9 @@ static func set_prop(o: Object, path: String, text: String) -> Dictionary:
 	if "[" in path:
 		return fail("%s — 목록 원소([i])는 읽기만 합니다" % path)
 	var parts := names(o, path)
-	var r := _walk(o, parts)
-	if not r[0]:
-		return fail(r[1])
+	var walked := _walk(o, parts)
+	if not walked[0]:
+		return fail(walked[1])
 	var np := NodePath(":".join(parts))
 	var r := parse(text, o.get_indexed(np))
 	if not r[0]:
