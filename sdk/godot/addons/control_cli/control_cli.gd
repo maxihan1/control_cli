@@ -3,8 +3,8 @@ extends Node
 
 const PORT := 13100
 # sdk/godot/addons/control_cli/plugin.cfg 의 version 과 같다(src/protocol.test.ts 가 본다).
-const SDK_VERSION := "0.1.0"
-# protocol/commands.json 의 명령 이름과 같은 차례(src/protocol.test.ts 가 본다) — 명령 뒤는 기능(rect).
+const SDK_VERSION := "0.2.0"
+# protocol/commands.json 의 명령 이름과 같은 차례(src/protocol.test.ts 가 본다) — 명령 뒤는 기능(rect · nested).
 const CAPS := [
 	"ping", "tree", "find", "click", "drag", "type", "get", "tap", "key", "screenshot", "errors", "layout",
 	"call", "set", "static-call", "static-get", "static-set", "pref-get", "pref-set", "pref-delete", "pref-clear",
@@ -12,7 +12,7 @@ const CAPS := [
 	"find-all", "find-at", "components", "members", "text-set",
 	"touch-down", "touch-move", "touch-up", "swipe", "long-press", "mouse-move", "scroll", "key-down", "key-up", "tilt", "pointer", "input-reset",
 	"logs", "events", "sdk-log",
-	"rect",
+	"rect", "nested",
 ]
 const RETRY_MS := 2000
 

@@ -1,5 +1,6 @@
 // 오브젝트 · static 타입의 칸(필드 · 속성)을 리플렉션으로 읽고 쓰고 메서드를 부른다 — 게임이 폰에서 셈하는 값 확인 · QA 치트(골드 넣기 · 단계 건너뛰기)
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Reflection;
@@ -38,13 +39,43 @@ namespace ControlCli
             return "{\"ok\":true,\"components\":[" + string.Join(",", list) + "]}";
         }
 
-        private static bool UnityBase(Type t) => t == typeof(MonoBehaviour) || t == typeof(Behaviour) || t == typeof(Component) || t == typeof(UnityEngine.Object) || t == typeof(object);
+        // 여기서 위로는 게임이 선언한 칸이 아니다 — 구조체의 ValueType · 데이터 묶음의 ScriptableObject 도.
+        private static bool UnityBase(Type t) => t == typeof(MonoBehaviour) || t == typeof(Behaviour) || t == typeof(Component) || t == typeof(ScriptableObject) || t == typeof(UnityEngine.Object) || t == typeof(ValueType) || t == typeof(object);
 
-        // 그 스크립트가 선언한 칸 · 메서드 — 컴파일러가 만든 이름(<…>)과 속성 접근자는 뺀다. 값은 읽다 던지거나 사본 속성이면 싣지 않는다.
+        // component 는 컴포넌트 이름, 또는 「컴포넌트.칸[.칸…]」 — 칸이 가리키는 객체(ScriptableObject · 일반 클래스 · 구조체 · 목록)를 펼친다.
+        // 이름이 그대로 맞는 컴포넌트가 먼저, 없으면 가장 긴 앞부분이 컴포넌트다(전체 이름에도 점이 있다).
         public static string Members(GameObject go, string component)
         {
-            var c = ComponentOf(go, component ?? "");
-            if (c == null) return Fail(Missing(go, component));
+            component = component ?? "";
+            var c = ComponentOf(go, component);
+            if (c != null) return Describe(c);
+            var parts = component.Split('.');
+            for (var k = parts.Length - 1; k >= 1; k--)
+            {
+                var owner = ComponentOf(go, string.Join(".", parts, 0, k));
+                if (owner == null) continue;
+                var start = k;
+                return Guard(component, () =>
+                {
+                    if (!Walk(owner, null, parts, start, true, out var value, out _, out _, out var problem)) return Fail(problem);
+                    if (value == null || value is UnityEngine.Object u && u == null) return Fail(component + " 이 null 입니다");
+                    if (value is string || value is Enum || value.GetType().IsPrimitive || value is decimal) return Fail(component + " 은 값(" + Value(value) + ")이라 펼칠 칸이 없습니다 — get 으로 읽습니다");
+                    return Describe(value);
+                });
+            }
+            return Fail(Missing(go, component));
+        }
+
+        // 그 타입이 선언한 칸 · 메서드 — 컴파일러가 만든 이름(<…>)과 속성 접근자는 뺀다. 값은 읽다 던지거나 사본 속성이면 싣지 않는다.
+        // 목록(배열 · List)이면 칸 대신 count · items(원소 값)를 준다.
+        private static string Describe(object c)
+        {
+            if (c is ICollection list)
+            {
+                var items = new List<string>();
+                foreach (var x in list) items.Add(Value(x));
+                return "{\"ok\":true,\"fields\":[],\"properties\":[],\"methods\":[],\"count\":" + list.Count + ",\"items\":[" + string.Join(",", items) + "]}";
+            }
             const BindingFlags flags = Member | BindingFlags.Static | BindingFlags.DeclaredOnly;
             var fields = new List<string>();
             var props = new List<string>();
@@ -73,16 +104,32 @@ namespace ControlCli
 
         private static string Entry(string name, Type type, bool isStatic, Func<object> read, bool readOnly)
         {
-            var sb = new System.Text.StringBuilder("{\"name\":").Append(Json.Str(name)).Append(",\"type\":").Append(Json.Str(type.Name));
+            var sb = new System.Text.StringBuilder("{\"name\":").Append(Json.Str(name)).Append(",\"type\":").Append(Json.Str(TypeName(type)));
             string value = null;
+            var count = -1;
             // 게임 쪽 getter 가 던지면 값 없이 — 목록은 이어진다.
             if (read != null)
-                try { value = Value(read()); }
+                try
+                {
+                    var raw = read();
+                    value = Value(raw);
+                    if (raw is ICollection list) count = list.Count;
+                }
                 catch (Exception) { value = null; }
             if (value != null) sb.Append(",\"value\":").Append(value);
+            if (count >= 0) sb.Append(",\"count\":").Append(count);
             if (readOnly) sb.Append(",\"readOnly\":true");
             if (isStatic) sb.Append(",\"static\":true");
             return sb.Append('}').ToString();
+        }
+
+        // List`1 대신 List<WaveData> — 원소 타입이 보여야 펼칠지 정한다.
+        private static string TypeName(Type t)
+        {
+            if (!t.IsGenericType) return t.Name;
+            var args = Array.ConvertAll(t.GetGenericArguments(), TypeName);
+            var tick = t.Name.IndexOf('`');
+            return (tick < 0 ? t.Name : t.Name.Substring(0, tick)) + "<" + string.Join(",", args) + ">";
         }
 
         // value 는 get 이 주는 꼴의 글자 — 2.5 · true · [0,1,0] · 열거 이름. 바꾼 뒤 다시 읽어 준다.
@@ -214,6 +261,7 @@ namespace ControlCli
 
         private static string Write(object owner, Type type, string[] parts, int start, string text, string prop)
         {
+            if (prop.IndexOf('[') >= 0) return Fail(prop + " — 목록 원소([i])는 읽기만 합니다");
             if (!Walk(owner, type, parts, start, false, out _, out var owners, out var members, out var problem)) return Fail(problem);
             var last = parts.Length - 1;
             if (!Writable(members[last])) return Fail(prop + " 은 읽기 전용입니다");
@@ -237,30 +285,96 @@ namespace ControlCli
             problem = null;
             for (var i = start; i < parts.Length; i++)
             {
+                // 「WaveDatas[5]」은 칸 WaveDatas 의 5번 원소 — 원소 번호는 읽기(Write 가 [ 를 먼저 거절)에서만 온다.
+                var name = Indexed(parts[i], out var at);
+                if (name == null)
+                {
+                    problem = parts[i] + " — 원소 번호는 [0] · [-1] 처럼 정수로 씁니다";
+                    return false;
+                }
                 // 요소에서 바로 읽을 때(GetOn) 첫 칸 앞은 그 요소 타입 이름이다.
                 var path = i == 0 && value != null ? value.GetType().Name : string.Join(".", parts, 0, i);
                 var statics = i == start && owner == null;
                 if (!statics && value == null)
                 {
-                    problem = path + " 이 null 이라 " + parts[i] + " 을 읽을 수 없습니다";
+                    problem = path + " 이 null 이라 " + name + " 을 읽을 수 없습니다";
                     return false;
                 }
-                if (Array.IndexOf(Copying, parts[i]) >= 0 && value is Component)
+                // 목록 길이 — 배열 · List 모두 Count(배열은 Length 도). 리플렉션 없이 읽어 코드 줄이기와 상관없다.
+                if (readLast && at.Length == 0 && value is ICollection list && (name == "Count" || name == "Length" && value is Array))
                 {
-                    problem = parts[i] + " 은 읽기만 해도 사본을 만들어 게임을 바꿉니다 — shared" + char.ToUpperInvariant(parts[i][0]) + parts[i].Substring(1) + " 을 씁니다";
+                    value = list.Count;
+                    continue;
+                }
+                if (Array.IndexOf(Copying, name) >= 0 && value is Component)
+                {
+                    problem = name + " 은 읽기만 해도 사본을 만들어 게임을 바꿉니다 — shared" + char.ToUpperInvariant(name[0]) + name.Substring(1) + " 을 씁니다";
                     return false;
                 }
-                var member = MemberOf(statics ? type : value.GetType(), parts[i], statics ? StaticMember : Member);
+                var member = MemberOf(statics ? type : value.GetType(), name, statics ? StaticMember : Member);
                 if (member == null)
                 {
-                    problem = path + " 에 " + parts[i] + " 칸이 없습니다 — QA 빌드 코드 줄이기에서 빠졌을 수도 있습니다";
+                    problem = path + " 에 " + name + " 칸이 없습니다" + Known(statics ? type : value.GetType(), statics ? StaticMember : Member);
                     return false;
                 }
                 owners[i] = value;
                 members[i] = member;
                 if (i < parts.Length - 1 || readLast) value = member is FieldInfo f ? f.GetValue(value) : ((PropertyInfo)member).GetValue(value);
+                var shown = (i > 0 ? string.Join(".", parts, 0, i) + "." : "") + name;
+                foreach (var n in at)
+                {
+                    if (!(value is IList items))
+                    {
+                        problem = shown + (value == null ? " 이 null 이라" : " 은 목록(배열 · List)이 아니라(" + TypeName(value.GetType()) + ")") + " [" + n + "] 을 읽을 수 없습니다";
+                        return false;
+                    }
+                    var k = n < 0 ? items.Count + n : n;
+                    if (k < 0 || k >= items.Count)
+                    {
+                        problem = shown + " 은 " + items.Count + "개라 [" + n + "] 이 없습니다";
+                        return false;
+                    }
+                    value = items[k];
+                    shown += "[" + n + "]";
+                }
             }
             return true;
+        }
+
+        // 「칸[i][j]」 → 칸 이름과 번호들. 대괄호 안이 정수가 아니면 null.
+        private static string Indexed(string part, out int[] at)
+        {
+            at = new int[0];
+            var open = part.IndexOf('[');
+            if (open < 0) return part;
+            var list = new List<int>();
+            for (var rest = part.Substring(open); rest.Length > 0;)
+            {
+                var close = rest.IndexOf(']');
+                if (rest[0] != '[' || close < 0 || !int.TryParse(rest.Substring(1, close - 1), NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var n)) return null;
+                list.Add(n);
+                rest = rest.Substring(close + 1);
+            }
+            at = list.ToArray();
+            return part.Substring(0, open);
+        }
+
+        // 칸 이름을 몰라 짐작하지 않게 있는 칸을 붙인다. 빠진 칸은 리플렉션에도 안 보여 원래 없는 것과 가를 수 없다 — IL2CPP 빌드에서만 그 말을 붙인다.
+        private static string Known(Type type, BindingFlags flags)
+        {
+            var names = new List<string>();
+            for (var t = type; t != null && !UnityBase(t); t = t.BaseType)
+            {
+                foreach (var f in t.GetFields(flags | BindingFlags.DeclaredOnly))
+                    if (f.Name.IndexOf('<') < 0) names.Add(f.Name);
+                foreach (var p in t.GetProperties(flags | BindingFlags.DeclaredOnly))
+                    if (p.GetIndexParameters().Length == 0) names.Add(p.Name);
+            }
+            var known = names.Count == 0 ? "" : " — 있는 칸: " + string.Join(" · ", names);
+#if ENABLE_IL2CPP
+            known += " (IL2CPP 빌드라 게임 코드가 안 쓰는 칸은 코드 줄이기에서 빠졌을 수도 있습니다)";
+#endif
+            return known;
         }
 
         // 부모 타입의 private 칸은 그 타입에서만 보여 위로 올라가며 찾는다. 인덱스 속성(this[i])은 칸이 아니다.

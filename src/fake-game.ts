@@ -340,7 +340,10 @@ export class FakeGame {
         if (!f.node) return { ok: false, error: f.missing };
         return { ok: true, components: (f.node.components ?? []).map((t) => ({ name: short(t), type: t })) };
       case 'members': {
-        const k = componentPath(f.node, c.component as string, (c.component as string).length);
+        const comp = c.component as string;
+        // SDK 처럼 이름이 그대로 맞는 컴포넌트가 먼저, 없으면 「컴포넌트.칸…」(nested 가 없는 옛 SDK 는 통째로 이름)
+        const whole = componentPath(f.node, comp, comp.length);
+        const k = typeof whole !== 'string' && this.caps.includes('nested') && comp.includes('.') ? componentPath(f.node, comp, comp.indexOf('.')) : whole;
         if (typeof k !== 'string') return { ok: false, error: k.error };
         const m = f.node?.members?.[k];
         return m ? { ok: true, ...(m as object) } : { ok: false, error: `${c.target as string} 에 ${c.component as string} 컴포넌트가 없습니다` };
@@ -704,6 +707,8 @@ export function standardScreen(idAccept = keyFilter(8)): FakeGame {
         'SampleCanvas',
         {
           methods: { 'TouchProbe.Say': (word, times) => (touch.text = `${word} ${times}`) },
+          // conform B 칸 경로 줄 — SDK 가 경로를 따라 읽은 답
+          props: { 'TouchProbe.Waves.Count': 2, 'TouchProbe.Waves[1].Name': 'boss', 'TouchProbe.Waves[-1].Counts[0]': 1, 'TouchProbe.Breaks[1]': 3 },
           components: ['UnityEngine.RectTransform', 'UnityEngine.Canvas', 'UnityEngine.UI.CanvasScaler', 'UnityEngine.UI.GraphicRaycaster', 'Sample.TouchProbe'],
           members: {
             TouchProbe: {
@@ -714,6 +719,9 @@ export function standardScreen(idAccept = keyFilter(8)): FakeGame {
                 { name: 'Add', args: ['Int32', 'Int32'], returns: 'Int32', static: true },
               ],
             },
+            'TouchProbe.Data': { fields: [{ name: 'MaxHP', type: 'Int32', value: 30 }], properties: [], methods: [] },
+            'TouchProbe.Waves': { fields: [], properties: [], methods: [], count: 2, items: ['Sample.TouchProbe+Wave', 'Sample.TouchProbe+Wave'] },
+            'TouchProbe.Waves[0]': { fields: [{ name: 'Name', type: 'String', value: 'first' }, { name: 'Counts', type: 'Int32[]', value: 'System.Int32[]', count: 2 }], properties: [], methods: [] },
           },
         },
         [

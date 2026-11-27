@@ -458,6 +458,19 @@ const stepsFor = (s: Sample): Step[] => [
     },
   },
   {
+    cmds: ['get', 'members', 'nested'],
+    label: 'B 칸 경로 get TouchProbe.Waves.Count · Waves[1].Name · Waves[-1].Counts[0] · Breaks[1] · members TouchProbe.Data · Waves · Waves[0]',
+    run: async (g) => {
+      same('Waves.Count', await g.get('SampleCanvas', 'TouchProbe.Waves.Count'), 2);
+      same('Waves[1].Name', await g.get('SampleCanvas', 'TouchProbe.Waves[1].Name'), 'boss');
+      same('Waves[-1].Counts[0]', await g.get('SampleCanvas', 'TouchProbe.Waves[-1].Counts[0]'), 1);
+      same('Breaks[1]', await g.get('SampleCanvas', 'TouchProbe.Breaks[1]'), 3);
+      same('Data.MaxHP', (await g.members('SampleCanvas', 'TouchProbe.Data')).fields.find((f) => f.name === 'MaxHP')?.value, 30);
+      same('Waves count', (await g.members('SampleCanvas', 'TouchProbe.Waves')).count, 2);
+      same('Waves[0].Counts count', (await g.members('SampleCanvas', 'TouchProbe.Waves[0]')).fields.find((f) => f.name === 'Counts')?.count, 2);
+    },
+  },
+  {
     ui: 'uitk',
     cmds: ['get'],
     label: 'B UI Toolkit get UitkLoginButton text · UitkPanel layout.height · wait-prop',

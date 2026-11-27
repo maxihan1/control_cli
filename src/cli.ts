@@ -73,11 +73,12 @@ export const HELP = `control-cli [-s=<세션>] <명령>
   drag <ref|주소> <ref|주소> [--via <주소>]… [--duration <초>]
   type <ref|주소> <글자>
   text <ref|주소>                                  글자 읽기
-  get <ref|주소> <컴포넌트.칸>                     속성 읽기 (PlayerController.moveSpeed)
+  get <ref|주소> <컴포넌트.칸>                     속성 읽기 (PlayerController.moveSpeed) — 배열 · List 는 칸[i] · 칸.Count (Spawner.Waves[5].MaxHP)
   find <ref|주소> [--inactive] [--camera <주소>]     답의 x · y 는 화면 가운데 · inactive 는 꺼진 것도
   find-all <주소> [--inactive] [--camera <주소>]    맞는 것 전부
   find-at <x> <y> [--camera <주소>]                 좌표의 맨 위(살펴볼 때만 — Ran 줄 없음)
   parent <ref|주소> · components <ref|주소> · members <ref|주소> <컴포넌트>   부모 · 컴포넌트 목록 · 칸 · 메서드 목록
+  members <ref|주소> <컴포넌트.칸[i]…>              칸이 가리키는 객체(ScriptableObject · 클래스)를 펼친다 — 목록이면 count · items (MonsterAI.TypeData)
   text-set <ref|주소> <글자>                        글자 컴포넌트(Text · TMP · UI Toolkit Label/Button)에 글자 — 입력칸은 type
   wait-prop <ref|주소> <컴포넌트.칸> <값> [--timeout <초>]   칸 값이 될 때까지
   config [--wait <초>]                              wait · wait-prop 의 기본 한도(세션에 적는다)
@@ -563,7 +564,7 @@ export async function run(argv: string[], o: Options): Promise<string> {
     }
     case 'members': {
       const a = target(args[0]);
-      if (args[1] === undefined) throw new Error('members <ref|주소> <컴포넌트> 꼴이어야 합니다');
+      if (args[1] === undefined) throw new Error('members <ref|주소> <컴포넌트>[.칸…] 꼴이어야 합니다');
       const f = flags('inactive');
       return `${ran('members', quote(a), quote(args[1]), ...f.shown)}\n- 값: ${JSON.stringify(await game.members(a, args[1], f.o))}`;
     }

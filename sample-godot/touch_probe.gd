@@ -19,6 +19,22 @@ static func Add(a: int, b: int) -> int:
 static func Log(text: String) -> void:
 	print(text)
 
+# conform B 칸 경로 줄 — 목록 원소 · 길이(get 칸[i] · Count) · 데이터 묶음 펼치기(members TouchProbe.Data). Unity TouchProbe 와 같은 이름 · 값.
+class Wave:
+	var Name := ""
+	var Counts := []
+
+	func _init(name := "", counts := []) -> void:
+		Name = name
+		Counts = counts
+
+class ProbeData extends Resource:
+	var MaxHP := 30
+
+var Waves := [Wave.new("first", [3, 5]), Wave.new("boss", [1])]
+var Breaks := [1.5, 3.0]
+var Data := ProbeData.new()
+
 func _input(event) -> void:
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_I:
 		Output.text = "key I"

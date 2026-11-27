@@ -125,7 +125,7 @@ class Game:
         """컴포넌트 칸 값을 읽는다 — UI Toolkit 요소는 요소 칸(value · text · layout.height)을 바로
 
         target: 오브젝트 주소
-        prop: 컴포넌트.칸[.칸…] — Transform.position, UI Toolkit 요소는 칸[.칸…]
+        prop: 컴포넌트.칸[.칸…] — Transform.position, UI Toolkit 요소는 칸[.칸…]. 배열 · List 원소는 칸[i](Spawner.Waves[5].MaxHP · [-1] 은 마지막), 길이는 칸.Count(caps 의 nested)
         inactive: 꺼진 오브젝트 · 숨은 요소도 본다 — 경로 순번이 꺼진 형제까지 센다
         """
         return self.send('get', {'target': target, 'prop': prop, 'inactive': inactive})
@@ -301,10 +301,10 @@ class Game:
         return self.send('components', {'target': target, 'inactive': inactive})
 
     def members(self, target, component, *, inactive=None):
-        """컴포넌트의 필드 · 속성(타입 · 값) · 메서드(인자 타입) — Unity 부모 칸은 뺀다
+        """컴포넌트의 필드 · 속성(타입 · 값 · 목록이면 count) · 메서드(인자 타입) — Unity 부모 칸은 뺀다. 컴포넌트.칸[i]… 를 주면 그 칸이 가리키는 객체(ScriptableObject · 클래스 · 구조체)를 같은 형태로, 목록이면 count · items 를 준다(caps 의 nested)
 
         target: 오브젝트 주소
-        component: 컴포넌트 타입 이름 또는 전체 이름 — TouchProbe
+        component: 컴포넌트 타입 이름 또는 전체 이름 — TouchProbe. 펼칠 칸 경로를 붙일 수 있다 — MonsterAI.TypeData · Spawner.Waves[5]
         inactive: 꺼진 오브젝트 · 숨은 요소도 본다 — 경로 순번이 꺼진 형제까지 센다
         """
         return self.send('members', {'target': target, 'component': component, 'inactive': inactive})
